@@ -35,9 +35,23 @@ def _run(args) -> int:
     strat = STRATEGIES[args.strategy](scfg, portfolio, pre_fill_cancel=inject_compat)
     result = engine.run(bars, strat, guards=guards, inject_compat=inject_compat)
     summary = report.write_reports(result, args.out, portfolio)
+
+    # ไม้ที่ไม่ fill (analytics ล้วน) = ที่ strategy cancel (proximity/expiry)
+    # + pending ค้างท้ายไฟล์ (วน strat._pend หลัง run → reason=end_of_data)
+    unfilled = list(getattr(strat, "unfilled", []))
+    last_i, last_t = len(bars) - 1, str(bars[-1].time)
+    for tag, m in getattr(strat, "_pend", {}).items():
+        unfilled.append({
+            "plan_id": m.get("plan_id"), "tag": tag, "direction": m["dir"], "kind": "LIMIT",
+            "limit_price": m.get("price"), "place_time": m.get("place_time"),
+            "place_bar": m["placed"], "death_time": last_t, "death_bar": last_i,
+            "reason": "end_of_data",
+        })
+    report.write_unfilled_csv(unfilled, os.path.join(args.out, "unfilled.csv"))
     if args.viewer:
         viewer.write_viewer(bars, result["trades"],
-                            os.path.join(args.out, "viewer.html"), title=args.strategy)
+                            os.path.join(args.out, "viewer.html"),
+                            title=args.strategy, unfilled=unfilled)
 
     mode = "inject_compat (v2.04)" if inject_compat else "correct"
     print(f"\n{'='*52}")
@@ -49,7 +63,8 @@ def _run(args) -> int:
     print(f"  Net pip      : {summary['net_pip']:+.0f}")
     print(f"  Net USD      : {summary['net_usd']:+.2f}")
     print(f"  Portfolio    : {summary['init_portfolio']:.0f} → {summary['final_portfolio']:.2f}")
-    files = "trades.csv · plans.csv · summary.json" + (" · viewer.html" if args.viewer else "")
+    print(f"  ไม้ไม่ fill   : {len(unfilled)}  (proximity/expiry/end_of_data)")
+    files = "trades.csv · plans.csv · summary.json · unfilled.csv" + (" · viewer.html" if args.viewer else "")
     print(f"  → {args.out}  ({files})")
     print(f"{'='*52}")
     return 0

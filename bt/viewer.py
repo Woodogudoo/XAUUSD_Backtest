@@ -32,6 +32,19 @@ def _trades_payload(trades) -> list[dict]:
     } for t in trades]
 
 
+def _unfilled_payload(unfilled) -> list[dict]:
+    out = []
+    for u in (unfilled or []):
+        lp = u.get("limit_price")
+        out.append({
+            "plan": u.get("plan_id"), "tag": u.get("tag"), "dir": u.get("direction"),
+            "pb": u.get("place_bar"), "db": u.get("death_bar"),
+            "price": round(lp, 3) if lp is not None else None,
+            "reason": u.get("reason"),
+        })
+    return out
+
+
 def _plans_payload(trades) -> list[dict]:
     groups = defaultdict(list)
     for t in trades:
@@ -50,11 +63,13 @@ def _plans_payload(trades) -> list[dict]:
     return out
 
 
-def write_viewer(bars, trades, out_path: str, title: str = "backtest") -> str:
+def write_viewer(bars, trades, out_path: str, title: str = "backtest",
+                 unfilled=None) -> str:
     data = {
         "ohlc": _ohlc_payload(bars),
         "trades": _trades_payload(trades),
         "plans": _plans_payload(trades),
+        "unfilled": _unfilled_payload(unfilled),
     }
     html = _TEMPLATE.replace("__TITLE__", title).replace(
         "__DATA__", json.dumps(data, separators=(",", ":")))
@@ -82,6 +97,10 @@ _TEMPLATE = r"""<!DOCTYPE html>
  #tip{position:absolute;pointer-events:none;background:#1c1e28;border:1px solid #2a2d38;padding:6px 8px;border-radius:4px;font-size:12px;display:none;white-space:pre;z-index:5}
  #bar{position:absolute;top:6px;left:10px;font-size:12px;color:#9aa0b0;pointer-events:none}
  #help{position:absolute;bottom:6px;left:10px;font-size:11px;color:#5a5f70;pointer-events:none}
+ #xtoggle{position:absolute;top:6px;right:10px;font-size:12px;color:#9aa0b0;user-select:none;background:#15161c;border:1px solid #23252e;padding:3px 8px;border-radius:4px;z-index:6}
+ #xtoggle label{cursor:pointer;margin-left:8px}
+ #xtoggle label:first-child{margin-left:0}
+ #xtoggle input{vertical-align:-1px;margin-right:4px}
 </style></head>
 <body>
 <div id="side">
@@ -92,15 +111,18 @@ _TEMPLATE = r"""<!DOCTYPE html>
 </div>
 <div id="main">
  <div id="bar"></div>
+ <div id="xtoggle"><label><input type="checkbox" id="ecb" checked>entry</label><label><input type="checkbox" id="xcb">crosshair</label></div>
  <canvas id="cv"></canvas>
  <div id="tip"></div>
  <div id="help">scroll = zoom · drag = pan · คลิกรายการซ้ายเพื่อกระโดด</div>
 </div>
 <script>
-const DATA=__DATA__, O=DATA.ohlc, TR=DATA.trades, PL=DATA.plans, N=O.t.length;
+const DATA=__DATA__, O=DATA.ohlc, TR=DATA.trades, PL=DATA.plans, N=O.t.length, UF=DATA.unfilled||[];
 const cv=document.getElementById('cv'), ctx=cv.getContext('2d');
 const main=document.getElementById('main'), tip=document.getElementById('tip'), barEl=document.getElementById('bar');
 let cnt=Math.min(300,N), i0=Math.max(0,N-cnt), W=0,Hgt=0, dpr=window.devicePixelRatio||1;
+let cross=false, eline=true, mx=-1, my=-1, rafP=false;
+function reqDraw(){if(rafP)return;rafP=true;requestAnimationFrame(function(){rafP=false;draw();});}
 function resize(){W=main.clientWidth;Hgt=main.clientHeight;cv.width=W*dpr;cv.height=Hgt*dpr;cv.style.width=W+'px';cv.style.height=Hgt+'px';ctx.setTransform(dpr,0,0,dpr,0,0);draw();}
 window.addEventListener('resize',resize);
 function fmtT(s){var d=new Date(s*1000),p=function(n){return String(n).padStart(2,'0')};return d.getUTCFullYear()+'-'+p(d.getUTCMonth()+1)+'-'+p(d.getUTCDate())+' '+p(d.getUTCHours())+':'+p(d.getUTCMinutes());}
@@ -121,24 +143,46 @@ function draw(){
   ctx.setLineDash([4,3]);
   ctx.strokeStyle='rgba(239,83,80,.8)';ctx.beginPath();ctx.moveTo(xe,Y(t.sl));ctx.lineTo(xx,Y(t.sl));ctx.stroke();
   ctx.strokeStyle='rgba(38,166,154,.8)';ctx.beginPath();ctx.moveTo(xe,Y(t.tp));ctx.lineTo(xx,Y(t.tp));ctx.stroke();
+  var buy=t.dir==='BUY';
+  if(eline){ctx.setLineDash([6,4]);ctx.strokeStyle=buy?'rgba(66,165,245,.9)':'rgba(255,167,38,.9)';ctx.beginPath();ctx.moveTo(xe,Y(t.entry));ctx.lineTo(xx,Y(t.entry));ctx.stroke();}
   ctx.setLineDash([]);
-  var xb=X(t.eb),ye=Y(t.entry),buy=t.dir==='BUY';ctx.fillStyle=buy?'#42a5f5':'#ffa726';
+  var xb=X(t.eb),ye=Y(t.entry);ctx.fillStyle=buy?'#42a5f5':'#ffa726';
   ctx.beginPath();if(buy){ctx.moveTo(xb,ye+9);ctx.lineTo(xb-5,ye+18);ctx.lineTo(xb+5,ye+18);}else{ctx.moveTo(xb,ye-9);ctx.lineTo(xb-5,ye-18);ctx.lineTo(xb+5,ye-18);}ctx.closePath();ctx.fill();
   ctx.fillStyle=win?'#26a69a':'#ef5350';ctx.fillRect(X(t.xb)-3,Y(t.exit)-3,6,6);}
+ for(var k=0;k<UF.length;k++){var u=UF[k];if(u.price==null||u.db<a||u.pb>=b)continue;
+  var x1=X(Math.max(a,u.pb)),x2=X(Math.min(b-1,u.db)),y=Y(u.price);
+  ctx.setLineDash([2,3]);ctx.strokeStyle='rgba(150,154,170,.5)';ctx.beginPath();ctx.moveTo(x1,y);ctx.lineTo(x2,y);ctx.stroke();ctx.setLineDash([]);
+  ctx.strokeStyle='rgba(150,154,170,.85)';var xp=X(u.pb);ctx.beginPath();ctx.moveTo(xp,y-4);ctx.lineTo(xp+4,y);ctx.lineTo(xp,y+4);ctx.lineTo(xp-4,y);ctx.closePath();ctx.stroke();
+  var xd=X(u.db);ctx.beginPath();ctx.moveTo(xd-3,y-3);ctx.lineTo(xd+3,y+3);ctx.moveTo(xd+3,y-3);ctx.lineTo(xd-3,y+3);ctx.stroke();}
+ if(cross&&mx>=0&&mx<=W&&my>=0&&my<=Hgt){
+  ctx.setLineDash([3,3]);ctx.lineWidth=1;ctx.strokeStyle='rgba(180,184,200,.45)';
+  ctx.beginPath();ctx.moveTo(mx,0);ctx.lineTo(mx,Hgt);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(0,my);ctx.lineTo(W,my);ctx.stroke();ctx.setLineDash([]);
+  ctx.font='11px monospace';
+  var pr=(hi-(my-4)/ph*(hi-lo)).toFixed(2),pw=ctx.measureText(pr).width+8;
+  ctx.fillStyle='#3a3f4e';ctx.fillRect(W-pw-1,my-8,pw,16);ctx.fillStyle='#e8eaf0';ctx.fillText(pr,W-pw+3,my+3);
+  var bi=Math.max(a,Math.min(b-1,a+Math.floor(mx/cw))),tt=fmtT(O.t[bi])+'  #'+bi,tw=ctx.measureText(tt).width+8,tx=Math.min(Math.max(mx-tw/2,0),W-tw);
+  ctx.fillStyle='#3a3f4e';ctx.fillRect(tx,Hgt-16,tw,16);ctx.fillStyle='#e8eaf0';ctx.fillText(tt,tx+4,Hgt-4);
+ }
  barEl.textContent=fmtT(O.t[a])+'  →  '+fmtT(O.t[Math.min(N-1,b-1)])+'   ('+n+' / '+N+' แท่ง)';
 }
 var drag=null;
 cv.addEventListener('mousedown',function(e){drag={x:e.clientX,i0:i0};});
 window.addEventListener('mouseup',function(){drag=null;});
 window.addEventListener('mousemove',function(e){
+ var r=cv.getBoundingClientRect();mx=e.clientX-r.left;my=e.clientY-r.top;
  if(drag){var cw=W/cnt,di=Math.round((e.clientX-drag.x)/cw);i0=Math.max(0,Math.min(N-cnt,drag.i0-di));draw();return;}
- var r=cv.getBoundingClientRect(),mx=e.clientX-r.left,my=e.clientY-r.top;if(mx<0||mx>W||my<0||my>Hgt){tip.style.display='none';return;}
+ if(mx<0||mx>W||my<0||my>Hgt){tip.style.display='none';if(cross)reqDraw();return;}
+ if(cross)reqDraw();
  var cw=W/cnt,i=i0+Math.floor(mx/cw);if(i<0||i>=N){tip.style.display='none';return;}
  var s='แท่ง '+i+'  '+fmtT(O.t[i])+'\nO '+O.o[i]+'  H '+O.h[i]+'  L '+O.l[i]+'  C '+O.c[i];
  for(var k=0;k<TR.length;k++){var t=TR[k];if(t.eb===i||t.xb===i){s+='\n— #'+t.plan+' '+t.dir+' '+t.tag+'\n  entry '+t.entry+'  '+t.result+'@'+t.exit+'\n  SL '+t.sl+'  TP '+t.tp+'  pnl '+t.pnl+'pip';}}
+ for(var k=0;k<UF.length;k++){var u=UF[k];if(u.pb===i||u.db===i){s+='\n— #'+u.plan+' '+u.dir+' '+u.tag+' (ไม่ fill)\n  limit '+u.price+'  '+u.reason;}}
  tip.textContent=s;tip.style.display='block';tip.style.left=Math.min(mx+14,W-180)+'px';tip.style.top=(my+14)+'px';
 });
-cv.addEventListener('mouseleave',function(){tip.style.display='none';});
+cv.addEventListener('mouseleave',function(){tip.style.display='none';mx=-1;my=-1;if(cross)reqDraw();});
+document.getElementById('xcb').addEventListener('change',function(e){cross=e.target.checked;draw();});
+document.getElementById('ecb').addEventListener('change',function(e){eline=e.target.checked;draw();});
 cv.addEventListener('wheel',function(e){e.preventDefault();var r=cv.getBoundingClientRect(),mx=e.clientX-r.left,piv=i0+mx/(W/cnt);
  cnt=Math.max(20,Math.min(N,Math.round(cnt*(e.deltaY>0?1.18:0.85))));i0=Math.max(0,Math.min(N-cnt,Math.round(piv-mx/(W/cnt))));draw();},{passive:false});
 function jump(eb){if(cnt>400)cnt=200;i0=Math.max(0,Math.min(N-cnt,eb-Math.floor(cnt/2)));draw();}
@@ -150,7 +194,7 @@ function renderList(q){q=(q||'').toUpperCase();listEl.innerHTML='';
   (function(eb){d.onclick=function(){jump(eb);};})(p.eb);listEl.appendChild(d);}}
 document.getElementById('search').addEventListener('input',function(e){renderList(e.target.value);});
 var wins=TR.filter(function(t){return t.result==='TP';}).length;
-document.getElementById('stat').textContent=TR.length+' ไม้ · WR '+(TR.length?(100*wins/TR.length).toFixed(1):0)+'% · '+PL.length+' จุดเข้า';
+document.getElementById('stat').textContent=TR.length+' ไม้ · WR '+(TR.length?(100*wins/TR.length).toFixed(1):0)+'% · '+PL.length+' จุดเข้า · '+UF.length+' ไม่ fill';
 renderList('');resize();
 </script></body></html>
 """

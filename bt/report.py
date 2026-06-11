@@ -23,6 +23,10 @@ PLAN_FIELDS = [
     "plan_id", "direction", "entry_time", "n_trades",
     "net_pnl_pips", "net_pnl_usd", "result",
 ]
+UNFILLED_FIELDS = [
+    "plan_id", "tag", "direction", "kind", "limit_price",
+    "place_time", "place_bar", "death_time", "death_bar", "reason",
+]
 
 
 def _price(v):
@@ -69,6 +73,17 @@ def write_plans_csv(plans: list[dict], path: str) -> None:
         w = csv.DictWriter(f, fieldnames=PLAN_FIELDS)
         w.writeheader()
         w.writerows(plans)
+
+
+def write_unfilled_csv(unfilled: list[dict], path: str) -> None:
+    """ไม้ที่ไม่ fill (pending ที่ cancel/expire/end_of_data) — analytics สำหรับ viewer"""
+    with open(path, "w", newline="", encoding="utf-8") as f:
+        w = csv.DictWriter(f, fieldnames=UNFILLED_FIELDS)
+        w.writeheader()
+        for u in unfilled:
+            row = {k: u.get(k) for k in UNFILLED_FIELDS}
+            row["limit_price"] = _price(row["limit_price"])
+            w.writerow(row)
 
 
 def build_summary(trades: list[dict], plans: list[dict], portfolio: float) -> dict:

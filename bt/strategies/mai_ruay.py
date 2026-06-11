@@ -387,9 +387,13 @@ class MaiRuay(Strategy):
         # → ขอบ expiry เป็น i-placed > expiry (ให้ fillable p+1..p+5 ตรง v2.04)
         # False (default/correct): engine fill ก่อน strategy ยกเลิก → i-placed >= expiry
         self.pre_fill_cancel = pre_fill_cancel
-        self._pend = {}        # tag -> {tp_sel, r55, dir, placed} สำหรับ proximity/expiry
+        self._pend = {}        # tag -> {tp_sel, r55, dir, placed, plan_id, price, place_time}
         self._r1 = None        # ข้อมูลแผนที่ปิด SL ล่าสุด → ลองรอบ 2 (None ถ้า TP/ยังไม่มี)
         self._last_plan = None # {tech, f_open_r1, entry_bar, direction} ของแผนที่กำลังถือ
+        # --- analytics ล้วน (ไม่กระทบ Decision/ผลเทรด) ---
+        self._plan_id = 0      # mirror engine next_plan_id (เพิ่มต่อ 1 batch place ที่ไม่ว่าง)
+        self.unfilled = []     # ไม้ที่ตายแบบไม่ fill (proximity/expiry) — report/viewer อ่าน
+        self._placements = []  # {plan_id, bar, tags} ทุก batch — สำหรับ sanity check plan_id
 
     def on_bar(self, ctx) -> Decision:
         cfg = self.cfg
@@ -417,12 +421,12 @@ class MaiRuay(Strategy):
                 continue
             age = i - m['placed']
             if (age > expiry) if self.pre_fill_cancel else (age >= expiry):  # หมดอายุ
-                cancel.append(o.tag); continue
+                cancel.append(o.tag); self._log_unfilled(o.tag, m, i, bar, 'expiry'); continue
             buf = m['r55'] * prox * PIP                    # เฉียด TP ≤10%R55
             if m['dir'] == 'BUY'  and bar.high >= m['tp_sel'] - buf:
-                cancel.append(o.tag); continue
+                cancel.append(o.tag); self._log_unfilled(o.tag, m, i, bar, 'proximity'); continue
             if m['dir'] == 'SELL' and bar.low  <= m['tp_sel'] + buf:
-                cancel.append(o.tag); continue
+                cancel.append(o.tag); self._log_unfilled(o.tag, m, i, bar, 'proximity'); continue
 
         remaining = pend_tags - set(cancel)
 
@@ -455,6 +459,11 @@ class MaiRuay(Strategy):
             'direction': sig.direction,
         }
 
+        # mirror engine plan_id: เพิ่มต่อ 1 batch place ที่ไม่ว่าง (sig.entries ไม่ว่างเสมอ)
+        self._plan_id += 1
+        self._placements.append({'plan_id': self._plan_id, 'bar': i,
+                                 'tags': [e[1] for e in sig.entries]})
+
         # (E) สร้าง Order ต่อไม้ + R:R=1.0 adjust (เข้าเสียเปรียบ → TP = entry ± SL_dist)
         for ep, label, lot, is_mkt in sig.entries:
             sl_dist      = abs(ep - sig.sl)
@@ -468,5 +477,16 @@ class MaiRuay(Strategy):
             if not is_mkt:
                 # proximity-cancel ใช้ tp ของไม้ "หลัง R:R adjust" (ตรง v2.04: _pl_sig.tp_selected)
                 self._pend[label] = {'tp_sel': tp, 'r55': sig.range55,
-                                     'dir': sig.direction, 'placed': i}
+                                     'dir': sig.direction, 'placed': i,
+                                     'plan_id': self._plan_id, 'price': ep,
+                                     'place_time': str(ctx.bar.time)}
         return Decision(place, cancel, modify)
+
+    def _log_unfilled(self, tag, m, death_bar, bar, reason):
+        """บันทึกไม้ที่ตายแบบไม่ fill (analytics) — ไม่กระทบ Decision"""
+        self.unfilled.append({
+            'plan_id': m.get('plan_id'), 'tag': tag, 'direction': m['dir'],
+            'kind': 'LIMIT', 'limit_price': m.get('price'),
+            'place_time': m.get('place_time'), 'place_bar': m['placed'],
+            'death_time': str(bar.time), 'death_bar': death_bar, 'reason': reason,
+        })

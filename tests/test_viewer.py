@@ -30,10 +30,17 @@ _TRADES = [
 ]
 
 
+_UNFILLED = [
+    {"plan_id": 2, "tag": "จุด3", "direction": "BUY", "kind": "LIMIT",
+     "limit_price": 1998.5, "place_time": "2026-01-05 00:30:00", "place_bar": 30,
+     "death_time": "2026-01-05 00:35:00", "death_bar": 35, "reason": "proximity"},
+]
+
+
 def _gen():
     d = tempfile.mkdtemp()
     path = os.path.join(d, "viewer.html")
-    viewer.write_viewer(_BARS, _TRADES, path, title="test")
+    viewer.write_viewer(_BARS, _TRADES, path, title="test", unfilled=_UNFILLED)
     return open(path, encoding="utf-8").read()
 
 
@@ -56,6 +63,8 @@ def test_embedded_data():
     assert d["plans"][0]["result"] == "WIN" and d["plans"][1]["result"] == "LOSS"
     assert d["plans"][0]["eb"] == 0                   # มี entry_bar ให้กระโดด
     assert d["trades"][0]["dir"] == "BUY" and d["trades"][0]["result"] == "TP"
+    assert len(d["unfilled"]) == 1                    # ไม้ไม่ fill ฝังครบ
+    assert d["unfilled"][0]["reason"] == "proximity" and d["unfilled"][0]["pb"] == 30
 
 
 if __name__ == "__main__":
