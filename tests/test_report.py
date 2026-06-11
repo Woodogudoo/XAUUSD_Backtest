@@ -49,6 +49,21 @@ def test_build_summary():
     assert s["n_plans"] == 2 and s["plan_wins"] == 1
 
 
+def test_write_unfilled_csv():
+    # unfilled.csv ต้องมีคอลัมน์ sl/tp (สำหรับ viewer วาดเส้น ghost)
+    unf = [{"plan_id": 5, "tag": "จุด2", "direction": "SELL", "kind": "LIMIT",
+            "limit_price": 2010.0, "sl": 2012.5, "tp": 2007.0,
+            "place_time": "2026-01-01 02:00:00", "place_bar": 120,
+            "death_time": "2026-01-01 02:05:00", "death_bar": 125, "reason": "proximity"}]
+    with tempfile.TemporaryDirectory() as d:
+        p = os.path.join(d, "unfilled.csv")
+        report.write_unfilled_csv(unf, p)
+        with open(p, encoding="utf-8") as f:
+            rows = list(csv.DictReader(f))
+        assert "sl" in rows[0] and "tp" in rows[0]
+        assert rows[0]["sl"] == "2012.5" and rows[0]["tp"] == "2007.0"
+
+
 def test_write_reports():
     with tempfile.TemporaryDirectory() as d:
         s = report.write_reports({"trades": _TRADES}, d, portfolio=1000.0)

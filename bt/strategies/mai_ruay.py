@@ -476,7 +476,7 @@ class MaiRuay(Strategy):
             place.append(Order(kind=kind, price=ep, lot=lot, sl=sig.sl, tp=tp, tag=label))
             if not is_mkt:
                 # proximity-cancel ใช้ tp ของไม้ "หลัง R:R adjust" (ตรง v2.04: _pl_sig.tp_selected)
-                self._pend[label] = {'tp_sel': tp, 'r55': sig.range55,
+                self._pend[label] = {'tp_sel': tp, 'sl': sig.sl, 'r55': sig.range55,
                                      'dir': sig.direction, 'placed': i,
                                      'plan_id': self._plan_id, 'price': ep,
                                      'place_time': str(ctx.bar.time)}
@@ -487,6 +487,7 @@ class MaiRuay(Strategy):
         self.unfilled.append({
             'plan_id': m.get('plan_id'), 'tag': tag, 'direction': m['dir'],
             'kind': 'LIMIT', 'limit_price': m.get('price'),
+            'sl': m.get('sl'), 'tp': m.get('tp_sel'),
             'place_time': m.get('place_time'), 'place_bar': m['placed'],
             'death_time': str(bar.time), 'death_bar': death_bar, 'reason': reason,
         })

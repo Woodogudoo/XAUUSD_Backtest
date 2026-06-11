@@ -50,6 +50,8 @@ def test_self_contained_no_placeholder():
     assert '<canvas id="cv">' in html
     assert "__DATA__" not in html and "__TITLE__" not in html
     assert "src=" not in html  # offline: ไม่มี external resource
+    assert "function detailHTML" in html and "function setOpen" in html  # accordion inline
+    assert 'id="panel"' not in html  # ไม่มี popup ลอยทับกราฟแล้ว
 
 
 def test_embedded_data():
@@ -63,6 +65,7 @@ def test_embedded_data():
     assert d["plans"][0]["result"] == "WIN" and d["plans"][1]["result"] == "LOSS"
     assert d["plans"][0]["eb"] == 0                   # มี entry_bar ให้กระโดด
     assert d["trades"][0]["dir"] == "BUY" and d["trades"][0]["result"] == "TP"
+    assert "lot" in d["trades"][0]                     # panel ใช้ lot
     assert len(d["unfilled"]) == 1                    # ไม้ไม่ fill ฝังครบ
     assert d["unfilled"][0]["reason"] == "proximity" and d["unfilled"][0]["pb"] == 30
 

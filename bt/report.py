@@ -24,7 +24,7 @@ PLAN_FIELDS = [
     "net_pnl_pips", "net_pnl_usd", "result",
 ]
 UNFILLED_FIELDS = [
-    "plan_id", "tag", "direction", "kind", "limit_price",
+    "plan_id", "tag", "direction", "kind", "limit_price", "sl", "tp",
     "place_time", "place_bar", "death_time", "death_bar", "reason",
 ]
 
@@ -82,7 +82,8 @@ def write_unfilled_csv(unfilled: list[dict], path: str) -> None:
         w.writeheader()
         for u in unfilled:
             row = {k: u.get(k) for k in UNFILLED_FIELDS}
-            row["limit_price"] = _price(row["limit_price"])
+            for k in ("limit_price", "sl", "tp"):
+                row[k] = _price(row[k])
             w.writerow(row)
 
 

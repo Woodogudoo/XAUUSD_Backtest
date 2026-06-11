@@ -43,9 +43,9 @@ def _run(args) -> int:
     for tag, m in getattr(strat, "_pend", {}).items():
         unfilled.append({
             "plan_id": m.get("plan_id"), "tag": tag, "direction": m["dir"], "kind": "LIMIT",
-            "limit_price": m.get("price"), "place_time": m.get("place_time"),
-            "place_bar": m["placed"], "death_time": last_t, "death_bar": last_i,
-            "reason": "end_of_data",
+            "limit_price": m.get("price"), "sl": m.get("sl"), "tp": m.get("tp_sel"),
+            "place_time": m.get("place_time"), "place_bar": m["placed"],
+            "death_time": last_t, "death_bar": last_i, "reason": "end_of_data",
         })
     report.write_unfilled_csv(unfilled, os.path.join(args.out, "unfilled.csv"))
     if args.viewer:
