@@ -1,0 +1,28 @@
+# ============================================================================
+# configs/global.yaml
+# ----------------------------------------------------------------------------
+# ค่าร่วมทุกกลยุทธ์: portfolio + guards (Friday close / Gap)
+# ค่าดึงจาก reference/mairuay_v204_reference.py (constants ส่วนบน + run_backtest)
+#
+# หมายเหตุ: guards ต่อเข้า engine.run(guards=) แล้ว — engine คำนวณ allow_new_entry จริง
+#           จาก Friday close / Gap (ไม่ใช่ True เสมอ) เป็น "ข้อเท็จจริง" เท่านั้น ไม่บล็อกเอง
+#           · strategy เป็นคนอ่าน ctx.allow_new_entry ไปตัดสิน (ดู bt/guards.py)
+# ============================================================================
+portfolio: 1000               # ref: portfolio = 1000.0 (fixed, ไม่ทบต้น)
+winrate_mode: false           # toggle ระบบใหม่: true → lot 0.01 (ไม่มีใน v2.04)
+
+engine:
+  # false (default) = correct: แต่ละ position ปิดอิสระด้วย SL/TP ตัวเอง (design §1)
+  # true = inject_compat: จำลองบั๊ก child-bar inject ของ v2.04 (validate vs golden เท่านั้น)
+  inject_compat: false
+
+guards:
+  friday_close:
+    enable: true
+    close_hour_utc: 21        # ref: MARKET_CLOSE_HOUR = 21
+    close_min: 0              # ref: MARKET_CLOSE_MIN = 0
+    no_trade_min: 120         # ref: NO_TRADE_MINS = 120 (ห้ามเปิด 120 นาทีก่อนปิด ศุกร์ weekday==4)
+  gap:
+    enable: true
+    threshold_pct: 0.20       # ref: GAP_THRESHOLD_PCT = 0.20 (code: r55_init * pct / 100)
+    wait_bars: 80             # ref: GAP_WAIT_BARS = 80

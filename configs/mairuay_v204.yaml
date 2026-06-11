@@ -1,0 +1,93 @@
+# ============================================================================
+# configs/mairuay_v204.yaml
+# ----------------------------------------------------------------------------
+# Threshold จริงของไม้รวย v2.04 — ดึงจาก reference/mairuay_v204_reference.py เท่านั้น
+# (ค่าใน BACKTEST_ARCHITECTURE_DESIGN.md §11 เป็นแค่ "ตัวอย่าง" — ไม่ใช้)
+#
+# คอมเมนต์ "ref:" = ที่มาในโค้ดอ้างอิง เพื่อ audit ทีละค่า
+# หน่วย: ค่าที่ลงท้าย _pct_* เป็นเปอร์เซ็นต์ (กลยุทธ์หารด้วย 100 ตอนใช้เป็นตัวคูณ;
+#        ค่าที่ใช้เทียบกับ pct โดยตรง เช่น min_total_pct_r55 ใช้ตามค่าเลย)
+# ============================================================================
+strategy: mai_ruay
+
+# -- R55 -- (mirror RANGE_WINDOW ใน bt/data.py · calc_r55 ปัจจุบัน fix 55)
+range_window: 55              # ref: RANGE_WINDOW = 55
+
+# -- แท่งพ่อ รอบ 1 (find_father) --
+father:
+  max_scan_bars:        10    # ref: scan range(end-1, end-10) → รวมแท่ง end = 10 แท่ง ("1-10 แท่ง")
+  min_total_pct_r55:    60    # ref: if pct <= 60 return None  (body รวม > 60%R55)
+  per_bar_min_pct_r55:   4    # ref: body แต่ละแท่ง > 4%R55 (r55*0.04)
+  doji_pct_r55:          2    # ref: หยุด scan เมื่อ body <= 2%R55 (r55*0.02)
+  big_bar_pct_r55:      10    # ref: _big_count นับแท่ง body > 10%R55 (r55*0.10)
+  leniency_max_bars:     2    # ref: if _fail_count > 2 return None (อนุโลม >2% ได้ ≤2 แท่ง เมื่อ majority>10%)
+  vol_ratio_min:         1    # ref: if _vol_ratio <= 1 return None
+  vol_pre_bars:         20    # ref: _pre20 = 20 แท่งก่อน run_start
+
+# -- แท่งพ่อ รอบ 2 (find_father_r2) --
+father_r2:
+  max_scan_bars:         8    # ref: MAX_FATHER = 8
+  min_total_pct_r55:    35    # ref: if pct <= 35 return None
+  insertion_max_pct_r55: 10   # ref: แท่งแทรก body <= 10%R55, อนุญาต 1 ตัว
+  per_bar_min_pct_r55:   6    # ref: body แต่ละแท่ง > 6%R55 (r55*0.06)
+  last_bar_min_pct_r55:  4    # ref: แท่งสุดท้ายอนุโลม > 4%R55 (r55*0.04)
+  leniency_max_bars:     1    # ref: if _fail6 > 1 return None
+
+# -- แท่งแม่ (validate_mother) --
+mother:
+  min_pct_r55:           2    # ref analyze_bar: _min_m_pct = 2.0 (ทั้งรอบ 1 และ รอบ 2)
+  max_pct_r55:          25    # ref: if pct > 25 return None
+  quality_pct_r55:      10    # ref: <=10% "สวยที่สุด" / >10% "ใช้ได้"
+  market_entry_max_pct: 10    # ref: if 2 <= m_pct < 10 → ไม้1=market, else (10-25) ไม้1=mid_แม่
+
+# -- buffer (เก็บใน signal) --
+buffer:
+  max_pip:             100    # ref: min(100.0, f_body*0.05)
+  pct_father:            5    # ref: f_body * 0.05
+
+# -- จุดเข้า / แบ่งไม้ --
+entry:
+  e3_offset_pct_father: 10    # ref: _e3_offset = f_body * 0.10 (จุด3 = tech ±10%พ่อ)
+
+# -- TP / SL รอบ 1 ปกติ --
+tp_sl:
+  sl_pct_father:        40    # ref:488 _sl_offset = f_body * 0.40 (inline · ไม่ใช่ calc_sl 70% ที่ unused)
+  tp_pct_father:        45    # ref:499 _tp_offset = f_body * 0.45
+  min_sl_pips:           1    # ref:495 if sl_pips < 1 return None
+
+# -- TP levels (analytics: tp1/tp2/tp3 จาก calc_tp — feed post-TP scan, ไม่กระทบ exit) --
+tp_levels:
+  tp1_pct:              33    # ref:319 f * 0.33
+  tp2_pct:              50    # ref:320 f * 0.50
+  tp3_pct:              75    # ref:321 f * 0.75
+
+# -- TP30 variant (เช็ค 50 แท่งก่อนพ่อ) --
+tp30:
+  pre_bars:             50    # ref: _pre50 = 50 แท่งก่อน f_start
+  level_buy_pct_r55:    60    # ref: _level60 = low55 + r55*0.60 (BUY: pre50.low.min >= level60)
+  level_sell_pct_r55:   40    # ref: _level40 = low55 + r55*0.40 (SELL: pre50.high.max <= level40)
+  tp_pct_father:        30    # ref: TP = f_body * 0.30
+  sl_pct_father:        45    # ref: SL = f_body * 0.45
+
+# -- TP / SL รอบ 2 (พ่อรวม R1+R2) --
+round2_tp_sl:
+  tp_pct_combined:      45    # ref: _combined * 0.45
+  sl_pct_combined:      30    # ref: _combined * 0.30
+
+# -- กรองสัญญาณ --
+tp_min_pip:            200    # ref: if tp_pips < 200 return None
+
+# -- lot (portfolio มาจาก global.yaml) --
+lot:
+  risk_pct:             10    # ref: RISK_PCT = 0.10 (10% ต่อไม้)
+  mother_halve_min_pct: 17    # ref: if 17 <= m_pct <= 25 → lot / 2
+  mother_halve_max_pct: 25
+  father_double_pct_r55: 90   # ref: if _f_pct > 90 → lot * 2
+
+# -- orchestration: pending / proximity-cancel / รอบ 2 --
+pending_expiry_bars:    5     # ref: pending_limits.append((sig, i + 5))
+proximity_cancel_pct_r55: 10  # ref: _tp_buf = range55 * 0.10 (ราคาเข้าใกล้ TP ≤10%R55 → cancel)
+round2:
+  outer_bars:           16    # ref: (i - _r1_info['entry_bar']) <= 16
+  father_start_max_bars:  6   # ref: (f_start - round2_info['entry_bar']) > 6 → reject
+  same_direction:     true    # ref: รอบ 2 ต้องทิศเดียวกับรอบ 1

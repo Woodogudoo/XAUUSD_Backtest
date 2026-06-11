@@ -1,0 +1,105 @@
+# ============================================================================
+# bt/report.py
+# ----------------------------------------------------------------------------
+# Report layer — เขียนผลจาก engine.run() เป็น 3 ไฟล์ใน runs/<name>/
+#   trades.csv   : ราย "ไม้" (per Order/tag) — field ครบสำหรับ viewer
+#   plans.csv    : ตาม "จุดเข้า" (group by plan_id, แพ้/ชนะ = net pnl รวม)
+#   summary.json : สกอร์บอร์ด
+# ============================================================================
+from __future__ import annotations
+
+import csv
+import json
+import os
+from collections import OrderedDict, defaultdict
+
+TRADE_FIELDS = [
+    "plan_id", "tag", "direction", "kind",
+    "entry_time", "entry", "sl", "tp",
+    "exit_time", "exit_price", "result", "lot",
+    "pnl_pips", "pnl_usd", "entry_bar", "exit_bar",
+]
+PLAN_FIELDS = [
+    "plan_id", "direction", "entry_time", "n_trades",
+    "net_pnl_pips", "net_pnl_usd", "result",
+]
+
+
+def _price(v):
+    return round(v, 3) if isinstance(v, float) else v
+
+
+def write_trades_csv(trades: list[dict], path: str) -> None:
+    with open(path, "w", newline="", encoding="utf-8") as f:
+        w = csv.DictWriter(f, fieldnames=TRADE_FIELDS)
+        w.writeheader()
+        for t in trades:
+            row = {k: t.get(k) for k in TRADE_FIELDS}
+            for k in ("entry", "sl", "tp", "exit_price"):
+                row[k] = _price(row[k])
+            for k in ("entry_time", "exit_time"):
+                row[k] = str(row[k])
+            w.writerow(row)
+
+
+def build_plans(trades: list[dict]) -> list[dict]:
+    """รวมไม้ตาม plan_id → 1 แถวต่อจุดเข้า · แพ้/ชนะ = net pnl_usd รวม"""
+    groups = defaultdict(list)
+    for t in trades:
+        groups[t["plan_id"]].append(t)
+    plans = []
+    for pid in sorted(groups):
+        g = groups[pid]
+        net_pip = round(sum(t["pnl_pips"] for t in g), 1)
+        net_usd = round(sum(t["pnl_usd"] for t in g), 2)
+        plans.append({
+            "plan_id": pid,
+            "direction": g[0]["direction"],
+            "entry_time": min(str(t["entry_time"]) for t in g),
+            "n_trades": len(g),
+            "net_pnl_pips": net_pip,
+            "net_pnl_usd": net_usd,
+            "result": "WIN" if net_usd > 0 else "LOSS",
+        })
+    return plans
+
+
+def write_plans_csv(plans: list[dict], path: str) -> None:
+    with open(path, "w", newline="", encoding="utf-8") as f:
+        w = csv.DictWriter(f, fieldnames=PLAN_FIELDS)
+        w.writeheader()
+        w.writerows(plans)
+
+
+def build_summary(trades: list[dict], plans: list[dict], portfolio: float) -> dict:
+    wins = [t for t in trades if t["result"] == "TP"]
+    net_pip = round(sum(t["pnl_pips"] for t in trades), 1)
+    net_usd = round(sum(t["pnl_usd"] for t in trades), 2)
+    pwins = [p for p in plans if p["result"] == "WIN"]
+    n = len(trades)
+    np_ = len(plans)
+    return OrderedDict([
+        ("n_trades",       n),
+        ("n_wins",         len(wins)),
+        ("n_losses",       n - len(wins)),
+        ("win_rate",       round(100 * len(wins) / n, 2) if n else 0.0),
+        ("net_pip",        net_pip),
+        ("net_usd",        net_usd),
+        ("init_portfolio", portfolio),
+        ("final_portfolio", round(portfolio + net_usd, 2)),
+        ("n_plans",        np_),
+        ("plan_wins",      len(pwins)),
+        ("plan_win_rate",  round(100 * len(pwins) / np_, 2) if np_ else 0.0),
+    ])
+
+
+def write_reports(result: dict, out_dir: str, portfolio: float) -> dict:
+    os.makedirs(out_dir, exist_ok=True)
+    trades = result["trades"]
+    plans = build_plans(trades)
+    summary = build_summary(trades, plans, portfolio)
+    write_trades_csv(trades, os.path.join(out_dir, "trades.csv"))
+    write_plans_csv(plans, os.path.join(out_dir, "plans.csv"))
+    with open(os.path.join(out_dir, "summary.json"), "w", encoding="utf-8") as f:
+        json.dump(summary, f, indent=2, ensure_ascii=False)
+    return summary
