@@ -152,7 +152,7 @@ _TEMPLATE = r"""<!DOCTYPE html>
 </div>
 <div id="main">
  <div id="bar"></div>
- <div id="xtoggle"><label><input type="checkbox" id="fcb">focus</label><label><input type="checkbox" id="xcb">crosshair</label><span id="fopt">N<input type="number" id="iN" value="55" min="5" step="5">ratio<input type="number" id="iw" value="5.5" step="0.5">:<input type="number" id="ih" value="7.5" step="0.5"></span></div>
+ <div id="xtoggle"><label><input type="checkbox" id="fcb">focus</label><label><input type="checkbox" id="xcb">crosshair</label><label title="ไม้บรรทัดวัด %เนื้อพ่อ (เฉพาะ focus)"><input type="checkbox" id="rcb" checked>📏 ไม้บรรทัดพ่อ</label><span id="fopt">N<input type="number" id="iN" value="55" min="5" step="5">ratio<input type="number" id="iw" value="5.5" step="0.5">:<input type="number" id="ih" value="7.5" step="0.5"></span></div>
  <canvas id="cv"></canvas>
  <div id="tip"></div>
  <div id="help">scroll = zoom · drag = pan · คลิกรายการซ้ายเพื่อกระโดด</div>
@@ -175,6 +175,7 @@ let cnt=Math.min(300,N), i0=Math.max(0,N-cnt), W=0,Hgt=0, dpr=window.devicePixel
 let cross=false, mx=-1, my=-1, rafP=false, dragMoved=false;
 let focus=false, fN=55, fw=5.5, fh=7.5, fc=Math.floor(N/2);
 let hoverPlan=null, hlTrade=-1;   // แผนที่ hover (พรีวิว) · ไม้ที่ highlight (-1=ไม่มี)
+let rulerOn=true; try{rulerOn=localStorage.getItem('bt_ruler')!=='0';}catch(e){}  // ไม้บรรทัดพ่อ — default ON · persist
 function reqDraw(){if(rafP)return;rafP=true;requestAnimationFrame(function(){rafP=false;draw();});}
 function resize(){W=main.clientWidth;Hgt=main.clientHeight;cv.width=W*dpr;cv.height=Hgt*dpr;cv.style.width=W+'px';cv.style.height=Hgt+'px';ctx.setTransform(dpr,0,0,dpr,0,0);draw();}
 window.addEventListener('resize',resize);
@@ -253,6 +254,31 @@ function drawPlanBars(id,S){var pm=PM[id];if(!pm)return;var fr=S.fr,cw=S.cw;
  band(pm.fs,pm.fe,'rgba(110,150,220,0.10)','rgba(110,150,220,0.30)');   // พ่อ — น้ำเงินจาง
  band(pm.mb,pm.mb,'rgba(220,175,90,0.13)','rgba(220,175,90,0.40)');     // แม่ — ทอง/ส้มจาง (แยกสี)
  ctx.lineWidth=1;}
+// [1.5] ไม้บรรทัดวัดแท่งพ่อ (% ruler) — เนื้อเทียนพ่อ: 100%=Open พ่อแรก · 0%=Close พ่อสุดท้าย
+//   map ราคาเชิงเส้น (auto-flip ตามทิศพ่อ เพราะ 0% ยึด Close ฝั่งจุดเทคนิค) · เส้นชนขอบ body (staircase)
+function drawFatherRuler(id,S){var pm=PM[id];if(!pm||pm.fs==null||pm.fe==null)return;
+ var fr=S.fr,cw=S.cw,bw=Math.max(1,cw*0.7);
+ var oFirst=O.o[pm.fs],cLast=O.c[pm.fe];if(oFirst==null||cLast==null)return;
+ var bandL=Math.max(fr.x,S.X(pm.fs)-cw/2);                 // ขอบซ้าย highlight band
+ var bodies=[];for(var k=pm.fs;k<=pm.fe;k++)              // body แต่ละแท่งพ่อ (ช่วงราคา + ขอบซ้าย)
+   bodies.push({lo:Math.min(O.o[k],O.c[k]),hi:Math.max(O.o[k],O.c[k]),xl:S.X(k)-bw/2});
+ ctx.font='9px monospace';ctx.textAlign='left';
+ for(var p=0;p<=100;p+=10){
+  var price=cLast+(oFirst-cLast)*(p/100),y=S.Y(price);
+  if(y<fr.y+1||y>fr.y+fr.h-1)continue;                    // นอกกรอบแนวตั้ง → ข้าม
+  var best=null,bd=1e18;                                  // หา body ที่ครอบ price · ไม่มี→ใกล้สุด
+  for(var bi=0;bi<bodies.length;bi++){var B=bodies[bi];
+   if(price>=B.lo&&price<=B.hi){best=B;break;}
+   var d=price<B.lo?B.lo-price:price-B.hi;if(d<bd){bd=d;best=B;}}
+  var xEnd=best?Math.max(bandL,Math.min(fr.x+fr.w,best.xl)):bandL;   // ชนขอบซ้าย body (ไม่ทะลุ)
+  var major=(p===0||p===50||p===100);
+  ctx.setLineDash([3,3]);ctx.lineWidth=major?1.6:1;
+  ctx.strokeStyle=major?'rgba(255,255,255,0.7)':'rgba(255,255,255,0.4)';
+  ctx.beginPath();ctx.moveTo(bandL,y);ctx.lineTo(xEnd,y);ctx.stroke();
+  ctx.setLineDash([]);ctx.fillStyle=major?'rgba(255,255,255,0.9)':'rgba(255,255,255,0.55)';
+  ctx.fillText(p+'%',bandL+2,y-2.5);                      // %label ชิดซ้ายขอบ band
+ }
+ ctx.setLineDash([]);ctx.lineWidth=1;}
 // ตัดข้อความให้พอดี maxw — เลือกตัดที่ช่องว่างก่อน, ไม่งั้นตัดราย char (รองรับไทย)
 function wrapTxt(s,maxw){var out=[],cur='';
  for(var i=0;i<s.length;i++){var ch=s[i];
@@ -310,6 +336,7 @@ function draw(){
  for(var i=a;i<b;i++){var x=X(i),up=O.c[i]>=O.o[i];ctx.strokeStyle=up?'#26a69a':'#ef5350';ctx.fillStyle=ctx.strokeStyle;
   ctx.beginPath();ctx.moveTo(x,Y(O.h[i]));ctx.lineTo(x,Y(O.l[i]));ctx.stroke();
   var y1=Y(O.o[i]),y2=Y(O.c[i]);ctx.fillRect(x-bw/2,Math.min(y1,y2),bw,Math.max(1,Math.abs(y2-y1)));}
+ if(S.fr&&sp!==null&&rulerOn)drawFatherRuler(sp,S);  // ไม้บรรทัดพ่อ (หลังเทียน → เส้นชนขอบ body ไม่ทะลุ)
  for(var k=0;k<TR.length;k++){var t=TR[k];if(t.xb<a||t.eb>=b)continue;var win=t.result==='TP',buy=t.dir==='BUY';
   var xb=X(t.eb),ye=Y(t.entry);ctx.fillStyle=buy?'#42a5f5':'#ffa726';
   ctx.beginPath();if(buy){ctx.moveTo(xb,ye+9);ctx.lineTo(xb-5,ye+18);ctx.lineTo(xb+5,ye+18);}else{ctx.moveTo(xb,ye-9);ctx.lineTo(xb-5,ye-18);ctx.lineTo(xb+5,ye-18);}ctx.closePath();ctx.fill();
@@ -355,6 +382,9 @@ window.addEventListener('mousemove',function(e){
 });
 cv.addEventListener('mouseleave',function(){tip.style.display='none';mx=-1;my=-1;if(cross)reqDraw();});
 document.getElementById('xcb').addEventListener('change',function(e){cross=e.target.checked;draw();});
+document.getElementById('rcb').checked=rulerOn;   // sync จาก localStorage
+document.getElementById('rcb').addEventListener('change',function(e){rulerOn=e.target.checked;
+ try{localStorage.setItem('bt_ruler',rulerOn?'1':'0');}catch(_){}draw();});
 document.getElementById('fcb').addEventListener('change',function(e){focus=e.target.checked;
  document.getElementById('fopt').style.display=focus?'inline':'none';
  if(focus){fc=Math.max(0,Math.min(N-1,Math.round(i0+cnt/2)));}else{i0=Math.max(0,Math.min(N-cnt,fc-Math.floor(cnt/2)));}draw();});
