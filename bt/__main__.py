@@ -54,6 +54,21 @@ def _run(args) -> int:
     plan_meta = [pm[pid] for pid in sorted(pm)]
     report.write_plan_meta_csv(plan_meta, os.path.join(args.out, "plan_meta.csv"))
 
+    # config snapshot (additive logging-only · ไฟล์ใหม่ ไม่กระทบ trades/plans/summary — md5 นิ่ง)
+    # เก็บ "config ที่ resolve แล้ว" = strategy + runtime (global+mode/lot ที่ใช้จริง) → config diff หน้าเทียบ
+    config_used = dict(scfg)
+    config_used["_run"] = {
+        "strategy": args.strategy,
+        "mode": "compat" if inject_compat else "correct",
+        "lot": "flat" if gcfg.get("winrate_mode") else "risk",
+        "portfolio": portfolio,
+        "inject_compat": inject_compat,
+        "winrate_mode": bool(gcfg.get("winrate_mode", False)),
+        "guards": gcfg.get("guards"),
+    }
+    with open(os.path.join(args.out, "config_used.yaml"), "w", encoding="utf-8") as f:
+        yaml.safe_dump(config_used, f, allow_unicode=True, sort_keys=False)
+
     if args.viewer:
         viewer.write_viewer(bars, result["trades"],
                             os.path.join(args.out, "viewer.html"),
@@ -86,9 +101,17 @@ def main(argv=None) -> int:
     r.add_argument("--out", required=True, help="โฟลเดอร์ผลลัพธ์ runs/<name>/")
     r.add_argument("--global", dest="global_config", default="configs/global.yaml")
     r.add_argument("--viewer", action="store_true", help="เขียน viewer.html (chart แบบ MT5, offline)")
+
+    s = sub.add_parser("serve", help="เปิด Backtest Console web (local, อ่านอย่างเดียว — สเต็ป 1)")
+    s.add_argument("--port", type=int, default=8000, help="พอร์ต (default 8000)")
+    s.add_argument("--host", default="127.0.0.1", help="bind host (default 127.0.0.1 — local เท่านั้น)")
+
     args = p.parse_args(argv)
     if args.cmd == "run":
         return _run(args)
+    if args.cmd == "serve":
+        from bt import server   # lazy: bt run ไม่ต้องมี deps ของ server
+        return server.serve(host=args.host, port=args.port)
     return 1
 
 

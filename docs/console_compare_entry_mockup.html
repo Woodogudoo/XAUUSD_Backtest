@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Console — ทางเข้าหน้าเทียบ (mockup)</title>
+<style>
+  :root{
+    --ink:#0E0F13; --panel:#15171D; --panel2:#1B1E26; --raise:#21242D;
+    --line:#23262E; --line2:#2F333E;
+    --text:#E6E8EC; --muted:#8A8F9C; --dim:#5B606C;
+    --gold:#E8B14C; --teal:#2DB39A;
+    --up:#2DB39A; --down:#E5564E; --glow:rgba(232,177,76,.14);
+    --sans:system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Thai",sans-serif;
+    --mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box} html,body{margin:0}
+  body{background:radial-gradient(900px 500px at 82% -8%,var(--glow),transparent 60%),var(--ink);
+    color:var(--text);font-family:var(--sans);font-size:14px;line-height:1.5;min-height:100vh}
+  .wrap{max-width:680px;margin:0 auto;padding:22px 22px 120px}
+  .sub{font-family:var(--mono);font-size:11px;color:var(--dim);margin-bottom:16px}
+
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+  .hd{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 16px;border-bottom:1px solid var(--line);background:var(--panel2)}
+  .hd .eyebrow{font-family:var(--mono);font-size:10.5px;letter-spacing:1.6px;color:var(--gold);text-transform:uppercase}
+  .hd h2{margin:2px 0 0;font-size:14px;font-weight:600}
+  .hdacts{display:flex;align-items:center;gap:8px}
+  .btn{border:1px solid var(--line2);background:var(--raise);color:var(--text);cursor:pointer;
+    font-family:var(--mono);font-size:11.5px;padding:7px 12px;border-radius:8px}
+  .btn:hover{border-color:var(--gold);color:var(--gold)}
+  .btn.ghost{background:transparent}
+  .btn.gold{background:linear-gradient(150deg,#2a2410,#1a1c24);border-color:#6f5a2e;color:var(--gold)}
+  .btn[disabled]{opacity:.4;cursor:not-allowed}
+  .btn[disabled]:hover{border-color:var(--line2);color:var(--text)}
+
+  .body{padding:12px 16px 16px}
+  .runs{display:flex;flex-direction:column;gap:9px}
+  .run{display:flex;align-items:center;gap:12px;border:1px solid var(--line2);border-radius:11px;
+    padding:11px 13px;cursor:pointer;transition:border-color .12s,background .12s}
+  .run:hover{border-color:var(--muted)}
+  .run.sel{border-color:var(--gold);background:rgba(232,177,76,.07)}
+  .ck{width:18px;height:18px;border:1.5px solid var(--line2);border-radius:5px;flex-shrink:0;
+    display:grid;place-items:center;color:var(--ink);font-size:11px;font-weight:700}
+  .run.sel .ck{background:var(--gold);border-color:var(--gold)}
+  .run .nm{font-family:var(--mono);font-size:12.5px;color:var(--text);flex:1;min-width:0;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .run .nm small{display:block;color:var(--dim);font-size:10px;font-family:var(--mono);margin-top:2px}
+  .run .stat{font-family:var(--mono);font-size:11.5px;color:var(--muted);text-align:right;flex-shrink:0}
+  .run .stat b.pos{color:var(--up)} .run .stat b.neg{color:var(--down)}
+  .run .open{font-family:var(--mono);font-size:11px;color:var(--dim);flex-shrink:0;padding-left:4px}
+  .run .open:hover{color:var(--gold)}
+
+  .selmode-off .ck{display:none}
+  .selmode-off .run{cursor:default}
+  .selmode-off .run:hover{border-color:var(--line2)}
+
+  /* sticky compare bar */
+  .bar{position:fixed;left:50%;transform:translateX(-50%);bottom:22px;
+    display:flex;align-items:center;gap:14px;background:var(--raise);
+    border:1px solid var(--line2);border-radius:12px;padding:10px 12px 10px 16px;
+    box-shadow:0 12px 34px rgba(0,0,0,.55);font-family:var(--mono);font-size:12px;
+    opacity:0;pointer-events:none;transition:opacity .15s,transform .15s}
+  .bar.show{opacity:1;pointer-events:auto}
+  .bar .cnt{color:var(--muted)} .bar .cnt b{color:var(--gold)}
+  .bar .hint{color:var(--dim);font-size:10.5px}
+  .note{margin-top:14px;font-size:11px;color:var(--dim);text-align:center;font-family:var(--mono)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="sub">หน้า console (ตัวอย่าง) — โฟกัสเฉพาะส่วน "ประวัติการรัน" ที่เป็นทางเข้าหน้าเทียบ</div>
+
+  <section class="card" id="card">
+    <div class="hd">
+      <div><div class="eyebrow">Run history</div><h2>ประวัติการรัน</h2></div>
+      <div class="hdacts">
+        <button class="btn ghost" id="selToggle">เลือกเพื่อเทียบ</button>
+        <button class="btn gold" id="openCompare">เทียบกลยุทธ์ →</button>
+      </div>
+    </div>
+    <div class="body">
+      <div class="runs" id="runs">
+        <div class="run" data-run="mairuay_v204_m1_correct">
+          <div class="ck">✓</div>
+          <div class="nm">mairuay_v204_m1_correct<small>M1 · correct · 09/06/26</small></div>
+          <div class="stat">595 ไม้ · WR 57%<br><b class="pos">+4,618$</b></div>
+          <div class="open">เปิด viewer →</div>
+        </div>
+        <div class="run" data-run="mairuay_v205_m1_correct">
+          <div class="ck">✓</div>
+          <div class="nm">mairuay_v205_m1_correct<small>M1 · correct · 09/06/26</small></div>
+          <div class="stat">655 ไม้ · WR 58%<br><b class="pos">+5,082$</b></div>
+          <div class="open">เปิด viewer →</div>
+        </div>
+        <div class="run" data-run="mairuay_v204_m1_compat">
+          <div class="ck">✓</div>
+          <div class="nm">mairuay_v204_m1_compat<small>M1 · compat · 09/06/26</small></div>
+          <div class="stat">561 ไม้ · WR 56%<br><b class="pos">+4,210$</b></div>
+          <div class="open">เปิด viewer →</div>
+        </div>
+        <div class="run" data-run="mairuay_v203_m1_correct">
+          <div class="ck">✓</div>
+          <div class="nm">mairuay_v203_m1_correct<small>M1 · correct · 09/06/26</small></div>
+          <div class="stat">540 ไม้ · WR 55%<br><b class="pos">+3,980$</b></div>
+          <div class="open">เปิด viewer →</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="note">mockup — กด "เลือกเพื่อเทียบ" เพื่อโผล่ checkbox · ติ๊ก 2 อันขึ้นไป (สูงสุด 10) แล้วกด "เทียบ →" ที่แถบล่าง</div>
+</div>
+
+<div class="bar" id="bar">
+  <span class="cnt">เลือกแล้ว <b id="cnt">2</b> run</span>
+  <span class="hint">(เลือก 2 อันขึ้นไป · สูงสุด 10)</span>
+  <button class="btn ghost" id="clearSel">ล้าง</button>
+  <button class="btn gold" id="doCompare">เทียบ →</button>
+</div>
+
+<script>
+  var card = document.getElementById('card');
+  var bar  = document.getElementById('bar');
+  var cnt  = document.getElementById('cnt');
+  var selMode = false;         // เริ่มโหมดปกติ — กด "เลือกเพื่อเทียบ" ก่อนถึงโผล่ checkbox
+  var runsEl = document.getElementById('runs');
+
+  function selected(){ return Array.prototype.slice.call(runsEl.querySelectorAll('.run.sel')); }
+  function refresh(){
+    var n = selected().length;
+    cnt.textContent = n;
+    var canCompare = selMode && n >= 2;
+    bar.classList.toggle('show', selMode && n >= 1);
+    document.getElementById('doCompare').disabled = !canCompare;
+  }
+  function setSelMode(on){
+    selMode = on;
+    card.classList.toggle('selmode-off', !on);
+    document.getElementById('selToggle').textContent = on ? 'ยกเลิกเลือก' : 'เลือกเพื่อเทียบ';
+    if(!on) bar.classList.remove('show');
+    refresh();
+  }
+
+  runsEl.querySelectorAll('.run').forEach(function(r){
+    r.addEventListener('click', function(e){
+      if(e.target.classList.contains('open')) return;      // กด viewer ไม่นับเป็นเลือก
+      if(!selMode) return;
+      r.classList.toggle('sel');
+      refresh();
+    });
+  });
+  document.getElementById('selToggle').addEventListener('click', function(){ setSelMode(!selMode); });
+  document.getElementById('clearSel').addEventListener('click', function(){
+    selected().forEach(function(r){ r.classList.remove('sel'); }); refresh();
+  });
+  document.getElementById('doCompare').addEventListener('click', function(){
+    var runs = selected().map(function(r){ return r.getAttribute('data-run'); });
+    alert('เปิดหน้าเทียบด้วย:\n/compare?runs=' + runs.join(','));   // mockup — ของจริงจะ navigate
+  });
+  document.getElementById('openCompare').addEventListener('click', function(){
+    alert('เปิดหน้าเทียบเปล่า:\n/compare  (เลือก run ในหน้านั้นเอง)');
+  });
+
+  card.classList.toggle('selmode-off', !selMode);
+  refresh();
+</script>
+</body>
+</html>

@@ -1,0 +1,116 @@
+# ============================================================================
+# configs/field_labels.yaml
+# ----------------------------------------------------------------------------
+# คำอธิบาย "ภาษาคน" + หน่วย ของแต่ละค่าใน YAML config — ใช้แสดงในหน้า console เท่านั้น
+# *** ไม่กระทบ backtest *** server merge เข้า GET /api/configs/<id> (key = dotted path เต็ม)
+# แก้คำได้อิสระ · key ที่ไม่มีในนี้ → ฟอร์ม fallback raw key + comment เดิม (ไม่หาย)
+#
+# รูปแบบ:  <dotted.key>: { label: "...", unit: "...", help: "..." }
+#   label = ชื่อภาษาคน · unit = หน่วย (%R55/pip/แท่ง/นาที/เท่า/%พ่อ/$) · help = อธิบายสั้น
+# section (map) ใส่แค่ label ได้ (เป็นหัวกลุ่ม)
+# ============================================================================
+
+# ── ทั่วไป ──
+strategy:      { label: "กลยุทธ์", help: "ชื่อกลยุทธ์ที่ใช้รัน" }
+range_window:  { label: "หน้าต่าง Range55", unit: "แท่ง", help: "จำนวนแท่งย้อนหลังที่ใช้คำนวณ R55 (ช่วงราคาอ้างอิงของทุกเงื่อนไข)" }
+
+# ── แท่งพ่อ รอบ 1 ──
+father:                       { label: "แท่งพ่อ (รอบ 1)" }
+father.max_scan_bars:         { label: "จำนวนแท่งพ่อสูงสุด", unit: "แท่ง", help: "สแกนหาแท่งพ่อย้อนหลังได้ไม่เกินกี่แท่ง (พ่อ = แท่งสีเดียวกันต่อเนื่อง 1–10 แท่ง)" }
+father.min_total_pct_r55:     { label: "เนื้อพ่อรวมขั้นต่ำ", unit: "%R55", help: "ผลรวมเนื้อเทียนของแท่งพ่อทั้งหมดต้องมากกว่าค่านี้ (เทียบ R55)" }
+father.per_bar_min_pct_r55:   { label: "เนื้อต่อแท่งขั้นต่ำ", unit: "%R55", help: "เนื้อเทียนแต่ละแท่งในพ่อต้องมากกว่าค่านี้" }
+father.doji_pct_r55:          { label: "เกณฑ์ Doji หยุดสแกน", unit: "%R55", help: "เจอแท่งเนื้อ ≤ ค่านี้ (โดจิ) → หยุดนับแท่งพ่อ" }
+father.big_bar_pct_r55:       { label: "เกณฑ์แท่งใหญ่", unit: "%R55", help: "แท่งเนื้อ > ค่านี้ นับเป็น 'แท่งใหญ่' (ใช้ดูว่าแท่งใหญ่เป็นส่วนมากไหม เพื่ออนุโลม)" }
+father.leniency_max_bars:     { label: "อนุโลมแท่งเล็กได้", unit: "แท่ง", help: "ยอมให้มีแท่งเนื้อบางเกินเกณฑ์ได้ไม่เกินกี่แท่ง (เมื่อแท่งใหญ่เป็นส่วนมาก)" }
+father.vol_ratio_min:         { label: "อัตราส่วน Volume ขั้นต่ำ", unit: "เท่า", help: "เนื้อเฉลี่ยพ่อ ÷ เนื้อเฉลี่ย 20 แท่งก่อนหน้า ต้องมากกว่าค่านี้ (พ่อต้องแรงกว่าปกติ)" }
+father.vol_pre_bars:          { label: "ช่วงเทียบ Volume", unit: "แท่ง", help: "จำนวนแท่งก่อนพ่อที่ใช้หาค่าเฉลี่ยเทียบ volume" }
+
+# ── แท่งพ่อ รอบ 2 ──
+father_r2:                       { label: "แท่งพ่อ (รอบ 2)" }
+father_r2.max_scan_bars:         { label: "จำนวนแท่งพ่อสูงสุด (รอบ2)", unit: "แท่ง", help: "สแกนแท่งพ่อรอบ 2 ย้อนหลังได้ไม่เกินกี่แท่ง" }
+father_r2.min_total_pct_r55:     { label: "เนื้อพ่อรวมขั้นต่ำ (รอบ2)", unit: "%R55", help: "ผลรวมเนื้อพ่อรอบ 2 ต้องมากกว่าค่านี้ (ผ่อนกว่ารอบ 1)" }
+father_r2.insertion_max_pct_r55: { label: "แท่งแทรกสูงสุด", unit: "%R55", help: "อนุญาตแท่งสีตรงข้ามแทรก 1 แท่ง เนื้อต้อง ≤ ค่านี้" }
+father_r2.per_bar_min_pct_r55:   { label: "เนื้อต่อแท่งขั้นต่ำ (รอบ2)", unit: "%R55", help: "เนื้อแต่ละแท่งในพ่อรอบ 2 ต้องมากกว่าค่านี้" }
+father_r2.last_bar_min_pct_r55:  { label: "เนื้อแท่งสุดท้ายขั้นต่ำ", unit: "%R55", help: "แท่งสุดท้ายอนุโลมเนื้อ > ค่านี้ (ต่ำกว่า per_bar ได้)" }
+father_r2.leniency_max_bars:     { label: "อนุโลมแท่งเล็กได้ (รอบ2)", unit: "แท่ง", help: "ยอมแท่งต่ำเกณฑ์ได้ไม่เกินกี่แท่งในรอบ 2" }
+
+# ── แท่งแม่ (ย่อตัว) ──
+mother:                       { label: "แท่งแม่ (ย่อตัว)" }
+mother.min_pct_r55:           { label: "เนื้อแม่ขั้นต่ำ", unit: "%R55", help: "แท่งแม่ (สีตรงข้ามพ่อ) เนื้อต้อง ≥ ค่านี้" }
+mother.max_pct_r55:           { label: "เนื้อแม่สูงสุด", unit: "%R55", help: "เนื้อแม่ต้อง ≤ ค่านี้ ไม่งั้นถือว่าย่อแรงเกินไป" }
+mother.quality_pct_r55:       { label: "เกณฑ์แม่คุณภาพดี", unit: "%R55", help: "เนื้อแม่ ≤ ค่านี้ = 'สวยที่สุด' / มากกว่า = 'ใช้ได้'" }
+mother.market_entry_max_pct:  { label: "เกณฑ์เข้าตลาด (จุด1)", unit: "%R55", help: "ถ้าเนื้อแม่ < ค่านี้ → จุด1 เข้าแบบ market ทันที, ไม่งั้นวาง limit ที่ mid แม่" }
+
+# ── บัฟเฟอร์ ──
+buffer:                       { label: "บัฟเฟอร์" }
+buffer.max_pip:               { label: "บัฟเฟอร์สูงสุด", unit: "pip", help: "เพดานบัฟเฟอร์ (เก็บใน signal)" }
+buffer.pct_father:            { label: "บัฟเฟอร์ (% พ่อ)", unit: "%พ่อ", help: "บัฟเฟอร์ = เนื้อพ่อ × ค่านี้ (จำกัดด้วย max_pip)" }
+
+# ── จุดเข้า ──
+entry:                        { label: "จุดเข้า" }
+entry.e3_offset_pct_father:   { label: "ระยะจุด 3", unit: "%พ่อ", help: "จุดเข้าที่ 3 ห่างจาก tech point = เนื้อพ่อ × ค่านี้" }
+
+# ── TP / SL รอบปกติ ──
+tp_sl:                        { label: "TP / SL (รอบปกติ)" }
+tp_sl.sl_pct_father:          { label: "ระยะ SL", unit: "%พ่อ", help: "SL ห่างจาก tech point = เนื้อพ่อ × ค่านี้" }
+tp_sl.tp_pct_father:          { label: "ระยะ TP", unit: "%พ่อ", help: "TP ห่างจาก tech point = เนื้อพ่อ × ค่านี้" }
+tp_sl.min_sl_pips:            { label: "SL ขั้นต่ำ", unit: "pip", help: "ถ้าระยะ SL < ค่านี้ → ทิ้งสัญญาณ" }
+
+# ── TP ย่อย (analytics) ──
+tp_levels:                    { label: "TP ย่อย (analytics)" }
+tp_levels.tp1_pct:            { label: "TP1", unit: "%พ่อ", help: "ระดับ TP1 = เนื้อพ่อ × ค่านี้ (ใช้สแกนหลัง TP ไม่กระทบ exit จริง)" }
+tp_levels.tp2_pct:            { label: "TP2", unit: "%พ่อ", help: "ระดับ TP2 = เนื้อพ่อ × ค่านี้" }
+tp_levels.tp3_pct:            { label: "TP3", unit: "%พ่อ", help: "ระดับ TP3 = เนื้อพ่อ × ค่านี้" }
+
+# ── TP30 (ตรวจ 50 แท่งก่อนพ่อ) ──
+tp30:                         { label: "TP30 (50 แท่งก่อนพ่อ)" }
+tp30.pre_bars:                { label: "ช่วงตรวจก่อนพ่อ", unit: "แท่ง", help: "ตรวจกี่แท่งก่อนพ่อว่าราคา 'สะอาด' (ไม่ชนระดับ)" }
+tp30.level_buy_pct_r55:       { label: "ระดับ BUY", unit: "%R55", help: "BUY: low ของช่วงก่อนต้อง ≥ low55 + R55 × ค่านี้" }
+tp30.level_sell_pct_r55:      { label: "ระดับ SELL", unit: "%R55", help: "SELL: high ของช่วงก่อนต้อง ≤ low55 + R55 × ค่านี้" }
+tp30.tp_pct_father:           { label: "TP (โหมด TP30)", unit: "%พ่อ", help: "ถ้า trigger → TP = เนื้อพ่อ × ค่านี้" }
+tp30.sl_pct_father:           { label: "SL (โหมด TP30)", unit: "%พ่อ", help: "ถ้า trigger → SL = เนื้อพ่อ × ค่านี้" }
+
+# ── TP / SL รอบ 2 (พ่อรวม R1+R2) ──
+round2_tp_sl:                 { label: "TP / SL รอบ 2" }
+round2_tp_sl.tp_pct_combined: { label: "TP (พ่อรวม)", unit: "%พ่อรวม", help: "รอบ 2: TP = เนื้อพ่อรวม (R1+R2) × ค่านี้" }
+round2_tp_sl.sl_pct_combined: { label: "SL (พ่อรวม)", unit: "%พ่อรวม", help: "รอบ 2: SL = เนื้อพ่อรวม (R1+R2) × ค่านี้" }
+
+# ── กรองสัญญาณ ──
+tp_min_pip:                   { label: "TP ขั้นต่ำ", unit: "pip", help: "ถ้าระยะ TP < ค่านี้ → ทิ้งสัญญาณ" }
+
+# ── ขนาด Lot ──
+lot:                          { label: "ขนาด Lot" }
+lot.risk_pct:                 { label: "ความเสี่ยงต่อไม้", unit: "%พอร์ต", help: "เสี่ยงกี่ % ของพอร์ตต่อไม้ (lot = พอร์ต × risk ÷ SL pips)" }
+lot.mother_halve_min_pct:     { label: "ลด lot ครึ่ง: แม่ตั้งแต่", unit: "%R55", help: "ถ้าเนื้อแม่อยู่ในช่วง [min, max] → lot ÷ 2 (ย่อแรง = เสี่ยงสูง)" }
+lot.mother_halve_max_pct:     { label: "ลด lot ครึ่ง: แม่ถึง", unit: "%R55", help: "ขอบบนของช่วงลด lot ครึ่ง" }
+lot.mother_halve_enabled:     { label: "เปิดกฎลด lot (แม่ 17-25%)", help: "false = ไม่ลด lot ครึ่งแม้แม่จะย่อแรง" }
+lot.father_double_pct_r55:    { label: "เพิ่ม lot 2 เท่า: พ่อเกิน", unit: "%R55", help: "ถ้าเนื้อพ่อ > ค่านี้ → lot × 2 (พ่อแรงมาก = มั่นใจสูง)" }
+lot.father_double_enabled:    { label: "เปิดกฎเพิ่ม lot (พ่อ >90%)", help: "false = ไม่เพิ่ม lot ×2 แม้พ่อจะแรงมาก" }
+
+# ── orchestration ──
+pending_expiry_bars:          { label: "อายุ pending", unit: "แท่ง", help: "ออร์เดอร์ limit หมดอายุหลังวางครบกี่แท่ง" }
+proximity_cancel_pct_r55:     { label: "ยกเลิกเมื่อใกล้ TP", unit: "%R55", help: "ถ้าราคาเฉียด TP ≤ ค่านี้ → ยกเลิก limit ที่ยังไม่ fill (กันไล่ราคา)" }
+proximity_cancel_enabled:     { label: "เปิดกฎยกเลิกใกล้ TP", help: "false = ไม่ยก pending ตอนราคาเฉียด TP (ปล่อยรอ fill/expiry)" }
+
+# ── ไม้รวยรอบ 2 ──
+round2:                       { label: "ไม้รวยรอบ 2" }
+round2.enabled:               { label: "เปิดไม้รวยรอบ 2", help: "false = ปิดรอบ 2 ทั้งหมด (หลังปิด SL จะไม่ลองเข้าใหม่)" }
+round2.outer_bars:            { label: "หน้าต่างลองรอบ 2", unit: "แท่ง", help: "หลังปิด SL ลองเข้ารอบ 2 ได้ภายในกี่แท่ง" }
+round2.father_start_max_bars: { label: "พ่อรอบ 2 เริ่มได้ไกลสุด", unit: "แท่ง", help: "แท่งเริ่มพ่อรอบ 2 ห่างจากไม้รอบ 1 ได้ไม่เกินกี่แท่ง" }
+round2.same_direction:        { label: "ทิศเดียวกับรอบ 1", help: "รอบ 2 ต้องเป็นทิศทางเดียวกับรอบ 1 (true/false)" }
+
+# ── global.yaml: พอร์ต / guards / engine / run ──
+portfolio:                        { label: "พอร์ตเริ่มต้น", unit: "$", help: "เงินทุนเริ่มต้น (คงที่ ไม่ทบต้น)" }
+winrate_mode:                     { label: "โหมด Winrate", help: "true → lot 0.01 คงที่ (ระบบใหม่ ไม่มีใน v2.04)" }
+engine:                           { label: "เอนจิน" }
+engine.inject_compat:             { label: "โหมด compat (v2.04)", help: "true → จำลองบั๊ก child-bar inject ของ v2.04 (ใช้เทียบ golden เท่านั้น)" }
+guards:                           { label: "การ์ด (Friday / Gap)" }
+guards.friday_close:              { label: "ปิดเทรดวันศุกร์" }
+guards.friday_close.enable:       { label: "เปิดการ์ดศุกร์", help: "ห้ามเปิดไม้ใหม่ก่อนตลาดปิดวันศุกร์" }
+guards.friday_close.close_hour_utc: { label: "ชั่วโมงปิดตลาด", unit: "ชม.UTC", help: "เวลาตลาดปิด (UTC)" }
+guards.friday_close.close_min:    { label: "นาทีปิดตลาด", unit: "นาที", help: "นาทีของชั่วโมงปิดตลาด" }
+guards.friday_close.no_trade_min: { label: "ห้ามเทรดก่อนปิด", unit: "นาที", help: "ห้ามเปิดไม้ใหม่ภายในกี่นาทีก่อนตลาดปิดศุกร์" }
+guards.gap:                       { label: "การ์ด Gap" }
+guards.gap.enable:                { label: "เปิดการ์ด Gap", help: "เว้นเทรดเมื่อราคา gap แรง" }
+guards.gap.threshold_pct:         { label: "เกณฑ์ Gap", unit: "%", help: "ถ้า gap > R55 × ค่านี้ → เข้าโหมดเว้นเทรด" }
+guards.gap.wait_bars:             { label: "เว้นหลัง Gap", unit: "แท่ง", help: "หลังเจอ gap แรง เว้นเทรดกี่แท่ง" }

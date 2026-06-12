@@ -82,12 +82,16 @@ lot:
   risk_pct:             10    # ref: RISK_PCT = 0.10 (10% ต่อไม้)
   mother_halve_min_pct: 17    # ref: if 17 <= m_pct <= 25 → lot / 2
   mother_halve_max_pct: 25
+  mother_halve_enabled: true  # toggle: false = ไม่ลด lot (แม่ 17-25%) · default true (เดิม)
   father_double_pct_r55: 90   # ref: if _f_pct > 90 → lot * 2
+  father_double_enabled: true # toggle: false = ไม่เพิ่ม lot (พ่อ >90%) · default true (เดิม)
 
 # -- orchestration: pending / proximity-cancel / รอบ 2 --
 pending_expiry_bars:    5     # ref: pending_limits.append((sig, i + 5))
 proximity_cancel_pct_r55: 10  # ref: _tp_buf = range55 * 0.10 (ราคาเข้าใกล้ TP ≤10%R55 → cancel)
+proximity_cancel_enabled: true # toggle: false = ไม่ยก pending ตอนเฉียด TP · default true (เดิม)
 round2:
+  enabled:            true    # toggle: false = ปิดไม้รวยรอบ 2 ทั้งหมด · default true (เดิม)
   outer_bars:           16    # ref: (i - _r1_info['entry_bar']) <= 16
   father_start_max_bars:  6   # ref: (f_start - round2_info['entry_bar']) > 6 → reject
   same_direction:     true    # ref: รอบ 2 ต้องทิศเดียวกับรอบ 1

@@ -1,0 +1,312 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>XAUUSD Backtest Console — full YAML editor</title>
+<style>
+  :root{
+    --ink:#0E0F13; --panel:#15171D; --panel2:#1B1E26; --raise:#21242D;
+    --line:#23262E; --line2:#2F333E;
+    --text:#E6E8EC; --muted:#8A8F9C; --dim:#5B606C;
+    --gold:#E8B14C; --gold-dim:#6f5a2e; --gold-glow:rgba(232,177,76,.14);
+    --up:#2DB39A; --down:#E5564E;
+    --sans:system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Thai",sans-serif;
+    --mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{background:radial-gradient(900px 500px at 82% -8%,var(--gold-glow),transparent 60%),var(--ink);
+    color:var(--text); font-family:var(--sans); font-size:14px; line-height:1.5; -webkit-font-smoothing:antialiased; min-height:100vh}
+  .wrap{max-width:1180px; margin:0 auto; padding:22px 22px 60px}
+  header{display:flex; align-items:center; justify-content:space-between; padding:6px 2px 20px}
+  .brand{display:flex; align-items:center; gap:12px}
+  .mark{width:34px;height:34px;border-radius:8px;display:grid;place-items:center;background:linear-gradient(150deg,#2a2410,#1a1c24);border:1px solid var(--gold-dim);color:var(--gold);font-family:var(--mono);font-weight:700;font-size:13px}
+  .brand h1{font-size:15px;margin:0;font-weight:600}
+  .brand .sub{font-family:var(--mono);font-size:11px;color:var(--dim);letter-spacing:.4px}
+  .status{display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:11.5px;color:var(--muted)}
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--up);box-shadow:0 0 0 3px rgba(45,179,154,.16)}
+
+  .grid{display:grid;grid-template-columns:1.42fr 1fr;gap:18px;align-items:start}
+  @media(max-width:900px){.grid{grid-template-columns:1fr}}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+  .hd{display:flex;align-items:center;justify-content:space-between;padding:13px 16px;border-bottom:1px solid var(--line);background:var(--panel2)}
+  .eyebrow{font-family:var(--mono);font-size:10.5px;letter-spacing:1.6px;color:var(--gold);text-transform:uppercase}
+  .hd h2{margin:3px 0 0;font-size:14px;font-weight:600}
+  .hd .meta{font-family:var(--mono);font-size:11px;color:var(--dim)}
+  .body{padding:16px}
+
+  label.lab{display:block;font-size:12px;color:var(--muted);margin-bottom:6px}
+  .lab .hint{color:var(--dim);font-family:var(--mono);font-size:10.5px;margin-left:6px}
+  select,input[type=text],input[type=number]{width:100%;background:var(--panel2);color:var(--text);border:1px solid var(--line2);border-radius:9px;padding:9px 11px;font-family:var(--mono);font-size:12.5px;outline:none}
+  select:focus,input:focus{border-color:var(--gold-dim);box-shadow:0 0 0 3px var(--gold-glow)}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px}
+
+  /* config editor */
+  .cfgbar{display:flex;align-items:center;gap:10px;margin:4px 0 12px}
+  .cfgbar .search{flex:1;position:relative}
+  .cfgbar .search input{padding-left:30px}
+  .cfgbar .search::before{content:"⌕";position:absolute;left:10px;top:7px;color:var(--dim);font-size:15px}
+  .tabs{display:flex;background:var(--panel2);border:1px solid var(--line2);border-radius:9px;padding:3px;gap:3px}
+  .tabs button{border:0;background:transparent;color:var(--muted);cursor:pointer;font-family:var(--mono);font-size:11.5px;padding:7px 12px;border-radius:6px}
+  .tabs button.on{background:var(--raise);color:var(--gold);box-shadow:inset 0 0 0 1px var(--line2)}
+
+  .group{border:1px solid var(--line);border-radius:11px;margin-bottom:10px;overflow:hidden;background:var(--panel2)}
+  .group>summary{cursor:pointer;list-style:none;padding:11px 14px;display:flex;align-items:center;justify-content:space-between;font-family:var(--mono);font-size:12px;color:var(--text)}
+  .group>summary::-webkit-details-marker{display:none}
+  .group>summary .gname{display:flex;align-items:center;gap:9px}
+  .group>summary .gname::before{content:"▸";color:var(--gold);font-size:11px}
+  .group[open]>summary .gname::before{content:"▾"}
+  .group>summary .cnt{color:var(--dim);font-size:10.5px}
+  .group .ginner{padding:4px 14px 14px;border-top:1px solid var(--line)}
+  .frow{display:grid;grid-template-columns:1fr 130px;align-items:center;gap:12px;padding:8px 0;border-bottom:1px dashed var(--line)}
+  .frow:last-child{border-bottom:0}
+  .fkey{font-family:var(--mono);font-size:12px;color:var(--text)}
+  .fkey small{display:block;color:var(--dim);font-size:10px;margin-top:1px;font-family:var(--sans)}
+  .fval input{padding:7px 9px}
+  .toggle{display:flex;background:#0a0b0e;border:1px solid var(--line2);border-radius:8px;padding:2px}
+  .toggle button{flex:1;border:0;background:transparent;color:var(--dim);cursor:pointer;font-family:var(--mono);font-size:11px;padding:5px;border-radius:6px}
+  .toggle button.on{background:var(--raise);color:var(--up)}
+  .toggle button.on.off{color:var(--down)}
+  .unit{font-family:var(--mono);font-size:10px;color:var(--dim);text-align:right;padding-right:2px;margin-top:3px}
+
+  textarea.raw{width:100%;min-height:360px;background:#0a0b0e;color:#cdd2da;border:1px solid var(--line2);border-radius:11px;padding:13px;font-family:var(--mono);font-size:12px;line-height:1.6;outline:none;resize:vertical}
+
+  .saveas{display:flex;gap:10px;align-items:flex-end;margin-top:12px;padding-top:13px;border-top:1px dashed var(--line2)}
+  .saveas .f{flex:1}
+  .btn-ghost{border:1px solid var(--gold-dim);background:transparent;color:var(--gold);cursor:pointer;font-family:var(--mono);font-size:12px;padding:9px 14px;border-radius:9px;white-space:nowrap}
+
+  .run{margin-top:16px;width:100%;border:0;cursor:pointer;background:linear-gradient(180deg,#f0c065,#dca23c);color:#23190a;font-weight:700;font-size:14px;padding:13px;border-radius:11px;box-shadow:0 6px 18px -8px rgba(232,177,76,.5)}
+  .run:active{transform:translateY(1px)}
+  .cmd{margin-top:14px;background:#0a0b0e;border:1px solid var(--line);border-radius:11px;padding:13px 14px;font-family:var(--mono);font-size:12px;color:#cdd2da;overflow-x:auto}
+  .cmd .label{color:var(--dim);font-size:10px;letter-spacing:1.4px;text-transform:uppercase;margin-bottom:8px;display:block}
+  .cmd .flag{color:#7fa7d6}.cmd .val{color:var(--up)}.cmd .p{color:var(--gold)}
+
+  /* history */
+  .runItem{padding:13px 16px;border-bottom:1px solid var(--line);display:flex;flex-direction:column;gap:8px}
+  .runItem:last-child{border-bottom:0}
+  .runTop{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+  .runName{font-family:var(--mono);font-size:12.5px}.runName .gold{color:var(--gold)}
+  .runWhen{font-family:var(--mono);font-size:10.5px;color:var(--dim);white-space:nowrap}
+  .runSub{font-family:var(--mono);font-size:10.5px;color:var(--muted)}
+  .stats{display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+  .stat{font-family:var(--mono);font-size:11.5px;color:var(--muted)} .stat b{color:var(--text)}
+  .stat.win b{color:var(--up)}.stat.loss b{color:var(--down)}
+  .openV{margin-left:auto;font-family:var(--mono);font-size:11.5px;color:var(--gold);text-decoration:none}
+  .openV:hover{text-decoration:underline}
+  .pill{font-family:var(--mono);font-size:9.5px;padding:2px 7px;border-radius:20px}
+  .pill.correct{color:var(--up);background:rgba(45,179,154,.12)}
+  .pill.compat{color:var(--gold);background:rgba(232,177,76,.12)}
+  .note{margin-top:18px;font-size:11.5px;color:var(--dim);text-align:center;font-family:var(--mono)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand"><div class="mark">XAU</div>
+      <div><h1>Backtest Console</h1><div class="sub">xauusd · mai_ruay engine</div></div></div>
+    <div class="status"><span class="dot"></span> server: localhost:8000</div>
+  </header>
+
+  <div class="grid">
+    <!-- LEFT -->
+    <section class="card">
+      <div class="hd"><div><div class="eyebrow">รันใหม่</div><h2>ตั้งค่า &amp; สั่งรัน</h2></div><div class="meta">new run</div></div>
+      <div class="body">
+
+        <div class="row2">
+          <div><label class="lab">กลยุทธ์ <span class="hint">--strategy</span></label>
+            <select id="strat"><option>mai_ruay</option><option>mountain (soon)</option></select></div>
+          <div><label class="lab">คอนฟิก <span class="hint">--config</span></label>
+            <select id="cfg"><option value="mairuay_v204">mairuay_v204.yaml</option><option value="mairuay_v205">mairuay_v205.yaml</option></select></div>
+        </div>
+
+        <!-- ░ FULL YAML EDITOR ░ -->
+        <div class="eyebrow" style="margin:6px 0 2px">ค่าทั้งหมดในไฟล์</div>
+        <div class="cfgbar">
+          <div class="search"><input id="q" type="text" placeholder="ค้นหาค่า… (เช่น father, sl, lot)"></div>
+          <div class="tabs"><button class="on" data-t="form">Form</button><button data-t="raw">Raw YAML</button></div>
+        </div>
+
+        <div id="formView">
+          <details class="group" open>
+            <summary><span class="gname">father</span><span class="cnt">8 ค่า</span></summary>
+            <div class="ginner">
+              <div class="frow"><div class="fkey">combined_body_min_pct <small>เนื้อพ่อรวม ≥ %R55</small></div><div class="fval"><input type="number" value="60"><div class="unit">%R55</div></div></div>
+              <div class="frow"><div class="fkey">max_bars</div><div class="fval"><input type="number" value="10"><div class="unit">แท่ง</div></div></div>
+              <div class="frow"><div class="fkey">each_bar_min_pct</div><div class="fval"><input type="number" value="4"><div class="unit">%R55</div></div></div>
+              <div class="frow"><div class="fkey">vol_ratio_min</div><div class="fval"><input type="number" value="1"></div></div>
+              <div class="frow"><div class="fkey">single_color</div><div class="fval"><div class="toggle"><button class="on">true</button><button class="off">false</button></div></div></div>
+              <div class="frow"><div class="fkey">doji_max_pct <small>เจอ Doji ≤ ค่านี้ หยุดสแกน</small></div><div class="fval"><input type="number" value="2"><div class="unit">%R55</div></div></div>
+              <div class="frow"><div class="fkey">small_bar_exc_pct</div><div class="fval"><input type="number" value="2"><div class="unit">%R55</div></div></div>
+              <div class="frow"><div class="fkey">small_bar_majority_pct</div><div class="fval"><input type="number" value="10"><div class="unit">%R55</div></div></div>
+            </div>
+          </details>
+
+          <details class="group">
+            <summary><span class="gname">mother</span><span class="cnt">2 ค่า</span></summary>
+            <div class="ginner">
+              <div class="frow"><div class="fkey">min_pct</div><div class="fval"><input type="number" value="2"><div class="unit">%R55</div></div></div>
+              <div class="frow"><div class="fkey">max_pct</div><div class="fval"><input type="number" value="25"><div class="unit">%R55</div></div></div>
+            </div>
+          </details>
+
+          <details class="group">
+            <summary><span class="gname">sl / tp</span><span class="cnt">3 ค่า</span></summary>
+            <div class="ginner">
+              <div class="frow"><div class="fkey">sl.pct_r55</div><div class="fval"><input type="number" value="40"><div class="unit">%R55</div></div></div>
+              <div class="frow"><div class="fkey">tp.pct</div><div class="fval"><input type="number" value="45"><div class="unit">%</div></div></div>
+              <div class="frow"><div class="fkey">tp.min_pip</div><div class="fval"><input type="number" value="200"><div class="unit">pip</div></div></div>
+            </div>
+          </details>
+
+          <details class="group">
+            <summary><span class="gname">pending</span><span class="cnt">2 ค่า</span></summary>
+            <div class="ginner">
+              <div class="frow"><div class="fkey">expiry_bars</div><div class="fval"><input type="number" value="5"><div class="unit">แท่ง</div></div></div>
+              <div class="frow"><div class="fkey">proximity_cancel_pct</div><div class="fval"><input type="number" value="10"><div class="unit">%R55</div></div></div>
+            </div>
+          </details>
+
+          <details class="group">
+            <summary><span class="gname">round2</span><span class="cnt">6 ค่า</span></summary>
+            <div class="ginner">
+              <div class="frow"><div class="fkey">enabled</div><div class="fval"><div class="toggle"><button class="on">true</button><button class="off">false</button></div></div></div>
+              <div class="frow"><div class="fkey">outer_bars</div><div class="fval"><input type="number" value="16"><div class="unit">แท่ง</div></div></div>
+              <div class="frow"><div class="fkey">inner_bars</div><div class="fval"><input type="number" value="6"><div class="unit">แท่ง</div></div></div>
+              <div class="frow"><div class="fkey">father_min_pct</div><div class="fval"><input type="number" value="35"><div class="unit">%R55</div></div></div>
+              <div class="frow"><div class="fkey">father_max_bars</div><div class="fval"><input type="number" value="8"><div class="unit">แท่ง</div></div></div>
+              <div class="frow"><div class="fkey">father_each_min_pct</div><div class="fval"><input type="number" value="6"><div class="unit">%R55</div></div></div>
+            </div>
+          </details>
+
+          <details class="group">
+            <summary><span class="gname">lot</span><span class="cnt">4 ค่า</span></summary>
+            <div class="ginner">
+              <div class="frow"><div class="fkey">risk_pct</div><div class="fval"><input type="number" value="10"><div class="unit">%</div></div></div>
+              <div class="frow"><div class="fkey">mother_halve_min</div><div class="fval"><input type="number" value="17"><div class="unit">%R55</div></div></div>
+              <div class="frow"><div class="fkey">mother_halve_max</div><div class="fval"><input type="number" value="25"><div class="unit">%R55</div></div></div>
+              <div class="frow"><div class="fkey">father_double_pct</div><div class="fval"><input type="number" value="90"><div class="unit">%R55</div></div></div>
+            </div>
+          </details>
+
+          <details class="group">
+            <summary><span class="gname">guards / engine</span><span class="cnt">4 ค่า</span></summary>
+            <div class="ginner">
+              <div class="frow"><div class="fkey">guards.friday_close</div><div class="fval"><div class="toggle"><button class="on">true</button><button class="off">false</button></div></div></div>
+              <div class="frow"><div class="fkey">guards.friday_no_trade_min</div><div class="fval"><input type="number" value="120"><div class="unit">นาที</div></div></div>
+              <div class="frow"><div class="fkey">engine.inject_compat</div><div class="fval"><div class="toggle"><button>true</button><button class="on off">false</button></div></div></div>
+              <div class="frow"><div class="fkey">run.winrate_mode</div><div class="fval"><div class="toggle"><button>true</button><button class="on off">false</button></div></div></div>
+            </div>
+          </details>
+        </div>
+
+        <div id="rawView" style="display:none">
+          <textarea class="raw"># mairuay_v204.yaml
+father:
+  combined_body_min_pct: 60   # เนื้อพ่อรวม ≥ %R55
+  max_bars: 10
+  each_bar_min_pct: 4
+  vol_ratio_min: 1
+  single_color: true
+  doji_max_pct: 2             # Doji ≤ ค่านี้ → หยุดสแกน
+mother:
+  min_pct: 2
+  max_pct: 25
+sl: { pct_r55: 40 }
+tp: { pct: 45, min_pip: 200 }
+pending: { expiry_bars: 5, proximity_cancel_pct: 10 }
+round2: { enabled: true, outer_bars: 16, inner_bars: 6, ... }
+lot: { risk_pct: 10, mother_halve_min: 17, mother_halve_max: 25, father_double_pct: 90 }
+guards: { friday_close: true, friday_no_trade_min: 120 }
+engine: { inject_compat: false }
+run: { winrate_mode: false, portfolio: 1000 }</textarea>
+        </div>
+
+        <div class="saveas">
+          <div class="f"><label class="lab">บันทึกเป็นเวอร์ชันใหม่ <span class="hint">configs/</span></label>
+            <input type="text" value="mairuay_v205.yaml"></div>
+          <button class="btn-ghost">💾 Save as new</button>
+        </div>
+
+        <!-- run target -->
+        <div class="row2" style="margin-top:18px">
+          <div><label class="lab">ไฟล์ข้อมูล <span class="hint">--data</span></label>
+            <select id="data"><option value="XAUUSD_M1_2026-06-09">XAUUSD_M1_2026-06-09.csv</option><option value="XAUUSD_M5_2026-06-09">XAUUSD_M5_2026-06-09.csv</option></select></div>
+          <div><label class="lab">โฟลเดอร์ผลลัพธ์ <span class="hint">--out runs/</span></label>
+            <input id="out" type="text" value="mairuay_v205_m1_correct"></div>
+        </div>
+
+        <button class="run">▶  รัน Backtest</button>
+        <div class="cmd"><span class="label">คำสั่งที่จะรัน (preview)</span><code id="cmd"></code></div>
+      </div>
+    </section>
+
+    <!-- RIGHT: history -->
+    <section class="card">
+      <div class="hd"><div><div class="eyebrow">ประวัติการรัน</div><h2>Runs</h2></div><div class="meta">3 runs</div></div>
+      <div>
+        <div class="runItem">
+          <div class="runTop"><span class="runName">mairuay_v204_m1_correct <span class="pill correct">CORRECT</span></span><span class="runWhen">11 มิ.ย. 22:14</span></div>
+          <div class="runSub">mai_ruay · M1 · XAUUSD_M1_2026-06-09</div>
+          <div class="stats"><span class="stat">ไม้ <b>595</b></span><span class="stat win">WR <b>57.3%</b></span><span class="stat win">net <b>+4,618$</b></span><a class="openV" href="#">เปิด viewer →</a></div>
+        </div>
+        <div class="runItem">
+          <div class="runTop"><span class="runName">mairuay_v204_m1_compat <span class="pill compat">COMPAT</span></span><span class="runWhen">11 มิ.ย. 21:50</span></div>
+          <div class="runSub">mai_ruay · M1 · XAUUSD_M1_2026-06-09</div>
+          <div class="stats"><span class="stat">ไม้ <b>561</b></span><span class="stat win">WR <b>57.9%</b></span><span class="stat win">net <b>+4,575$</b></span><a class="openV" href="#">เปิด viewer →</a></div>
+        </div>
+        <div class="runItem">
+          <div class="runTop"><span class="runName">mairuay_v204_m5_correct <span class="pill correct">CORRECT</span></span><span class="runWhen">10 มิ.ย. 18:02</span></div>
+          <div class="runSub">mai_ruay · M5 · XAUUSD_M5_2026-06-09</div>
+          <div class="stats"><span class="stat">ไม้ <b>132</b></span><span class="stat loss">WR <b>48.5%</b></span><span class="stat loss">net <b>−210$</b></span><a class="openV" href="#">เปิด viewer →</a></div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <div class="note">mockup — ค่า YAML สร้างอัตโนมัติจากไฟล์จริง · ลองค้นหา / สลับ Form↔Raw / พิมพ์ output ดู command</div>
+</div>
+
+<script>
+  const $=s=>document.querySelector(s), $$=s=>document.querySelectorAll(s);
+  function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;')}
+  function build(){
+    const v=id=>$(id).value;
+    $('#cmd').innerHTML='<span class="p">$</span> python3 -m bt run \\\n'+
+      '   <span class="flag">--strategy</span> <span class="val">'+esc(v('#strat').split(' ')[0])+'</span> \\\n'+
+      '   <span class="flag">--config</span> <span class="val">configs/'+esc(v('#cfg'))+'.yaml</span> \\\n'+
+      '   <span class="flag">--data</span> <span class="val">data/'+esc(v('#data'))+'.csv</span> \\\n'+
+      '   <span class="flag">--out</span> <span class="val">runs/'+esc(v('#out')||'run')+'/</span> \\\n'+
+      '   <span class="flag">--viewer</span>';
+  }
+  ['#strat','#cfg','#data','#out'].forEach(s=>$(s).addEventListener('input',build));
+  // tabs
+  $$('.tabs button').forEach(b=>b.addEventListener('click',()=>{
+    $$('.tabs button').forEach(x=>x.classList.remove('on')); b.classList.add('on');
+    const raw=b.dataset.t==='raw';
+    $('#rawView').style.display=raw?'block':'none';
+    $('#formView').style.display=raw?'none':'block';
+  }));
+  // toggles
+  $$('.toggle').forEach(t=>t.addEventListener('click',e=>{
+    if(e.target.tagName!=='BUTTON')return;
+    t.querySelectorAll('button').forEach(b=>b.classList.remove('on'));
+    e.target.classList.add('on');
+  }));
+  // search filter
+  $('#q').addEventListener('input',e=>{
+    const q=e.target.value.toLowerCase().trim();
+    $$('.group').forEach(g=>{
+      let any=false;
+      g.querySelectorAll('.frow').forEach(r=>{
+        const hit=r.querySelector('.fkey').textContent.toLowerCase().includes(q);
+        r.style.display=hit?'':'none'; if(hit)any=true;
+      });
+      g.style.display=any?'':'none'; if(q&&any)g.open=true;
+    });
+  });
+  build();
+</script>
+</body>
+</html>

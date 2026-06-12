@@ -360,12 +360,13 @@ def analyze_bar(bars, bar_idx, cfg, portfolio, round2_info=None) -> Signal | Non
 
     lc  = cfg['lot']
     lot = _calc_lot(portfolio, sl_pips, lc['risk_pct'] / 100)
-    if lc['mother_halve_min_pct'] <= m_pct <= lc['mother_halve_max_pct']:
+    if lc.get('mother_halve_enabled', True) \
+            and lc['mother_halve_min_pct'] <= m_pct <= lc['mother_halve_max_pct']:
         lot = _r(lot / 2, 2)
         reasons.append(f"แม่ {m_pct:.1f}% ({lc['mother_halve_min_pct']}–"
                        f"{lc['mother_halve_max_pct']}%) → lot ÷2")
     _f_pct = f_body / r55 * 100
-    if _f_pct > lc['father_double_pct_r55']:
+    if lc.get('father_double_enabled', True) and _f_pct > lc['father_double_pct_r55']:
         lot = _r(lot * 2, 2)
         reasons.append(f"พ่อ {_f_pct:.1f}% (>{lc['father_double_pct_r55']}%R55) → lot ×2")
 
@@ -414,6 +415,7 @@ class MaiRuay(Strategy):
         i, bar = ctx.bar_index, ctx.bar
         expiry = cfg['pending_expiry_bars']
         prox   = cfg['proximity_cancel_pct_r55'] / 100
+        prox_on = cfg.get('proximity_cancel_enabled', True)   # toggle กฎ proximity (default เปิด)
 
         # (0) อัปเดต state รอบ 2 จากไม้ที่เพิ่งปิด — SL ของแผนล่าสุด → จำไว้ลองรอบ 2 · TP → ล้าง
         #     (ตัวสุดท้ายใน last_closed ชนะ = ตรง v2.04 ที่ set _r1_info ราย position)
@@ -435,6 +437,8 @@ class MaiRuay(Strategy):
             age = i - m['placed']
             if (age > expiry) if self.pre_fill_cancel else (age >= expiry):  # หมดอายุ
                 cancel.append(o.tag); self._log_unfilled(o.tag, m, i, bar, 'expiry'); continue
+            if not prox_on:                                # toggle ปิดกฎ proximity ของ strategy
+                continue
             buf = m['r55'] * prox * PIP                    # เฉียด TP ≤10%R55
             if m['dir'] == 'BUY'  and bar.high >= m['tp_sel'] - buf:
                 cancel.append(o.tag); self._log_unfilled(o.tag, m, i, bar, 'proximity'); continue
@@ -454,8 +458,10 @@ class MaiRuay(Strategy):
             return Decision(place, cancel, modify)
 
         # (D) หาสัญญาณ — รอบ 1 ก่อน · ไม่ได้ + มีแผน SL ล่าสุดใน 16 แท่ง → ลองรอบ 2 (ทิศเดียวกัน)
+        #     toggle round2.enabled=false → ข้าม logic รอบ 2 ทั้งหมด (default true = เดิม)
         sig = analyze_bar(ctx.window, i, cfg, self.portfolio)
         if sig is None and self._r1 is not None \
+                and cfg['round2'].get('enabled', True) \
                 and (i - self._r1['entry_bar']) <= cfg['round2']['outer_bars']:
             r2 = analyze_bar(ctx.window, i, cfg, self.portfolio, round2_info=self._r1)
             if r2 is not None and r2.direction == self._r1['direction']:

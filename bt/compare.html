@@ -272,8 +272,12 @@ function buildChart(runs, metricsList, mode){
 
 // ---------- config diff ----------
 function buildConfig(runs, configs, showAll){
+  const missing = runs.filter((r,i)=>!(configs[i] && configs[i].exists));
   const anyExist = configs.some(c=>c && c.exists);
-  if(!anyExist) return '<div class="note">ยังไม่มี config snapshot (config_used.yaml) ใน run ที่เลือก — run ใหม่ผ่าน console จะมีให้เทียบ</div>';
+  if(!anyExist){
+    return '<div class="needmore" style="padding:18px 8px">ไม่พบ config snapshot (config_used.yaml) ของ run ที่เลือก<br>'+
+      '<span style="font-size:11px;color:var(--dim)">run เก่า (ก่อนมีระบบ snapshot) ต้อง <b style="color:var(--gold)">รันใหม่</b> ผ่าน console ถึงจะเทียบ config ได้</span></div>';
+  }
   const labels = (configs.find(c=>c&&c.labels)||{}).labels||{};
   // union keys
   const keys={}; configs.forEach(c=>{ if(c&&c.values) Object.keys(c.values).forEach(k=>keys[k]=1); });
@@ -292,10 +296,13 @@ function buildConfig(runs, configs, showAll){
     rows+='<tr><td class="diffkey">'+esc(k)+(lab?'<small>'+esc(lab)+'</small>':'')+'</td>'+tds+'</tr>';
   });
   if(!rows) rows='<tr><td class="diffkey" colspan="'+(runs.length+1)+'" style="color:var(--dim)">ทุก key เท่ากันทุก run</td></tr>';
+  const banner = missing.length
+    ? '<div class="note" style="color:var(--gold);margin:0 0 10px">⚠ '+missing.length+' run ไม่มี config snapshot ('+missing.map(esc).join(', ')+') — แสดง “—” · รันใหม่เพื่อเทียบครบ</div>'
+    : '';
   let head='<thead><tr><th>ค่า</th>';
   runs.forEach((r,i)=>{ head+='<th style="color:'+PALETTE[i]+'">'+esc(r)+'</th>'; });
   head+='</tr></thead>';
-  return '<div class="tscroll"><table>'+head+'<tbody>'+rows+'</tbody></table></div>';
+  return banner+'<div class="tscroll"><table>'+head+'<tbody>'+rows+'</tbody></table></div>';
 }
 
 // ---------- info popover ----------
@@ -345,13 +352,19 @@ function renderChips(runs){
 }
 
 // ---------- main ----------
+function warnBox(msg){ return msg? '<div class="note" style="color:var(--gold);margin-bottom:12px">⚠ '+esc(msg)+'</div>' : ''; }
+
 (async function(){
   try{ ALL_RUNS=(await getJSON('/api/runs')).runs||[]; }catch(e){ ALL_RUNS=[]; }
-  const runs=urlRuns();
+  const requested=urlRuns();
+  const known=new Set(ALL_RUNS.map(r=>r.name));
+  const skipped=requested.filter(r=>!known.has(r));   // run ใน ?runs ที่ไม่มีจริง → ข้าม
+  let runs=requested.filter(r=>known.has(r));
+  let warn = skipped.length? ('ข้าม run ที่ไม่มี: '+skipped.join(', ')) : '';
   renderChips(runs);
 
   if(runs.length<2){
-    $('#content').innerHTML='<section class="card"><div class="needmore">'+
+    $('#content').innerHTML='<section class="card"><div class="needmore">'+warnBox(warn)+
       'เลือกอย่างน้อย <b>2 run</b> เพื่อเทียบ<br><span style="font-size:11px">กด “+ เพิ่ม run” ด้านบน หรือเลือกจาก console</span></div></section>';
     return;
   }
@@ -359,7 +372,19 @@ function renderChips(runs){
   let defs, metricsList, configs;
   try{
     defs=(await getJSON('/api/metric-defs')).metric_defs;
-    metricsList=await Promise.all(runs.map(r=>getJSON('/api/runs/'+encodeURIComponent(r)+'/metrics')));
+    // fetch metrics ทีละ run · run ที่ fail (404/พัง) → ข้าม ไม่ทำทั้งหน้าล่ม
+    const got=await Promise.all(runs.map(r=>
+      getJSON('/api/runs/'+encodeURIComponent(r)+'/metrics').then(m=>({r:r,m:m})).catch(()=>null)));
+    const failed=runs.filter((r,i)=>!got[i]);
+    const ok=got.filter(Boolean);
+    runs=ok.map(x=>x.r); metricsList=ok.map(x=>x.m);
+    renderChips(runs);
+    if(failed.length){ warn=(warn?warn+' · ':'')+'โหลด metrics ไม่ได้: '+failed.join(', '); }
+    if(runs.length<2){
+      $('#content').innerHTML='<section class="card"><div class="needmore">'+warnBox(warn)+
+        'มี run ใช้ได้ < 2 — เลือกเพิ่มอย่างน้อย <b>2 run</b></div></section>';
+      return;
+    }
     configs=await Promise.all(runs.map(r=>getJSON('/api/runs/'+encodeURIComponent(r)+'/config').catch(()=>({exists:false}))));
   }catch(e){
     $('#content').innerHTML='<section class="card"><div class="needmore">โหลดข้อมูลไม่ได้: '+esc(e.message)+'</div></section>';
@@ -369,6 +394,7 @@ function renderChips(runs){
   let chartMode='pct', showAllCfg=false;
   function render(){
     $('#content').innerHTML=
+      warnBox(warn)+
       '<section class="card"><div class="hd"><div><div class="eyebrow">Equity curve</div>'+
         '<h2>เส้นทุน<span class="info" data-calc="เรียงตามเวลาปิดไม้ (exit time) · เริ่มทุน $1000 · บวก pnl สะสมทีละไม้. %profit = (ทุน − 1000) ÷ 1000 × 100. แกน X เป็นเวลาจริง map เชิงเส้น — grid ห่างเท่ากันคงที่ ไม่ยืด/หดตามจำนวนไม้ · ทุก run วางบนแกนเวลาเดียวกัน (จุดเวลาเดียวกันตรงกัน) · ช่วงไม่มีไม้ เส้นจะแบน. สลับ %/USD ที่ปุ่มขวา.">i</span></h2></div>'+
         '<div class="toggle" id="modeTg"><button class="'+(chartMode==='pct'?'on':'')+'" data-m="pct">%</button>'+

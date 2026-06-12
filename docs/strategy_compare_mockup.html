@@ -1,0 +1,330 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Strategy Compare — mockup</title>
+<style>
+  :root{
+    --ink:#0E0F13; --panel:#15171D; --panel2:#1B1E26; --raise:#21242D;
+    --line:#23262E; --line2:#2F333E;
+    --text:#E6E8EC; --muted:#8A8F9C; --dim:#5B606C;
+    --gold:#E8B14C; --teal:#2DB39A; --blue:#7FA7D6;
+    --up:#2DB39A; --down:#E5564E; --glow:rgba(232,177,76,.14);
+    --sans:system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Thai",sans-serif;
+    --mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box} html,body{margin:0}
+  body{background:radial-gradient(900px 500px at 82% -8%,var(--glow),transparent 60%),var(--ink);
+    color:var(--text);font-family:var(--sans);font-size:14px;line-height:1.5;min-height:100vh}
+  .wrap{max-width:1180px;margin:0 auto;padding:22px 22px 60px}
+  header{display:flex;align-items:center;justify-content:space-between;padding:6px 2px 18px}
+  .brand{display:flex;align-items:center;gap:12px}
+  .mark{width:34px;height:34px;border-radius:8px;display:grid;place-items:center;background:linear-gradient(150deg,#2a2410,#1a1c24);border:1px solid #6f5a2e;color:var(--gold);font-family:var(--mono);font-weight:700;font-size:13px}
+  .brand h1{font-size:15px;margin:0;font-weight:600}
+  .brand .sub{font-family:var(--mono);font-size:11px;color:var(--dim)}
+
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;margin-bottom:16px;overflow:hidden}
+  .hd{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--line);background:var(--panel2)}
+  .eyebrow{font-family:var(--mono);font-size:10.5px;letter-spacing:1.6px;color:var(--gold);text-transform:uppercase}
+  .hd h2{margin:2px 0 0;font-size:14px;font-weight:600;display:flex;align-items:center}
+  .body{padding:16px}
+
+  /* run chips */
+  .chips{display:flex;gap:10px;flex-wrap:wrap}
+  .chip{display:flex;flex-direction:column;gap:4px;border:1px solid var(--line2);border-radius:11px;padding:10px 12px;min-width:210px;position:relative}
+  .chip.a{border-color:rgba(232,177,76,.4)} .chip.b{border-color:rgba(45,179,154,.4)} .chip.c{border-color:rgba(127,167,214,.4)}
+  .chip .nm{font-family:var(--mono);font-size:11.5px;color:var(--text)}
+  .chip .meta{font-family:var(--mono);font-size:10px;color:var(--muted)}
+  .chip .dot{width:9px;height:9px;border-radius:50%;position:absolute;top:12px;right:30px}
+  .chip.a .dot{background:var(--gold)} .chip.b .dot{background:var(--teal)} .chip.c .dot{background:var(--blue)}
+  .chip .x{position:absolute;top:8px;right:9px;color:var(--dim);cursor:pointer;font-family:var(--mono)}
+  .chip.add{align-items:center;justify-content:center;color:var(--dim);border-style:dashed;cursor:pointer;min-width:120px;font-family:var(--mono);font-size:12px}
+
+  /* equity chart */
+  .legend{display:flex;gap:16px;margin-bottom:8px;flex-wrap:wrap}
+  .lg{display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:11.5px;color:var(--muted)}
+  .lg i{width:14px;height:3px;border-radius:2px;display:inline-block}
+  .toggle{display:flex;background:var(--panel2);border:1px solid var(--line2);border-radius:8px;padding:2px;gap:2px}
+  .toggle button{border:0;background:transparent;color:var(--muted);cursor:pointer;font-family:var(--mono);font-size:11px;padding:5px 11px;border-radius:6px}
+  .toggle button.on{background:var(--raise);color:var(--gold)}
+
+  /* metrics table */
+  .tscroll{overflow-x:auto}
+  table{width:100%;border-collapse:collapse;font-size:13px;min-width:560px}
+  th,td{text-align:right;padding:9px 14px;border-bottom:1px solid var(--line);vertical-align:top;white-space:nowrap}
+  th:first-child,td:first-child{text-align:left;position:sticky;left:0;background:var(--panel)}
+  thead th:first-child{background:var(--panel2)}
+  thead th{font-family:var(--mono);font-size:11px;color:var(--muted);font-weight:500;background:var(--panel2)}
+  thead th.a{color:var(--gold)} thead th.b{color:var(--teal)} thead th.c{color:var(--blue)}
+  .grp td{font-family:var(--mono);font-size:10px;letter-spacing:1.2px;text-transform:uppercase;color:var(--dim);background:var(--panel2);padding:6px 14px}
+  .grp td:first-child{background:var(--panel2)}
+  .mname{color:var(--text)} .mname small{color:var(--dim);font-size:10px;display:block;font-family:var(--sans)}
+  td.val{font-family:var(--mono);color:var(--muted)}
+  td.val b{color:var(--text);font-weight:600}
+  td.val .sub2{color:var(--dim);font-weight:400;font-size:11px}
+  td.best b{color:var(--gold)} td.best{position:relative}
+  td.best::after{content:"\2605";color:var(--gold);font-size:9px;position:absolute;top:6px;right:4px}
+  .pos{color:var(--up)!important} .neg{color:var(--down)!important}
+
+  /* config diff */
+  .diffkey{font-family:var(--mono);font-size:11.5px;color:var(--text)}
+  .diffkey small{color:var(--dim);font-size:10px;font-family:var(--sans);display:block}
+  td.cfg{font-family:var(--mono);font-size:12px;color:var(--muted)}
+  td.cfg.diff{color:var(--gold);background:rgba(232,177,76,.06)}
+  .note{margin-top:8px;font-size:11px;color:var(--dim);text-align:center;font-family:var(--mono)}
+
+  /* info icon + calc popover */
+  .info{display:inline-grid;place-items:center;width:13px;height:13px;border:1px solid var(--line2);
+    border-radius:50%;color:var(--dim);font-family:var(--mono);font-size:8.5px;font-style:italic;
+    line-height:1;cursor:pointer;vertical-align:middle;margin-left:5px;opacity:.5;
+    transition:opacity .12s,color .12s,border-color .12s,background .12s;user-select:none}
+  .info:hover{opacity:1;color:var(--gold);border-color:var(--gold)}
+  .info.act{opacity:1;color:var(--gold);border-color:var(--gold);background:rgba(232,177,76,.12)}
+  .hd .info{margin-left:7px;width:14px;height:14px;font-size:9px}
+  #calcpop{position:absolute;display:none;max-width:312px;background:var(--raise);
+    border:1px solid var(--line2);border-radius:10px;padding:11px 13px;font-size:11.5px;
+    line-height:1.6;color:var(--text);box-shadow:0 10px 30px rgba(0,0,0,.55);z-index:50;font-family:var(--sans)}
+  #calcpop .eb{display:block;font-family:var(--mono);font-size:9px;letter-spacing:1.5px;
+    text-transform:uppercase;color:var(--gold);margin-bottom:6px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand"><div class="mark">VS</div>
+      <div><h1>Strategy Compare</h1><div class="sub">เปรียบเทียบกลยุทธ์ · สูงสุด 10 run</div></div></div>
+  </header>
+
+  <!-- run selector -->
+  <section class="card"><div class="body">
+    <div class="chips">
+      <div class="chip a"><span class="dot"></span><span class="x">✕</span>
+        <span class="nm">mairuay_v204_m1_correct</span>
+        <span class="meta">M1 · correct · 09/06/26</span></div>
+      <div class="chip b"><span class="dot"></span><span class="x">✕</span>
+        <span class="nm">mairuay_v205_m1_correct</span>
+        <span class="meta">M1 · correct · 09/06/26</span></div>
+      <div class="chip c"><span class="dot"></span><span class="x">✕</span>
+        <span class="nm">mairuay_v203_m1_correct</span>
+        <span class="meta">M1 · correct · 09/06/26</span></div>
+      <div class="chip add">+ เพิ่ม run</div>
+    </div>
+  </div></section>
+
+  <!-- equity curve -->
+  <section class="card">
+    <div class="hd"><div><div class="eyebrow">Equity curve</div>
+      <h2>เส้นทุน (%profit)<span class="info" data-calc="เรียงตามเวลาปิดไม้ (exit time) · เริ่มทุน $1000 · บวก pnl สะสมทีละไม้. %profit = (ทุน − 1000) ÷ 1000 × 100. แกน X เป็นเวลาจริง map เชิงเส้น — grid ห่างเท่ากันคงที่ ไม่ยืด/หดตามจำนวนไม้ · ทุก run วางบนแกนเวลาเดียวกัน (จุดเวลาเดียวกันตรงกัน) · ช่วงไม่มีไม้ เส้นจะแบน. สลับ %/USD ที่ปุ่มขวา.">i</span></h2></div>
+      <div class="toggle"><button class="on">%</button><button>USD</button></div></div>
+    <div class="body">
+      <div class="legend">
+        <span class="lg"><i style="background:var(--gold)"></i> v204_m1 · +462%</span>
+        <span class="lg"><i style="background:var(--teal)"></i> v205_m1 · +508%</span>
+        <span class="lg"><i style="background:var(--blue)"></i> v203_m1 · +398%</span>
+      </div>
+      <svg viewBox="0 0 1080 330" style="width:100%;height:auto" font-family="monospace">
+        <!-- Y gridlines (ทุก 100%) -->
+        <g stroke="var(--line2)" stroke-width="1" stroke-dasharray="2 5">
+          <line x1="56" y1="39"  x2="1064" y2="39"/>
+          <line x1="56" y1="85"  x2="1064" y2="85"/>
+          <line x1="56" y1="132" x2="1064" y2="132"/>
+          <line x1="56" y1="178" x2="1064" y2="178"/>
+          <line x1="56" y1="224" x2="1064" y2="224"/>
+        </g>
+        <!-- X gridlines (วันละเส้น · ห่างเท่ากันคงที่) -->
+        <g stroke="var(--line)" stroke-width="1" stroke-dasharray="2 6">
+          <line x1="310" y1="16" x2="310" y2="270"/>
+          <line x1="562" y1="16" x2="562" y2="270"/>
+          <line x1="814" y1="16" x2="814" y2="270"/>
+        </g>
+        <!-- baseline 0% -->
+        <line x1="56" y1="270" x2="1064" y2="270" stroke="var(--line)" stroke-width="1.5"/>
+        <!-- Y labels -->
+        <g fill="var(--dim)" font-size="10.5" text-anchor="end">
+          <text x="48" y="43">+500%</text>
+          <text x="48" y="89">+400%</text>
+          <text x="48" y="136">+300%</text>
+          <text x="48" y="182">+200%</text>
+          <text x="48" y="228">+100%</text>
+          <text x="48" y="274">0%</text>
+        </g>
+        <!-- Y axis title -->
+        <text x="15" y="150" fill="var(--muted)" font-size="10.5" text-anchor="middle" transform="rotate(-90 15 150)">%profit สะสม (ทุนตั้งต้น $1000)</text>
+        <!-- X ticks (วันเดือนปี · ห่างเท่ากัน) -->
+        <g fill="var(--dim)" font-size="10">
+          <text x="56"   y="288" text-anchor="start">09/06/26</text>
+          <text x="310"  y="288" text-anchor="middle">10/06/26</text>
+          <text x="562"  y="288" text-anchor="middle">11/06/26</text>
+          <text x="814"  y="288" text-anchor="middle">12/06/26</text>
+          <text x="1064" y="288" text-anchor="end">13/06/26</text>
+        </g>
+        <!-- X axis title -->
+        <text x="560" y="312" fill="var(--muted)" font-size="10.5" text-anchor="middle">วันที่ · แกนเวลาจริง (grid ห่างเท่ากัน) · ทุก run ใช้แกนเวลาเดียวกัน</text>
+        <!-- curves (step) -->
+        <polyline fill="none" stroke="var(--gold)" stroke-width="2"
+          points="56,270 104,270 104,251 150,251 150,228 212,228 212,238 286,238 286,201 340,201 340,210 402,210 402,171 478,171 478,155 548,155 548,132 690,132 690,121 858,121 858,104 980,104 980,71 1064,71 1064,57"/>
+        <polyline fill="none" stroke="var(--teal)" stroke-width="2"
+          points="56,270 120,270 120,255 260,255 260,233 300,233 300,239 420,239 420,196 520,196 520,164 600,164 600,150 660,150 660,157 720,157 720,118 820,118 820,90 900,90 900,53 980,53 980,60 1064,60 1064,35"/>
+        <polyline fill="none" stroke="var(--blue)" stroke-width="2"
+          points="56,270 160,270 160,254 260,254 260,256 380,256 380,219 470,219 470,201 560,201 560,205 680,205 680,164 780,164 780,150 880,150 880,118 980,118 980,104 1064,104 1064,86"/>
+      </svg>
+      <div class="note" style="text-align:left;margin-top:10px">แกน X = เวลาจริง · เส้น grid แนวตั้งห่างเท่ากันทุกวัน (คงที่) · ทุก run วางบนแกนเวลาเดียวกัน ไม่ยืด/หดตามจำนวนไม้ — ไม้เยอะ/น้อย = ความถี่ที่เส้นหักมุมต่างกัน · ช่วงไม่มีไม้ = เส้นแบน</div>
+    </div>
+  </section>
+
+  <!-- metrics table -->
+  <section class="card">
+    <div class="hd"><div><div class="eyebrow">Metrics</div>
+      <h2>เมตริกเทียบ<span class="info" data-calc="ทุกค่าคิดจากทุนตั้งต้นคงที่ $1000 ไม่ทบต้น. แต่ละคอลัมน์ = 1 run (สูงสุด 10 · ตารางเลื่อนแนวนอนได้). กด ⓘ ท้ายแต่ละแถวเพื่อดูวิธีคิด. ★ = ดีที่สุดในแถว.">i</span></h2></div></div>
+    <div class="tscroll">
+    <table>
+      <thead><tr><th>เมตริก</th><th class="a">v204_m1</th><th class="b">v205_m1</th><th class="c">v203_m1</th></tr></thead>
+      <tbody>
+        <!-- 1. Win rate -->
+        <tr class="grp"><td colspan="4">Win rate</td></tr>
+        <tr><td class="mname">WR ต่อ order <span class="info" data-calc="ไม้ที่ pnl>0 ÷ จำนวนไม้ทั้งหมด.">i</span><small>ทุกไม้ (trades.csv)</small></td>
+          <td class="val"><b>57.31%</b></td><td class="val best"><b>58.20%</b></td><td class="val"><b>55.40%</b></td></tr>
+        <tr><td class="mname">WR ต่อ แผน <span class="info" data-calc="แผนที่ net>0 ÷ จำนวนแผน. ชนะแผน = pnl รวมทุกไม้ในแผนนั้น > 0.">i</span><small>ต่อแผน (plans.csv)</small></td>
+          <td class="val"><b>61.4%</b></td><td class="val best"><b>63.0%</b></td><td class="val"><b>59.8%</b></td></tr>
+
+        <!-- 2. ขนาด -->
+        <tr class="grp"><td colspan="4">ขนาด</td></tr>
+        <tr><td class="mname">จำนวนไม้<span class="info" data-calc="นับ order ทั้งหมดใน trades.csv.">i</span></td>
+          <td class="val"><b>595</b></td><td class="val"><b>655</b></td><td class="val"><b>540</b></td></tr>
+        <tr><td class="mname">จำนวนแผน<span class="info" data-calc="นับ plan_id ไม่ซ้ำใน plans.csv (1 แผน = 1 setup ที่ fill).">i</span></td>
+          <td class="val"><b>281</b></td><td class="val"><b>309</b></td><td class="val"><b>262</b></td></tr>
+
+        <!-- 3. ผลตอบแทน -->
+        <tr class="grp"><td colspan="4">ผลตอบแทน</td></tr>
+        <tr><td class="mname">Net profit (USD)<span class="info" data-calc="Σ pnl ของทุกไม้ใน trades.csv (หน่วย USD).">i</span></td>
+          <td class="val"><b class="pos">+4,618$</b></td><td class="val best"><b class="pos">+5,082$</b></td><td class="val"><b class="pos">+3,980$</b></td></tr>
+        <tr><td class="mname">Net %<span class="info" data-calc="Net USD ÷ 1000 × 100. ทุนตั้งต้นคงที่ $1000 ไม่ทบต้น.">i</span></td>
+          <td class="val"><b class="pos">+462%</b></td><td class="val best"><b class="pos">+508%</b></td><td class="val"><b class="pos">+398%</b></td></tr>
+        <tr><td class="mname">Profit factor<span class="info" data-calc="Σกำไร(ไม้ที่ pnl>0) ÷ |Σขาดทุน(ไม้ที่ pnl<0)|. ถ้าไม่มีไม้แพ้เลย = ∞ (cap).">i</span></td>
+          <td class="val"><b>1.42</b></td><td class="val best"><b>1.51</b></td><td class="val"><b>1.36</b></td></tr>
+        <tr><td class="mname">Expectancy <span class="info" data-calc="Net ÷ จำนวนไม้ = กำไรคาดหวังต่อ 1 ไม้.">i</span><small>กำไรเฉลี่ย/ไม้</small></td>
+          <td class="val"><b>+7.76$</b></td><td class="val best"><b>+7.76$</b></td><td class="val"><b>+7.37$</b></td></tr>
+        <tr><td class="mname">Recovery factor <span class="info" data-calc="Net ÷ Max DD (USD). ยิ่งสูง = ฟื้นจากจุดถอยได้คุ้ม. ถ้า DD=0 = ∞ (cap).">i</span><small>net ÷ maxDD</small></td>
+          <td class="val best"><b>7.5</b></td><td class="val"><b>6.0</b></td><td class="val"><b>6.9</b></td></tr>
+
+        <!-- 4. ความเสี่ยง / ผลตอบแทน -->
+        <tr class="grp"><td colspan="4">ความเสี่ยง / ผลตอบแทน</td></tr>
+        <tr><td class="mname">Max drawdown (USD)<span class="info" data-calc="ระยะถอยลงมากสุดจากยอด = max(peak − equity) ตลอดเส้นทุน.">i</span></td>
+          <td class="val"><b class="neg">−612$</b></td><td class="val"><b class="neg">−840$</b></td><td class="val best"><b class="neg">−577$</b></td></tr>
+        <tr><td class="mname">Max drawdown %<span class="info" data-calc="Max DD USD ÷ 1000 × 100.">i</span></td>
+          <td class="val"><b class="neg">−61.2%</b></td><td class="val"><b class="neg">−84.0%</b></td><td class="val best"><b class="neg">−57.7%</b></td></tr>
+        <tr><td class="mname">Max runup (USD)<span class="info" data-calc="ระยะวิ่งขึ้นมากสุดจากก้นล่าสุด = max(equity − ก้นต่ำสุดก่อนหน้า). เทียบกับ Max DD ที่เป็นฝั่งถอย.">i</span></td>
+          <td class="val"><b class="pos">+5,180$</b></td><td class="val best"><b class="pos">+5,690$</b></td><td class="val"><b class="pos">+4,460$</b></td></tr>
+        <tr><td class="mname">Max runup %<span class="info" data-calc="Max runup USD ÷ 1000 × 100.">i</span></td>
+          <td class="val"><b class="pos">+518%</b></td><td class="val best"><b class="pos">+569%</b></td><td class="val"><b class="pos">+446%</b></td></tr>
+
+        <!-- 5. จุดสูงสุดของทุน -->
+        <tr class="grp"><td colspan="4">จุดสูงสุดของทุน</td></tr>
+        <tr><td class="mname">Peak profit (USD)<span class="info" data-calc="ยอดสูงสุดที่เส้นทุนเคยไปถึง − 1000. = กำไรสูงสุดเทียบทุนตั้งต้น.">i</span></td>
+          <td class="val"><b class="pos">+4,950$</b></td><td class="val best"><b class="pos">+5,460$</b></td><td class="val"><b class="pos">+4,210$</b></td></tr>
+        <tr><td class="mname">Peak profit %<span class="info" data-calc="Peak profit USD ÷ 1000 × 100.">i</span></td>
+          <td class="val"><b class="pos">+495%</b></td><td class="val best"><b class="pos">+546%</b></td><td class="val"><b class="pos">+421%</b></td></tr>
+
+        <!-- 6. สตรีค (ไม้ · แผน) -->
+        <tr class="grp"><td colspan="4">สตรีค (ไม้ · แผน)</td></tr>
+        <tr><td class="mname">ชนะติดกันสูงสุด<span class="info" data-calc="run ชนะที่ยาวที่สุด. เจอไม้ที่ไม่ชนะ (pnl ≤ 0) ตัดสตรีคทันที. คิดทั้งต่อไม้ (order) และต่อแผน (net แผน).">i</span></td>
+          <td class="val"><b>4</b> <span class="sub2">ไม้ · 3 แผน</span></td>
+          <td class="val best"><b>5</b> <span class="sub2">ไม้ · 4 แผน</span></td>
+          <td class="val"><b>4</b> <span class="sub2">ไม้ · 3 แผน</span></td></tr>
+        <tr><td class="mname">แพ้ติดกันสูงสุด<span class="info" data-calc="run แพ้ที่ยาวที่สุด. เจอไม้ที่ไม่แพ้ (pnl ≥ 0) ตัดสตรีคทันที. คิดทั้งต่อไม้และต่อแผน.">i</span></td>
+          <td class="val"><b>5</b> <span class="sub2">ไม้ · 4 แผน</span></td>
+          <td class="val"><b>6</b> <span class="sub2">ไม้ · 4 แผน</span></td>
+          <td class="val best"><b>4</b> <span class="sub2">ไม้ · 3 แผน</span></td></tr>
+        <tr><td class="mname">ชนะติดกันสะสม<span class="info" data-calc="tally วิ่ง: ชนะ +1, แพ้ −1, เสมอ(pnl=0) ไม่เปลี่ยน, ไม่ต่ำกว่า 0 (แตะ 0 = รีเซ็ต) → เก็บค่าสูงสุดที่เคยขึ้นถึง. คิดทั้งต่อไม้และต่อแผน. (เวอร์ชันตัวเงิน = Max runup ด้านบน)">i</span></td>
+          <td class="val"><b>6</b> <span class="sub2">ไม้ · 5 แผน</span></td>
+          <td class="val best"><b>7</b> <span class="sub2">ไม้ · 5 แผน</span></td>
+          <td class="val"><b>5</b> <span class="sub2">ไม้ · 4 แผน</span></td></tr>
+        <tr><td class="mname">แพ้ติดกันสะสม<span class="info" data-calc="tally วิ่ง: แพ้ +1, ชนะ −1, เสมอ(pnl=0) ไม่เปลี่ยน, ไม่ต่ำกว่า 0 (แตะ 0 = รีเซ็ต) → เก็บค่าสูงสุด. คิดทั้งต่อไม้และต่อแผน. (เวอร์ชันตัวเงิน = Max drawdown ด้านบน)">i</span></td>
+          <td class="val"><b>6</b> <span class="sub2">ไม้ · 5 แผน</span></td>
+          <td class="val"><b>8</b> <span class="sub2">ไม้ · 6 แผน</span></td>
+          <td class="val best"><b>5</b> <span class="sub2">ไม้ · 4 แผน</span></td></tr>
+
+        <!-- 7. ไม้เดี่ยว -->
+        <tr class="grp"><td colspan="4">ไม้เดี่ยว</td></tr>
+        <tr><td class="mname">ไม้กำไรหนักสุด<span class="info" data-calc="max(pnl) ของไม้เดียว. % = pnl ÷ 1000 × 100.">i</span></td>
+          <td class="val"><b class="pos">+102$</b> <span class="sub2">+10.2%</span></td>
+          <td class="val best"><b class="pos">+118$</b> <span class="sub2">+11.8%</span></td>
+          <td class="val"><b class="pos">+95$</b> <span class="sub2">+9.5%</span></td></tr>
+        <tr><td class="mname">ไม้ขาดทุนหนักสุด<span class="info" data-calc="min(pnl) ของไม้เดียว. % = pnl ÷ 1000 × 100.">i</span></td>
+          <td class="val"><b class="neg">−84$</b> <span class="sub2">−8.4%</span></td>
+          <td class="val"><b class="neg">−97$</b> <span class="sub2">−9.7%</span></td>
+          <td class="val best"><b class="neg">−78$</b> <span class="sub2">−7.8%</span></td></tr>
+      </tbody>
+    </table>
+    </div>
+  </section>
+
+  <!-- config diff -->
+  <section class="card">
+    <div class="hd"><div><div class="eyebrow">Config diff</div>
+      <h2>ค่าที่ตั้งต่างกัน<span class="info" data-calc="เทียบ YAML config ของทุก run ทีละ key. ช่องไฮไลต์ทอง = ค่าที่ต่างจาก run อื่น. key ที่ทุก run เท่ากันซ่อนได้.">i</span></h2></div>
+      <div class="meta" style="font-family:var(--mono);font-size:11px;color:var(--dim)">โชว์เฉพาะที่ต่าง</div></div>
+    <div class="tscroll">
+    <table>
+      <thead><tr><th>ค่า</th><th class="a">v204_m1</th><th class="b">v205_m1</th><th class="c">v203_m1</th></tr></thead>
+      <tbody>
+        <tr><td class="diffkey">father.combined_body_min_pct <small>เนื้อพ่อรวมขั้นต่ำ %R55</small></td><td class="cfg">60</td><td class="cfg diff">65</td><td class="cfg">60</td></tr>
+        <tr><td class="diffkey">pending.proximity_cancel_enabled <small>ยกเลิกเมื่อใกล้ TP</small></td><td class="cfg">true</td><td class="cfg diff">false</td><td class="cfg">true</td></tr>
+        <tr><td class="diffkey">mother.max_pct <small>แม่ขนาดสูงสุด %R55</small></td><td class="cfg">25</td><td class="cfg diff">30</td><td class="cfg">25</td></tr>
+        <tr><td class="diffkey">lot.father_double_enabled <small>เพิ่ม lot เมื่อพ่อ &gt;90%</small></td><td class="cfg">true</td><td class="cfg">true</td><td class="cfg">true</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <div class="note">ช่องไฮไลต์ทอง = ค่าต่างจาก run อื่น · key ที่ทุก run เท่ากันซ่อนได้</div>
+  </section>
+
+  <div class="note">mockup — ปุ่ม/ค่ายังไม่ทำงานจริง · ★ = ดีที่สุดในแถวนั้น · กด ⓘ ดูวิธีคิดแต่ละค่า</div>
+</div>
+
+<div id="calcpop"><span class="eb">วิธีคิด</span><span id="calcbody"></span></div>
+
+<script>
+  var pop  = document.getElementById('calcpop');
+  var body = document.getElementById('calcbody');
+  var owner = null;
+
+  function hide(){
+    pop.style.display='none';
+    if(owner){ owner.classList.remove('act'); owner=null; }
+  }
+  function show(el){
+    body.textContent = el.getAttribute('data-calc') || '';
+    pop.style.display='block';
+    if(owner) owner.classList.remove('act');
+    owner = el; el.classList.add('act');
+    var r = el.getBoundingClientRect();
+    var pr = pop.getBoundingClientRect();
+    var vw = document.documentElement.clientWidth;
+    var left = r.left + window.scrollX;
+    var top  = r.bottom + window.scrollY + 7;
+    if(left + pr.width > window.scrollX + vw - 12)
+      left = window.scrollX + vw - pr.width - 12;
+    if(left < window.scrollX + 8) left = window.scrollX + 8;
+    pop.style.left = left + 'px';
+    pop.style.top  = top + 'px';
+  }
+
+  document.querySelectorAll('.info').forEach(function(el){
+    el.setAttribute('tabindex','0');
+    el.setAttribute('aria-label','ดูวิธีคิด');
+    el.addEventListener('click', function(e){
+      e.stopPropagation();
+      if(owner === el){ hide(); return; }
+      show(el);
+    });
+    el.addEventListener('keydown', function(e){
+      if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); (owner===el)?hide():show(el); }
+    });
+  });
+  document.addEventListener('click', hide);
+  pop.addEventListener('click', function(e){ e.stopPropagation(); });
+  window.addEventListener('keydown', function(e){ if(e.key === 'Escape') hide(); });
+</script>
+</body>
+</html>
