@@ -1,0 +1,396 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Strategy Compare</title>
+<style>
+  :root{
+    --ink:#0E0F13; --panel:#15171D; --panel2:#1B1E26; --raise:#21242D;
+    --line:#23262E; --line2:#2F333E;
+    --text:#E6E8EC; --muted:#8A8F9C; --dim:#5B606C;
+    --gold:#E8B14C; --teal:#2DB39A; --blue:#7FA7D6; --glow:rgba(232,177,76,.14);
+    --up:#2DB39A; --down:#E5564E;
+    --sans:system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Thai",sans-serif;
+    --mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box} html,body{margin:0}
+  body{background:radial-gradient(900px 500px at 82% -8%,var(--glow),transparent 60%),var(--ink);
+    color:var(--text);font-family:var(--sans);font-size:14px;line-height:1.5;min-height:100vh}
+  .wrap{max-width:1180px;margin:0 auto;padding:22px 22px 60px}
+  header{display:flex;align-items:center;justify-content:space-between;padding:6px 2px 18px}
+  .brand{display:flex;align-items:center;gap:12px}
+  .mark{width:34px;height:34px;border-radius:8px;display:grid;place-items:center;background:linear-gradient(150deg,#2a2410,#1a1c24);border:1px solid #6f5a2e;color:var(--gold);font-family:var(--mono);font-weight:700;font-size:13px}
+  .brand h1{font-size:15px;margin:0;font-weight:600}
+  .brand .sub{font-family:var(--mono);font-size:11px;color:var(--dim)}
+  .back{font-family:var(--mono);font-size:11.5px;color:var(--dim);text-decoration:none}
+  .back:hover{color:var(--gold)}
+
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;margin-bottom:16px;overflow:hidden}
+  .hd{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--line);background:var(--panel2)}
+  .eyebrow{font-family:var(--mono);font-size:10.5px;letter-spacing:1.6px;color:var(--gold);text-transform:uppercase}
+  .hd h2{margin:2px 0 0;font-size:14px;font-weight:600;display:flex;align-items:center}
+  .hd .meta{font-family:var(--mono);font-size:11px;color:var(--dim)}
+  .body{padding:16px}
+
+  .chips{display:flex;gap:10px;flex-wrap:wrap}
+  .chip{display:flex;flex-direction:column;gap:4px;border:1px solid var(--line2);border-radius:11px;padding:10px 26px 10px 12px;min-width:200px;position:relative}
+  .chip .nm{font-family:var(--mono);font-size:11.5px;color:var(--text)}
+  .chip .meta{font-family:var(--mono);font-size:10px;color:var(--muted)}
+  .chip .dot{width:9px;height:9px;border-radius:50%;position:absolute;top:12px;right:28px}
+  .chip .x{position:absolute;top:7px;right:9px;color:var(--dim);cursor:pointer;font-family:var(--mono);font-size:12px}
+  .chip .x:hover{color:var(--down)}
+  .chip.add{align-items:center;justify-content:center;color:var(--dim);border-style:dashed;cursor:pointer;min-width:120px;font-family:var(--mono);font-size:12px;padding:10px 12px}
+  .chip.add:hover{border-color:var(--gold);color:var(--gold)}
+  .picker{margin-top:12px;display:none;flex-wrap:wrap;gap:8px}
+  .picker.show{display:flex}
+  .pk{border:1px solid var(--line2);background:var(--panel2);border-radius:9px;padding:7px 11px;cursor:pointer;font-family:var(--mono);font-size:11.5px;color:var(--muted)}
+  .pk:hover{border-color:var(--gold);color:var(--gold)}
+  .pk[disabled]{opacity:.35;cursor:not-allowed}
+
+  .needmore{padding:28px 16px;text-align:center;color:var(--muted);font-family:var(--mono);font-size:13px}
+  .needmore b{color:var(--gold)}
+
+  .legend{display:flex;gap:16px;margin-bottom:8px;flex-wrap:wrap}
+  .lg{display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:11.5px;color:var(--muted)}
+  .lg i{width:14px;height:3px;border-radius:2px;display:inline-block}
+  .toggle{display:flex;background:var(--panel2);border:1px solid var(--line2);border-radius:8px;padding:2px;gap:2px}
+  .toggle button{border:0;background:transparent;color:var(--muted);cursor:pointer;font-family:var(--mono);font-size:11px;padding:5px 11px;border-radius:6px}
+  .toggle button.on{background:var(--raise);color:var(--gold)}
+  .note{margin-top:8px;font-size:11px;color:var(--dim);font-family:var(--mono)}
+
+  .tscroll{overflow-x:auto}
+  table{width:100%;border-collapse:collapse;font-size:13px;min-width:560px}
+  th,td{text-align:right;padding:9px 14px;border-bottom:1px solid var(--line);vertical-align:top;white-space:nowrap}
+  th:first-child,td:first-child{text-align:left;position:sticky;left:0;background:var(--panel)}
+  thead th:first-child{background:var(--panel2)}
+  thead th{font-family:var(--mono);font-size:11px;color:var(--muted);font-weight:500;background:var(--panel2)}
+  .grp td{font-family:var(--mono);font-size:10px;letter-spacing:1.2px;text-transform:uppercase;color:var(--dim);background:var(--panel2);padding:6px 14px}
+  .grp td:first-child{background:var(--panel2)}
+  .mname{color:var(--text)} .mname small{color:var(--dim);font-size:10px;display:block;font-family:var(--sans)}
+  td.val{font-family:var(--mono);color:var(--muted)}
+  td.val b{color:var(--text);font-weight:600}
+  td.val .sub2{color:var(--dim);font-weight:400;font-size:11px}
+  td.best b{color:var(--gold)} td.best{position:relative}
+  td.best::after{content:"\2605";color:var(--gold);font-size:9px;position:absolute;top:6px;right:4px}
+  .pos{color:var(--up)!important} .neg{color:var(--down)!important}
+
+  .diffkey{font-family:var(--mono);font-size:11.5px;color:var(--text)}
+  .diffkey small{color:var(--dim);font-size:10px;font-family:var(--sans);display:block}
+  td.cfg{font-family:var(--mono);font-size:12px;color:var(--muted)}
+  td.cfg.diff{color:var(--gold);background:rgba(232,177,76,.06)}
+
+  .info{display:inline-grid;place-items:center;width:13px;height:13px;border:1px solid var(--line2);
+    border-radius:50%;color:var(--dim);font-family:var(--mono);font-size:8.5px;font-style:italic;
+    line-height:1;cursor:pointer;vertical-align:middle;margin-left:5px;opacity:.5;
+    transition:opacity .12s,color .12s,border-color .12s,background .12s;user-select:none}
+  .info:hover{opacity:1;color:var(--gold);border-color:var(--gold)}
+  .info.act{opacity:1;color:var(--gold);border-color:var(--gold);background:rgba(232,177,76,.12)}
+  .hd .info{margin-left:7px;width:14px;height:14px;font-size:9px}
+  #calcpop{position:absolute;display:none;max-width:312px;background:var(--raise);
+    border:1px solid var(--line2);border-radius:10px;padding:11px 13px;font-size:11.5px;
+    line-height:1.6;color:var(--text);box-shadow:0 10px 30px rgba(0,0,0,.55);z-index:50;font-family:var(--sans)}
+  #calcpop .eb{display:block;font-family:var(--mono);font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--gold);margin-bottom:6px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand"><div class="mark">VS</div>
+      <div><h1>Strategy Compare</h1><div class="sub">เปรียบเทียบกลยุทธ์ · สูงสุด 10 run</div></div></div>
+    <a class="back" href="/">← กลับ console</a>
+  </header>
+
+  <section class="card"><div class="body">
+    <div class="chips" id="chips"></div>
+    <div class="picker" id="picker"></div>
+  </div></section>
+
+  <div id="content"></div>
+</div>
+
+<div id="calcpop"><span class="eb">วิธีคิด</span><span id="calcbody"></span></div>
+
+<script>
+const $=s=>document.querySelector(s), $$=s=>document.querySelectorAll(s);
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function escAttr(s){return esc(s).replace(/"/g,'&quot;');}
+async function getJSON(u){const r=await fetch(u);if(!r.ok){let e;try{e=(await r.json()).error}catch(_){}; throw new Error(e||(u+' → '+r.status));}return r.json();}
+
+const PALETTE=['#E8B14C','#2DB39A','#7FA7D6','#C78CE0','#E0995C','#E08CB4','#8CD98F','#5CC8E0','#D6C84C','#B0B6C2'];
+const MAX_RUNS=10;
+
+function urlRuns(){
+  const q=new URLSearchParams(location.search).get('runs')||'';
+  const seen={}, out=[];
+  q.split(',').map(s=>s.trim()).filter(Boolean).forEach(n=>{ if(!seen[n]){seen[n]=1;out.push(n);} });
+  return out.slice(0,MAX_RUNS);
+}
+function navTo(runs){ location.search = runs.length? ('?runs='+runs.map(encodeURIComponent).join(',')) : ''; }
+
+// ---------- formatters ----------
+function nfUSD(v){
+  if(v==null) return '—';
+  const a=Math.abs(v), sign=v<0?'−':'+';
+  const num = a<100 ? a.toFixed(2) : Math.round(a).toLocaleString('en-US');
+  return sign+num+'$';
+}
+function nfPct(v){
+  if(v==null) return '—';
+  const a=Math.abs(v), sign=v<0?'−':'+';
+  return sign+(a<100? a.toFixed(1): Math.round(a).toLocaleString('en-US'))+'%';
+}
+function nfRatio(v){ return v==null? '∞' : (Math.round(v*100)/100).toString(); }
+function nfCount(v){ return v==null? '—' : Number(v).toLocaleString('en-US'); }
+
+// ---------- cell value (display + compare number) ----------
+function cellOf(key, def, m){
+  const fmt=def.fmt;
+  if(m[key+'_order']!==undefined){           // streak: "X ไม้ · Y แผน"
+    const o=m[key+'_order'], p=m[key+'_plan'];
+    return {html:'<b>'+nfCount(o)+'</b> <span class="sub2">ไม้ · '+nfCount(p)+' แผน</span>', cmp:o};
+  }
+  if(m[key+'_usd']!==undefined){             // biggest: "usd · %"
+    const u=m[key+'_usd'], pc=m[key+'_pct'], cls=(u!=null&&u<0)?'neg':'pos';
+    return {html:'<b class="'+cls+'">'+nfUSD(u)+'</b> <span class="sub2">'+nfPct(pc)+'</span>', cmp:u};
+  }
+  const v=m[key];
+  let html, cmp=(v==null)?null:v;
+  if(fmt==='usd'){ const cls=(v!=null&&v<0)?'neg':'pos'; html='<b class="'+cls+'">'+nfUSD(v)+'</b>'; }
+  else if(fmt==='pct'){ const cls=(v!=null&&v<0)?'neg':'pos'; html='<b class="'+cls+'">'+nfPct(v)+'</b>'; }
+  else if(fmt==='ratio'){ html='<b>'+nfRatio(v)+'</b>'; if(v==null)cmp=Infinity; }  // ∞ = ดีสุด (max)
+  else { html='<b>'+nfCount(v)+'</b>'; }
+  return {html:html, cmp:cmp};
+}
+
+// ---------- metrics table ----------
+function buildTable(defs, runs, metricsList){
+  const order = Object.keys(defs).sort((a,b)=>defs[a].order-defs[b].order);
+  let html='<div class="tscroll"><table><thead><tr><th>เมตริก</th>';
+  runs.forEach((r,i)=>{ html+='<th style="color:'+PALETTE[i]+'">'+esc(r)+'</th>'; });
+  html+='</tr></thead><tbody>';
+  let curGroup=null;
+  order.forEach(key=>{
+    const def=defs[key];
+    if(def.group!==curGroup){ curGroup=def.group;
+      html+='<tr class="grp"><td colspan="'+(runs.length+1)+'">'+esc(curGroup)+'</td></tr>'; }
+    // compute cells + best
+    const cells=metricsList.map(m=>cellOf(key,def,m));
+    let best=null;
+    if(def.direction!=='none'){
+      const valid=cells.map(c=>c.cmp).filter(c=>c!=null);
+      if(valid.length){ best = def.direction==='max'? Math.max.apply(null,valid) : Math.min.apply(null,valid); }
+    }
+    html+='<tr><td class="mname">'+esc(def.label_th)+
+      ' <span class="info" data-calc="'+escAttr(def.calc_th)+'">i</span></td>';
+    cells.forEach(c=>{
+      const isBest = best!=null && c.cmp!=null && Math.abs(c.cmp-best)<1e-9;
+      html+='<td class="val'+(isBest?' best':'')+'">'+c.html+'</td>';
+    });
+    html+='</tr>';
+  });
+  html+='</tbody></table></div>';
+  return html;
+}
+
+// ---------- equity chart (SVG, real time axis, step) ----------
+function pad2(n){return String(n).padStart(2,'0');}
+function fmtDate(ms){const d=new Date(ms);return pad2(d.getUTCDate())+'/'+pad2(d.getUTCMonth()+1)+'/'+pad2(d.getUTCFullYear()%100);}
+function fmtHM(ms){const d=new Date(ms);return pad2(d.getUTCHours())+':'+pad2(d.getUTCMinutes());}
+function niceRange(lo,hi){
+  if(hi<=lo){hi=lo+1;}
+  const span=hi-lo, raw=span/5, mag=Math.pow(10,Math.floor(Math.log10(raw)));
+  const norm=raw/mag, step=(norm<=1?1:norm<=2?2:norm<=2.5?2.5:norm<=5?5:10)*mag;
+  const gLo=Math.floor(lo/step)*step, gHi=Math.ceil(hi/step)*step;
+  return [gLo,gHi,step];
+}
+function buildChart(runs, metricsList, mode){
+  const vKey = mode==='pct'?'equity_pct':'equity_usd';
+  let tMin=Infinity,tMax=-Infinity;
+  const series=metricsList.map((m,i)=>{
+    const pts=(m.equity_by_trade||[]).map(p=>({t:Date.parse(p.exit_time), v:p[vKey]}))
+              .filter(p=>!isNaN(p.t));
+    pts.forEach(p=>{ if(p.t<tMin)tMin=p.t; if(p.t>tMax)tMax=p.t; });
+    return {pts:pts, color:PALETTE[i], name:runs[i]};
+  });
+  if(!isFinite(tMin)) return '<div class="note">ไม่มีข้อมูลไม้</div>';
+  if(tMax<=tMin) tMax=tMin+1;
+  const base = mode==='pct'?0:1000;
+  let vMin=base, vMax=base;
+  series.forEach(s=>s.pts.forEach(p=>{ if(p.v<vMin)vMin=p.v; if(p.v>vMax)vMax=p.v; }));
+  const [gLo,gHi,step]=niceRange(vMin,vMax);
+
+  const W=1080,H=330,padL=64,padR=16,padT=16,padB=60;
+  const plotW=W-padL-padR, plotH=H-padT-padB;
+  const x=t=>padL+(t-tMin)/(tMax-tMin)*plotW;
+  const y=v=>padT+(gHi-v)/(gHi-gLo)*plotH;
+  const yBase=padT+plotH;
+
+  let svg='<svg viewBox="0 0 '+W+' '+H+'" style="width:100%;height:auto" font-family="monospace">';
+  // Y grid + labels
+  svg+='<g stroke="var(--line2)" stroke-width="1" stroke-dasharray="2 5">';
+  for(let g=gLo; g<=gHi+1e-9; g+=step){ const yy=y(g); svg+='<line x1="'+padL+'" y1="'+yy+'" x2="'+(W-padR)+'" y2="'+yy+'"/>'; }
+  svg+='</g>';
+  svg+='<g fill="var(--dim)" font-size="10.5" text-anchor="end">';
+  for(let g=gLo; g<=gHi+1e-9; g+=step){ const lab=mode==='pct'?nfPct(g):('$'+Math.round(g).toLocaleString('en-US')); svg+='<text x="'+(padL-8)+'" y="'+(y(g)+3.5)+'">'+lab+'</text>'; }
+  svg+='</g>';
+  // baseline (0% / $1000)
+  svg+='<line x1="'+padL+'" y1="'+y(base)+'" x2="'+(W-padR)+'" y2="'+y(base)+'" stroke="var(--line)" stroke-width="1.5"/>';
+  // X ticks (equal spacing) — label format auto by span
+  const span=tMax-tMin, dayMs=86400000;
+  const dateMode = span>=2*dayMs;
+  const nT=6;
+  svg+='<g stroke="var(--line)" stroke-width="1" stroke-dasharray="2 6">';
+  for(let i=1;i<nT-1;i++){ const xx=padL+i/(nT-1)*plotW; svg+='<line x1="'+xx+'" y1="'+padT+'" x2="'+xx+'" y2="'+yBase+'"/>'; }
+  svg+='</g><g fill="var(--dim)" font-size="10">';
+  for(let i=0;i<nT;i++){ const xx=padL+i/(nT-1)*plotW, t=tMin+i/(nT-1)*span;
+    const anc=i===0?'start':i===nT-1?'end':'middle';
+    svg+='<text x="'+xx+'" y="'+(yBase+18)+'" text-anchor="'+anc+'">'+(dateMode?fmtDate(t):fmtHM(t))+'</text>'; }
+  svg+='</g>';
+  // axis titles (2 ด้าน)
+  const ytitle = mode==='pct'?'%profit สะสม (ทุนตั้งต้น $1000)':'ทุน (USD · เริ่ม $1000)';
+  svg+='<text x="14" y="'+(padT+plotH/2)+'" fill="var(--muted)" font-size="10.5" text-anchor="middle" transform="rotate(-90 14 '+(padT+plotH/2)+')">'+ytitle+'</text>';
+  svg+='<text x="'+(W-padR)+'" y="'+(padT+plotH/2)+'" fill="var(--muted)" font-size="10.5" text-anchor="middle" transform="rotate(90 '+(W-padR)+' '+(padT+plotH/2)+')">'+ytitle+'</text>';
+  svg+='<text x="'+(padL+plotW/2)+'" y="'+(H-8)+'" fill="var(--muted)" font-size="10.5" text-anchor="middle">'+(dateMode?'วันที่':'เวลา')+' · แกนเวลาจริง · grid ห่างเท่ากัน · ทุก run แกนเวลาเดียวกัน</text>';
+  // curves (step)
+  series.forEach(s=>{
+    let pts=[[x(tMin),y(base)]]; let prev=base;
+    s.pts.forEach(p=>{ pts.push([x(p.t),y(prev)]); pts.push([x(p.t),y(p.v)]); prev=p.v; });
+    pts.push([x(tMax),y(prev)]);
+    const ptsStr=pts.map(p=>p[0].toFixed(1)+','+p[1].toFixed(1)).join(' ');
+    svg+='<polyline fill="none" stroke="'+s.color+'" stroke-width="2" points="'+ptsStr+'"/>';
+  });
+  svg+='</svg>';
+
+  // legend
+  let leg='<div class="legend">';
+  series.forEach(s=>{ const last=s.pts.length?s.pts[s.pts.length-1].v:base;
+    leg+='<span class="lg"><i style="background:'+s.color+'"></i> '+esc(s.name)+' · '+(mode==='pct'?nfPct(last):nfUSD(last))+'</span>'; });
+  leg+='</div>';
+  return leg+svg;
+}
+
+// ---------- config diff ----------
+function buildConfig(runs, configs, showAll){
+  const anyExist = configs.some(c=>c && c.exists);
+  if(!anyExist) return '<div class="note">ยังไม่มี config snapshot (config_used.yaml) ใน run ที่เลือก — run ใหม่ผ่าน console จะมีให้เทียบ</div>';
+  const labels = (configs.find(c=>c&&c.labels)||{}).labels||{};
+  // union keys
+  const keys={}; configs.forEach(c=>{ if(c&&c.values) Object.keys(c.values).forEach(k=>keys[k]=1); });
+  const allKeys=Object.keys(keys).sort();
+  const str=v=> v===true?'true': v===false?'false': v==null?'—': String(v);
+  let rows='';
+  allKeys.forEach(k=>{
+    const vals=configs.map(c=> (c&&c.values&&k in c.values)? c.values[k] : undefined);
+    const present=vals.filter(v=>v!==undefined).map(str);
+    const diff = new Set(present).size>1;
+    if(!showAll && !diff) return;
+    let tds='';
+    vals.forEach(v=>{ const sv=v===undefined?'—':str(v);
+      tds+='<td class="cfg'+(diff?' diff':'')+'">'+esc(sv)+'</td>'; });
+    const lab=labels[k];
+    rows+='<tr><td class="diffkey">'+esc(k)+(lab?'<small>'+esc(lab)+'</small>':'')+'</td>'+tds+'</tr>';
+  });
+  if(!rows) rows='<tr><td class="diffkey" colspan="'+(runs.length+1)+'" style="color:var(--dim)">ทุก key เท่ากันทุก run</td></tr>';
+  let head='<thead><tr><th>ค่า</th>';
+  runs.forEach((r,i)=>{ head+='<th style="color:'+PALETTE[i]+'">'+esc(r)+'</th>'; });
+  head+='</tr></thead>';
+  return '<div class="tscroll"><table>'+head+'<tbody>'+rows+'</tbody></table></div>';
+}
+
+// ---------- info popover ----------
+function attachInfo(){
+  const pop=$('#calcpop'), body=$('#calcbody'); let owner=null;
+  function hide(){ pop.style.display='none'; if(owner){owner.classList.remove('act');owner=null;} }
+  function show(el){ body.textContent=el.getAttribute('data-calc')||''; pop.style.display='block';
+    if(owner)owner.classList.remove('act'); owner=el; el.classList.add('act');
+    const r=el.getBoundingClientRect(), pr=pop.getBoundingClientRect(), vw=document.documentElement.clientWidth;
+    let left=r.left+window.scrollX, top=r.bottom+window.scrollY+7;
+    if(left+pr.width>window.scrollX+vw-12) left=window.scrollX+vw-pr.width-12;
+    if(left<window.scrollX+8) left=window.scrollX+8;
+    pop.style.left=left+'px'; pop.style.top=top+'px'; }
+  $$('.info').forEach(el=>{ el.setAttribute('tabindex','0');
+    el.addEventListener('click',e=>{ e.stopPropagation(); (owner===el)?hide():show(el); });
+    el.addEventListener('keydown',e=>{ if(e.key==='Enter'||e.key===' '){e.preventDefault();(owner===el)?hide():show(el);} });
+  });
+  document.addEventListener('click',hide);
+  pop.addEventListener('click',e=>e.stopPropagation());
+  window.addEventListener('keydown',e=>{ if(e.key==='Escape')hide(); });
+}
+
+// ---------- chips + picker ----------
+let ALL_RUNS=[];   // {name, summary, ...} จาก /api/runs
+function metaLine(name){
+  const r=ALL_RUNS.find(x=>x.name===name); if(!r||!r.summary) return '';
+  const mode=/compat/i.test(name)?'compat':'correct';
+  const tf=(name.match(/_M(\d+)/i)||[])[1];
+  return (tf?('M'+tf+' · '):'')+mode;
+}
+function renderChips(runs){
+  let h='';
+  runs.forEach((r,i)=>{
+    h+='<div class="chip"><span class="dot" style="background:'+PALETTE[i]+'"></span>'+
+       '<span class="x" data-rm="'+escAttr(r)+'">✕</span>'+
+       '<span class="nm">'+esc(r)+'</span><span class="meta">'+esc(metaLine(r))+'</span></div>';
+  });
+  if(runs.length<MAX_RUNS) h+='<div class="chip add" id="addChip">+ เพิ่ม run</div>';
+  $('#chips').innerHTML=h;
+  $$('#chips .x').forEach(x=>x.onclick=()=>navTo(runs.filter(n=>n!==x.getAttribute('data-rm'))));
+  const add=$('#addChip'); if(add) add.onclick=()=>$('#picker').classList.toggle('show');
+  // picker
+  const avail=ALL_RUNS.map(r=>r.name).filter(n=>runs.indexOf(n)<0);
+  $('#picker').innerHTML = avail.length? avail.map(n=>'<div class="pk" data-add="'+escAttr(n)+'">+ '+esc(n)+'</div>').join('')
+    : '<div class="note">ไม่มี run อื่นให้เพิ่ม</div>';
+  $$('#picker .pk').forEach(pk=>pk.onclick=()=>{ if(runs.length>=MAX_RUNS)return; navTo(runs.concat([pk.getAttribute('data-add')])); });
+}
+
+// ---------- main ----------
+(async function(){
+  try{ ALL_RUNS=(await getJSON('/api/runs')).runs||[]; }catch(e){ ALL_RUNS=[]; }
+  const runs=urlRuns();
+  renderChips(runs);
+
+  if(runs.length<2){
+    $('#content').innerHTML='<section class="card"><div class="needmore">'+
+      'เลือกอย่างน้อย <b>2 run</b> เพื่อเทียบ<br><span style="font-size:11px">กด “+ เพิ่ม run” ด้านบน หรือเลือกจาก console</span></div></section>';
+    return;
+  }
+
+  let defs, metricsList, configs;
+  try{
+    defs=(await getJSON('/api/metric-defs')).metric_defs;
+    metricsList=await Promise.all(runs.map(r=>getJSON('/api/runs/'+encodeURIComponent(r)+'/metrics')));
+    configs=await Promise.all(runs.map(r=>getJSON('/api/runs/'+encodeURIComponent(r)+'/config').catch(()=>({exists:false}))));
+  }catch(e){
+    $('#content').innerHTML='<section class="card"><div class="needmore">โหลดข้อมูลไม่ได้: '+esc(e.message)+'</div></section>';
+    return;
+  }
+
+  let chartMode='pct', showAllCfg=false;
+  function render(){
+    $('#content').innerHTML=
+      '<section class="card"><div class="hd"><div><div class="eyebrow">Equity curve</div>'+
+        '<h2>เส้นทุน<span class="info" data-calc="เรียงตามเวลาปิดไม้ (exit time) · เริ่มทุน $1000 · บวก pnl สะสมทีละไม้. %profit = (ทุน − 1000) ÷ 1000 × 100. แกน X เป็นเวลาจริง map เชิงเส้น — grid ห่างเท่ากันคงที่ ไม่ยืด/หดตามจำนวนไม้ · ทุก run วางบนแกนเวลาเดียวกัน (จุดเวลาเดียวกันตรงกัน) · ช่วงไม่มีไม้ เส้นจะแบน. สลับ %/USD ที่ปุ่มขวา.">i</span></h2></div>'+
+        '<div class="toggle" id="modeTg"><button class="'+(chartMode==='pct'?'on':'')+'" data-m="pct">%</button>'+
+        '<button class="'+(chartMode==='usd'?'on':'')+'" data-m="usd">USD</button></div></div>'+
+        '<div class="body">'+buildChart(runs,metricsList,chartMode)+
+        '<div class="note">แกน X = เวลาจริง · grid แนวตั้งห่างเท่ากัน · ทุก run แกนเวลาเดียวกัน — ช่วงไม่มีไม้ = เส้นแบน · สลับ %/USD มุมขวา</div></div></section>'+
+
+      '<section class="card"><div class="hd"><div><div class="eyebrow">Metrics</div>'+
+        '<h2>เมตริกเทียบ<span class="info" data-calc="ทุกค่าคิดจากทุนตั้งต้นคงที่ $1000 ไม่ทบต้น. แต่ละคอลัมน์ = 1 run (สูงสุด 10 · ตารางเลื่อนแนวนอนได้). กด ⓘ ท้ายแต่ละแถวเพื่อดูวิธีคิด. ★ = ดีที่สุดในแถว.">i</span></h2></div></div>'+
+        buildTable(defs,runs,metricsList)+'</section>'+
+
+      '<section class="card"><div class="hd"><div><div class="eyebrow">Config diff</div>'+
+        '<h2>ค่าที่ตั้งต่างกัน<span class="info" data-calc="เทียบ YAML config ของทุก run ทีละ key. ช่องไฮไลต์ทอง = ค่าที่ต่างจาก run อื่น. key ที่ทุก run เท่ากันซ่อนได้.">i</span></h2></div>'+
+        '<button class="toggle" style="padding:0"><span id="cfgTg" style="font-family:var(--mono);font-size:11px;color:var(--gold);padding:6px 11px;cursor:pointer">'+(showAllCfg?'โชว์ทั้งหมด':'โชว์เฉพาะที่ต่าง')+'</span></button></div>'+
+        '<div class="body" style="padding-top:6px">'+buildConfig(runs,configs,showAllCfg)+'</div></section>';
+
+    $$('#modeTg button').forEach(b=>b.onclick=()=>{ chartMode=b.getAttribute('data-m'); render(); });
+    const ct=$('#cfgTg'); if(ct) ct.onclick=()=>{ showAllCfg=!showAllCfg; render(); };
+    attachInfo();
+  }
+  render();
+})();
+</script>
+</body>
+</html>

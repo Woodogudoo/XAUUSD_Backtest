@@ -32,6 +32,7 @@ from urllib.parse import unquote, urlparse
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _CONSOLE_HTML = os.path.join(_HERE, "console.html")
+_COMPARE_HTML = os.path.join(_HERE, "compare.html")
 
 # ฐานโปรเจกต์ = cwd ที่สั่ง `python3 -m bt serve` (เหมือน bt run ที่อ้าง path สัมพัทธ์)
 def _root() -> str:
@@ -241,6 +242,41 @@ def api_metric_defs() -> tuple[int, dict]:
     return 200, {"metric_defs": metrics.METRIC_DEFS}
 
 
+def api_run_config(name: str) -> tuple[int, dict]:
+    """snapshot config ที่ใช้รัน (runs/<name>/config_used.yaml) → flat {dotted_key: value}
+    + labels จาก field_labels — สำหรับ config diff ในหน้าเทียบ · ไม่มี snapshot → exists:false"""
+    safe = _safe_name(name)
+    if safe is None:
+        return 400, {"error": "ชื่อ run ไม่ถูกต้อง (ห้าม / .. หรือ absolute path)"}
+    runs_root = os.path.realpath(os.path.join(_root(), "runs"))
+    run_dir = os.path.realpath(os.path.join(runs_root, safe))
+    if run_dir == runs_root or not run_dir.startswith(runs_root + os.sep):
+        return 400, {"error": "อ่านได้เฉพาะ folder ภายใต้ runs/ เท่านั้น"}
+    p = os.path.join(run_dir, "config_used.yaml")
+    if not os.path.isfile(p):
+        return 200, {"exists": False, "values": {}, "labels": {}}
+    try:
+        import yaml
+        with open(p, encoding="utf-8") as f:
+            data = yaml.safe_load(f) or {}
+    except Exception as e:  # noqa: BLE001
+        return 500, {"error": f"อ่าน config_used ไม่ได้: {e}"}
+    values: dict = {}
+
+    def _flat(d, prefix=""):
+        for k, v in d.items():
+            key = f"{prefix}{k}"
+            if isinstance(v, dict):
+                _flat(v, key + ".")
+            else:
+                values[key] = v
+    if isinstance(data, dict):
+        _flat(data)
+    labels = {k: (lab.get("label") if isinstance(lab, dict) else None)
+              for k, lab in _load_labels().items()}
+    return 200, {"exists": True, "values": values, "labels": labels}
+
+
 # ---------- POST: save config (ruamel round-trip) ----------
 
 
@@ -419,6 +455,13 @@ def api_run(payload: dict) -> tuple[int, dict]:
     if proc.returncode != 0:
         return 500, {"error": "รัน backtest ไม่สำเร็จ (ดู log)",
                      "stderr": (proc.stderr or proc.stdout or "")[-1600:], "cmd": cmd}
+    # additive logging-only: snapshot config ที่ใช้ → runs/<out>/config_used.yaml (ไฟล์ใหม่)
+    # ไม่กระทบ trades/plans/summary — ใช้กับ config diff ในหน้าเทียบ
+    try:
+        shutil.copyfile(os.path.join(_root(), cfg_rel),
+                        os.path.join(out_dir, "config_used.yaml"))
+    except Exception:  # noqa: BLE001 — snapshot ล้มเหลวไม่ทำให้ run พัง
+        pass
     summary = None
     sp = os.path.join(out_dir, "summary.json")
     if os.path.isfile(sp):
@@ -482,9 +525,18 @@ class _Handler(BaseHTTPRequestHandler):
         if path == "/api/runs":
             return self._json(*api_runs())
 
+        if path == "/compare":
+            if os.path.isfile(_COMPARE_HTML):
+                return self._file(_COMPARE_HTML, "text/html; charset=utf-8")
+            return self._send(200, b"<h1>compare.html missing</h1>", "text/html; charset=utf-8")
+
         m = re.fullmatch(r"/api/runs/([^/]+)/metrics", path)
         if m:
             return self._json(*api_metrics(m.group(1)))
+
+        m = re.fullmatch(r"/api/runs/([^/]+)/config", path)
+        if m:
+            return self._json(*api_run_config(m.group(1)))
 
         if path == "/api/metric-defs":
             return self._json(*api_metric_defs())

@@ -1,0 +1,620 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>XAUUSD Backtest Console</title>
+<style>
+  :root{
+    --ink:#0E0F13; --panel:#15171D; --panel2:#1B1E26; --raise:#21242D;
+    --line:#23262E; --line2:#2F333E;
+    --text:#E6E8EC; --muted:#8A8F9C; --dim:#5B606C;
+    --gold:#E8B14C; --gold-dim:#6f5a2e; --gold-glow:rgba(232,177,76,.14);
+    --up:#2DB39A; --down:#E5564E;
+    --sans:system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Thai",sans-serif;
+    --mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{background:radial-gradient(900px 500px at 82% -8%,var(--gold-glow),transparent 60%),var(--ink);
+    color:var(--text);font-family:var(--sans);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased;min-height:100vh}
+  .wrap{max-width:1180px;margin:0 auto;padding:22px 22px 60px}
+  header{display:flex;align-items:center;justify-content:space-between;padding:6px 2px 20px}
+  .brand{display:flex;align-items:center;gap:12px}
+  .mark{width:34px;height:34px;border-radius:8px;display:grid;place-items:center;background:linear-gradient(150deg,#2a2410,#1a1c24);border:1px solid var(--gold-dim);color:var(--gold);font-family:var(--mono);font-weight:700;font-size:13px}
+  .brand h1{font-size:15px;margin:0;font-weight:600}
+  .brand .sub{font-family:var(--mono);font-size:11px;color:var(--dim);letter-spacing:.4px}
+  .status{display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:11.5px;color:var(--muted)}
+  .badge{font-family:var(--mono);font-size:10px;letter-spacing:1px;color:var(--gold);border:1px solid var(--gold-dim);border-radius:20px;padding:2px 9px;text-transform:uppercase}
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--down);box-shadow:0 0 0 3px rgba(229,86,78,.16)}
+  .dot.ok{background:var(--up);box-shadow:0 0 0 3px rgba(45,179,154,.16)}
+
+  .grid{display:grid;grid-template-columns:1.42fr 1fr;gap:18px;align-items:start}
+  @media(max-width:900px){.grid{grid-template-columns:1fr}}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+  .hd{display:flex;align-items:center;justify-content:space-between;padding:13px 16px;border-bottom:1px solid var(--line);background:var(--panel2)}
+  .eyebrow{font-family:var(--mono);font-size:10.5px;letter-spacing:1.6px;color:var(--gold);text-transform:uppercase}
+  .hd h2{margin:3px 0 0;font-size:14px;font-weight:600}
+  .hd .meta{font-family:var(--mono);font-size:11px;color:var(--dim)}
+  .body{padding:16px}
+
+  label.lab{display:block;font-size:12px;color:var(--muted);margin-bottom:6px}
+  .lab .hint{color:var(--dim);font-family:var(--mono);font-size:10.5px;margin-left:6px}
+  input[type=text],input[type=number]{width:100%;background:var(--panel2);color:var(--text);border:1px solid var(--line2);border-radius:9px;padding:9px 11px;font-family:var(--mono);font-size:12.5px;outline:none}
+  input:focus{border-color:var(--gold-dim);box-shadow:0 0 0 3px var(--gold-glow)}
+  /* dropdown minimal — border บาง เรียบ ดูสะอาด */
+  select{width:100%;background:#13151b;color:var(--muted);border:1px solid var(--line);border-radius:8px;
+    padding:8px 11px;font-family:var(--mono);font-size:12.5px;outline:none;
+    appearance:none;-webkit-appearance:none;cursor:pointer;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path d='M1 1l4 4 4-4' stroke='%235B606C' fill='none' stroke-width='1.3'/></svg>");
+    background-repeat:no-repeat;background-position:right 11px center;padding-right:28px}
+  select:hover{border-color:var(--line2);color:var(--text)}
+  select:focus{border-color:var(--gold-dim);color:var(--text);box-shadow:0 0 0 3px var(--gold-glow)}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px}
+
+  .cfgbar{display:flex;align-items:center;gap:10px;margin:4px 0 12px}
+  .cfgbar .search{flex:1;position:relative}
+  .cfgbar .search input{padding-left:30px}
+  .cfgbar .search::before{content:"⌕";position:absolute;left:10px;top:7px;color:var(--dim);font-size:15px}
+  .tabs{display:flex;background:var(--panel2);border:1px solid var(--line2);border-radius:9px;padding:3px;gap:3px}
+  .tabs button{border:0;background:transparent;color:var(--muted);cursor:pointer;font-family:var(--mono);font-size:11.5px;padding:7px 12px;border-radius:6px}
+  .tabs button.on{background:var(--raise);color:var(--gold);box-shadow:inset 0 0 0 1px var(--line2)}
+
+  .group{border:1px solid var(--line);border-radius:11px;margin-bottom:10px;overflow:hidden;background:var(--panel2)}
+  .group>summary{cursor:pointer;list-style:none;padding:11px 14px;display:flex;align-items:center;justify-content:space-between;font-family:var(--mono);font-size:12px;color:var(--text)}
+  .group>summary::-webkit-details-marker{display:none}
+  .group>summary .gname{display:flex;align-items:center;gap:9px}
+  .group>summary .gname::before{content:"▸";color:var(--gold);font-size:11px}
+  .group[open]>summary .gname::before{content:"▾"}
+  .group>summary .cnt{color:var(--dim);font-size:10.5px}
+  .group .ginner{padding:4px 14px 14px;border-top:1px solid var(--line)}
+  .frow{display:grid;grid-template-columns:1fr 172px;align-items:start;gap:12px;padding:9px 0;border-bottom:1px dashed var(--line)}
+  .frow:last-child{border-bottom:0}
+  .fkey{word-break:break-word}
+  .fkey .klab{display:block;font-family:var(--sans);font-size:12.5px;color:var(--text)}
+  .fkey .klab.raw{font-family:var(--mono);font-size:12px}
+  .fkey .kraw{display:inline-block;font-family:var(--mono);font-size:10px;color:var(--dim);margin-top:1px}
+  .fkey small{display:block;color:var(--muted);font-size:10.5px;margin-top:3px;font-family:var(--sans);line-height:1.4}
+  .fval{padding-top:1px}
+  .fval input{padding:7px 9px}
+  .ifield{display:flex;align-items:center;gap:7px}
+  .ifield input{flex:1;min-width:0}
+  .usuffix{font-family:var(--mono);font-size:10px;color:var(--dim);white-space:nowrap}
+  .group>summary .gname .glabel{font-family:var(--sans);color:var(--text)}
+  .group>summary .gname .kraw{font-family:var(--mono);font-size:10px;color:var(--dim);margin-left:7px}
+  .toggle{display:flex;background:#0a0b0e;border:1px solid var(--line2);border-radius:8px;padding:2px}
+  .toggle button{flex:1;border:0;background:transparent;color:var(--dim);cursor:pointer;font-family:var(--mono);font-size:11px;padding:5px;border-radius:6px}
+  .toggle button.on{background:var(--raise);color:var(--up)}
+  .toggle button.on.off{color:var(--down)}
+  .emptyhint{color:var(--dim);font-family:var(--mono);font-size:12px;padding:10px 2px}
+
+  textarea.raw{width:100%;min-height:360px;background:#0a0b0e;color:#cdd2da;border:1px solid var(--line2);border-radius:11px;padding:13px;font-family:var(--mono);font-size:12px;line-height:1.6;outline:none;resize:vertical}
+
+  .saveas{display:flex;gap:10px;align-items:flex-end;margin-top:12px;padding-top:13px;border-top:1px dashed var(--line2)}
+  .saveas .f{flex:1}
+  .btn-ghost{border:1px solid var(--gold-dim);background:transparent;color:var(--gold);cursor:pointer;font-family:var(--mono);font-size:12px;padding:9px 14px;border-radius:9px;white-space:nowrap}
+  .btn-ghost:disabled,.run:disabled{opacity:.55;cursor:not-allowed}
+
+  .seg{display:flex;background:#0a0b0e;border:1px solid var(--line2);border-radius:9px;padding:3px;gap:3px}
+  .seg button{flex:1;border:0;background:transparent;color:var(--dim);cursor:pointer;font-family:var(--mono);font-size:11.5px;padding:7px;border-radius:6px}
+  .seg button.on{background:var(--raise);color:var(--gold);box-shadow:inset 0 0 0 1px var(--line2)}
+
+  .run{margin-top:16px;width:100%;border:0;cursor:pointer;background:linear-gradient(180deg,#f0c065,#dca23c);color:#23190a;font-weight:700;font-size:14px;padding:13px;border-radius:11px;box-shadow:0 6px 18px -8px rgba(232,177,76,.5)}
+  .run:active{transform:translateY(1px)}
+  .soon{font-family:var(--mono);font-size:10px;color:var(--dim);text-align:center;margin-top:7px}
+  .cmd{margin-top:14px;background:#0a0b0e;border:1px solid var(--line);border-radius:11px;padding:13px 14px;font-family:var(--mono);font-size:12px;color:#cdd2da;overflow-x:auto}
+  .cmd .label{color:var(--dim);font-size:10px;letter-spacing:1.4px;text-transform:uppercase;margin-bottom:8px;display:block}
+  .cmd .flag{color:#7fa7d6}.cmd .val{color:var(--up)}.cmd .p{color:var(--gold)}
+
+  .runItem{padding:13px 16px;border-bottom:1px solid var(--line);display:flex;flex-direction:column;gap:8px}
+  .runItem:last-child{border-bottom:0}
+  .runTop{display:flex;align-items:center;gap:8px}
+  .runNameWrap{flex:1 1 auto;min-width:0;display:flex;align-items:center;gap:7px;overflow:hidden}
+  .runName{font-family:var(--mono);font-size:12.5px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .runWhen{flex-shrink:0;font-family:var(--mono);font-size:10.5px;color:var(--dim);white-space:nowrap}
+  .runSub{font-family:var(--mono);font-size:10.5px;color:var(--muted)}
+  .stats{display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+  .stat{font-family:var(--mono);font-size:11.5px;color:var(--muted)} .stat b{color:var(--text)}
+  .stat.win b{color:var(--up)}.stat.loss b{color:var(--down)}
+  .openV{margin-left:auto;font-family:var(--mono);font-size:11.5px;color:var(--gold);text-decoration:none}
+  .openV:hover{text-decoration:underline} .openV.dim{color:var(--dim);pointer-events:none}
+  .pill{flex-shrink:0;font-family:var(--mono);font-size:9.5px;padding:2px 7px;border-radius:20px}
+  .pill.correct{color:var(--up);background:rgba(45,179,154,.12)}
+  .pill.compat{color:var(--gold);background:rgba(232,177,76,.12)}
+  .note{margin-top:18px;font-size:11.5px;color:var(--dim);text-align:center;font-family:var(--mono)}
+
+  /* run result */
+  .runResult{margin-top:12px;background:#0a0b0e;border:1px solid var(--line);border-radius:11px;padding:12px 14px;font-size:12px}
+  .runResult .rok{color:var(--up);font-family:var(--mono);font-size:12px;margin-bottom:8px}
+  .runResult .errtxt{color:var(--down);font-family:var(--mono)}
+  .runResult .dim{color:var(--dim);font-family:var(--mono)}
+  .errlog{margin:8px 0 0;white-space:pre-wrap;background:#120e0f;border:1px solid #3a2426;border-radius:8px;padding:9px;font-family:var(--mono);font-size:10.5px;color:#d99;max-height:160px;overflow:auto}
+
+  /* toast */
+  .toast{position:fixed;right:18px;bottom:18px;z-index:50;background:var(--raise);border:1px solid var(--line2);color:var(--text);
+    font-family:var(--mono);font-size:12px;padding:11px 15px;border-radius:10px;box-shadow:0 10px 30px -10px #000;
+    opacity:0;transform:translateY(8px);transition:.25s;max-width:340px}
+  .toast.show{opacity:1;transform:none}
+  .toast.ok{border-color:var(--up);box-shadow:0 0 0 1px rgba(45,179,154,.25)}
+  .toast.err{border-color:var(--down);box-shadow:0 0 0 1px rgba(229,86,78,.25)}
+
+  /* modal */
+  .modal-ov{position:fixed;inset:0;z-index:60;background:rgba(6,7,10,.6);display:grid;place-items:center;opacity:0;transition:.18s}
+  .modal-ov.show{opacity:1}
+  .modal{background:var(--panel);border:1px solid var(--line2);border-radius:14px;max-width:440px;width:calc(100% - 40px);padding:18px;box-shadow:0 24px 60px -20px #000}
+  .modal .mtitle{font-size:14px;font-weight:600;margin-bottom:8px}
+  .modal .mbody{font-size:12.5px;color:var(--muted);line-height:1.55} .modal .mbody b{color:var(--text)}
+  .modal .mbtns{display:flex;gap:9px;justify-content:flex-end;margin-top:16px;flex-wrap:wrap}
+  .mbtn{border:1px solid var(--line2);background:var(--panel2);color:var(--text);cursor:pointer;font-family:var(--mono);font-size:12px;padding:8px 13px;border-radius:9px}
+  .mbtn:hover{border-color:var(--dim)}
+  .mbtn.gold{border:0;background:linear-gradient(180deg,#f0c065,#dca23c);color:#23190a;font-weight:700}
+  .mbtn.danger{border-color:var(--down);color:var(--down)} .mbtn.danger:hover{background:rgba(229,86,78,.12)}
+  /* delete button บนการ์ด run */
+  .delBtn{flex-shrink:0;border:1px solid var(--line2);background:transparent;color:var(--dim);cursor:pointer;
+    font-size:13px;font-weight:600;line-height:1;width:24px;height:24px;display:grid;place-items:center;border-radius:7px;padding:0}
+  .delBtn:hover{border-color:var(--down);color:var(--down);background:rgba(229,86,78,.1)}
+  .delBtn:disabled{opacity:.35;cursor:not-allowed}
+  /* compare entry (run-history) */
+  .hdacts{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .btn-cmp{border:1px solid var(--line2);background:var(--raise);color:var(--text);cursor:pointer;
+    font-family:var(--mono);font-size:11px;padding:6px 11px;border-radius:8px}
+  .btn-cmp:hover{border-color:var(--gold);color:var(--gold)}
+  .btn-cmp.gold{background:linear-gradient(150deg,#2a2410,#1a1c24);border-color:#6f5a2e;color:var(--gold)}
+  .btn-cmp[disabled]{opacity:.4;cursor:not-allowed} .btn-cmp[disabled]:hover{border-color:var(--line2);color:var(--text)}
+  .cmpck{width:18px;height:18px;border:1.5px solid var(--line2);border-radius:5px;flex-shrink:0;
+    display:none;place-items:center;color:var(--ink);font-size:11px;font-weight:700;cursor:pointer}
+  #runList:not(.selmode-off) .cmpck{display:grid}
+  .runItem.cmpsel .cmpck{background:var(--gold);border-color:var(--gold)}
+  .cmpbar{position:fixed;left:50%;transform:translateX(-50%);bottom:22px;display:flex;align-items:center;gap:14px;
+    background:var(--raise);border:1px solid var(--line2);border-radius:12px;padding:10px 12px 10px 16px;
+    box-shadow:0 12px 34px rgba(0,0,0,.55);font-family:var(--mono);font-size:12px;z-index:40;
+    opacity:0;pointer-events:none;transition:opacity .15s}
+  .cmpbar.show{opacity:1;pointer-events:auto}
+  .cmpbar .cnt{color:var(--muted)} .cmpbar .cnt b{color:var(--gold)} .cmpbar .cmphint{color:var(--dim);font-size:10.5px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand"><div class="mark">XAU</div>
+      <div><h1>Backtest Console</h1><div class="sub">xauusd · mai_ruay engine</div></div></div>
+    <div class="status"><span class="badge">step 2 · read-only</span>
+      <span id="dot" class="dot"></span> <span id="srv">connecting…</span></div>
+  </header>
+
+  <div class="grid">
+    <!-- LEFT -->
+    <section class="card">
+      <div class="hd"><div><div class="eyebrow">รันใหม่</div><h2>ตั้งค่า &amp; สั่งรัน</h2></div><div class="meta">new run</div></div>
+      <div class="body">
+
+        <div class="row2">
+          <div><label class="lab">กลยุทธ์ <span class="hint">--strategy</span></label>
+            <select id="strat"><option value="mai_ruay">mai_ruay</option></select></div>
+          <div><label class="lab">คอนฟิก <span class="hint">--config</span></label>
+            <select id="cfg"></select></div>
+        </div>
+
+        <!-- ░ FULL YAML EDITOR (generate จาก /api/configs/<id>) ░ -->
+        <div class="eyebrow" style="margin:6px 0 2px">ค่าทั้งหมดในไฟล์</div>
+        <div class="cfgbar">
+          <div class="search"><input id="q" type="text" placeholder="ค้นหาค่า… (เช่น father, sl, lot)"></div>
+          <div class="tabs"><button class="on" data-t="form">Form</button><button data-t="raw">Raw YAML</button></div>
+        </div>
+
+        <div id="formView"><div class="emptyhint">กำลังโหลด config…</div></div>
+        <div id="rawView" style="display:none"><textarea id="rawTxt" class="raw" spellcheck="false"></textarea></div>
+
+        <div class="saveas">
+          <div class="f"><label class="lab">บันทึกเป็นเวอร์ชันใหม่ <span class="hint">configs/</span></label>
+            <input id="saveName" type="text" placeholder="เช่น mairuay_v205.yaml"></div>
+          <button id="saveBtn" class="btn-ghost">💾 Save as new</button>
+        </div>
+
+        <!-- run target -->
+        <div class="row2" style="margin-top:18px">
+          <div><label class="lab">ไฟล์ข้อมูล <span class="hint">--data</span></label>
+            <select id="data"></select></div>
+          <div><label class="lab">โฟลเดอร์ผลลัพธ์ <span class="hint">--out runs/</span></label>
+            <input id="out" type="text" placeholder="auto-suggest"></div>
+        </div>
+
+        <div class="row2" style="margin-bottom:4px">
+          <div><label class="lab">โหมด <span class="hint">engine.inject_compat</span></label>
+            <div class="seg" id="mode"><button class="on" data-v="correct">correct</button><button data-v="compat">compat</button></div></div>
+          <div><label class="lab">lot <span class="hint">winrate_mode</span></label>
+            <div class="seg" id="lot"><button class="on" data-v="risk">risk %</button><button data-v="flat">flat 0.01</button></div></div>
+        </div>
+
+        <button id="runBtn" class="run">▶  รัน Backtest</button>
+        <div id="runResult" class="runResult" style="display:none"></div>
+        <div class="cmd"><span class="label">คำสั่งที่จะรัน (preview)</span><code id="cmd"></code></div>
+      </div>
+    </section>
+
+    <!-- RIGHT: history -->
+    <section class="card">
+      <div class="hd"><div><div class="eyebrow">ประวัติการรัน</div><h2>Runs</h2></div>
+        <div class="hdacts"><span class="meta" id="runMeta">—</span>
+          <button class="btn-cmp" id="selToggle">เลือกเพื่อเทียบ</button>
+          <button class="btn-cmp gold" id="openCompare">เทียบกลยุทธ์ →</button></div></div>
+      <div id="runList" class="selmode-off"><div class="emptyhint" style="padding:16px">กำลังโหลด…</div></div>
+    </section>
+  </div>
+
+  <div class="note">ฟอร์มสร้างอัตโนมัติจาก YAML จริง · ค้นหา / สลับ Form↔Raw / แก้ output ดู command — สเต็ป 2 (อ่านอย่างเดียว)</div>
+</div>
+
+<div class="cmpbar" id="cmpbar">
+  <span class="cnt">เลือกแล้ว <b id="cmpcnt">0</b> run</span>
+  <span class="cmphint">(เลือก 2 อันขึ้นไป · สูงสุด 10)</span>
+  <button class="btn-cmp" id="cmpClear">ล้าง</button>
+  <button class="btn-cmp gold" id="cmpGo">เทียบ →</button>
+</div>
+
+<script>
+const $=s=>document.querySelector(s), $$=s=>document.querySelectorAll(s);
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function escAttr(s){return esc(s).replace(/"/g,'&quot;');}
+async function getJSON(u){const r=await fetch(u);if(!r.ok)throw new Error(u+' → '+r.status);return r.json();}
+
+let CONFIGS=[], curCfgId=null, curRaw='', outEdited=false, dirty=false, busy=false;
+
+// ---------- server status ----------
+(async()=>{try{await getJSON('/api/configs');$('#dot').classList.add('ok');$('#srv').textContent='server: '+location.host;}
+  catch(e){$('#srv').textContent='server: offline';}})();
+
+// ===== YAML EDITOR — generate form จากโครงสร้างที่ server ส่งมา (ไม่ hardcode field) =====
+function fieldInput(node, dpath){
+  const t=node.type;
+  if(t==='bool'){
+    const tv=node.value===true;
+    return '<div class="toggle" data-path="'+escAttr(dpath)+'" data-type="bool">'+
+      '<button class="'+(tv?'on':'')+'" data-v="true">true</button>'+
+      '<button class="'+(!tv?'on off':'off')+'" data-v="false">false</button></div>';
+  }
+  if(t==='int'||t==='float'){
+    return '<input type="number" step="any" value="'+escAttr(node.value)+'" data-path="'+escAttr(dpath)+'" data-type="'+t+'">';
+  }
+  if(t==='list'){
+    return '<input type="text" value="'+escAttr((node.value||[]).join(', '))+'" data-path="'+escAttr(dpath)+'" data-type="list">';
+  }
+  // str / null
+  return '<input type="text" value="'+escAttr(node.value==null?'':node.value)+'" data-path="'+escAttr(dpath)+'" data-type="'+(t||'str')+'">';
+}
+// ชื่อ field: label ภาษาคน (raw key เป็นตัวเล็กรอง) + help เป็น hint · ไม่มี label → fallback raw key + comment
+function keyCell(n, dp){
+  let h='<div class="fkey">';
+  if(n.label){ h+='<span class="klab">'+esc(n.label)+'</span><code class="kraw">'+esc(dp)+'</code>'; }
+  else       { h+='<span class="klab raw">'+esc(dp)+'</span>'; }
+  const help=n.help||n.comment;
+  if(help) h+='<small>'+esc(help)+'</small>';
+  return h+'</div>';
+}
+// ช่อง input + หน่วย (suffix) · bool=toggle ไม่มีหน่วย
+function valueCell(n, fp){
+  if(n.type==='bool') return '<div class="fval">'+fieldInput(n,fp)+'</div>';
+  const unit=n.unit?'<span class="usuffix">'+esc(n.unit)+'</span>':'';
+  return '<div class="fval"><div class="ifield">'+fieldInput(n,fp)+unit+'</div></div>';
+}
+// แถวฟิลด์ — รองรับ map ซ้อน (แสดง key แบบจุด a.b) · datapath = path เต็มในไฟล์
+function renderRows(items, disp, data){
+  let h='';
+  for(const k in items){
+    const n=items[k];
+    const dp=disp?disp+'.'+k:k, fp=data?data+'.'+k:k;
+    if(n.type==='map'){ h+=renderRows(n.items||{}, dp, fp); continue; }
+    const sk=((n.label||'')+' '+dp+' '+(n.help||n.comment||'')).toLowerCase();   // ค้นได้ทั้งไทย+raw key
+    h+='<div class="frow" data-key="'+escAttr(sk)+'">'+keyCell(n,dp)+valueCell(n,fp)+'</div>';
+  }
+  return h;
+}
+function countLeaves(items){let c=0;for(const k in items){const n=items[k];c+=(n.type==='map')?countLeaves(n.items||{}):1;}return c;}
+function renderForm(tree){
+  const scalars={}, sections=[];
+  for(const k in tree){ (tree[k].type==='map')?sections.push(k):scalars[k]=tree[k]; }
+  let h='';
+  if(Object.keys(scalars).length){
+    h+='<details class="group" open><summary><span class="gname">ทั่วไป</span>'+
+       '<span class="cnt">'+Object.keys(scalars).length+' ค่า</span></summary>'+
+       '<div class="ginner">'+renderRows(scalars,'','')+'</div></details>';
+  }
+  sections.forEach((k,i)=>{
+    const sec=tree[k], cnt=countLeaves(sec.items||{});
+    const gname=sec.label?('<span class="glabel">'+esc(sec.label)+'</span><code class="kraw">'+esc(k)+'</code>'):esc(k);
+    h+='<details class="group"'+(i===0&&!Object.keys(scalars).length?' open':'')+'>'+
+       '<summary><span class="gname">'+gname+'</span><span class="cnt">'+cnt+' ค่า</span></summary>'+
+       '<div class="ginner">'+renderRows(sec.items||{}, '', k)+'</div></details>';
+  });
+  $('#formView').innerHTML=h||'<div class="emptyhint">ไฟล์นี้ไม่มีค่า</div>';
+  bindToggles();
+  $$('#formView input').forEach(i=>i.addEventListener('input',()=>{dirty=true;}));  // แก้ค่า → dirty
+  applySearch();
+}
+function bindToggles(){
+  $$('#formView .toggle').forEach(t=>t.addEventListener('click',e=>{
+    if(e.target.tagName!=='BUTTON')return;
+    t.querySelectorAll('button').forEach(b=>b.classList.remove('on'));
+    e.target.classList.add('on'); dirty=true;
+  }));
+}
+// เก็บค่าจากฟอร์มทุกช่อง keyed by dotted path (data-path) → ส่งให้ POST /api/configs
+function collectValues(){
+  const v={};
+  $$('#formView [data-path]').forEach(el=>{
+    const path=el.getAttribute('data-path'), type=el.getAttribute('data-type');
+    if(type==='bool'){ const on=el.querySelector('button.on'); v[path]=!!(on&&on.dataset.v==='true'); }
+    else { v[path]=el.value; }
+  });
+  return v;
+}
+
+// ---------- configs ----------
+async function loadConfigs(){
+  try{
+    const d=await getJSON('/api/configs');
+    // global = --global · field_labels = คำอธิบาย (ไม่ใช่ strategy config) → ไม่โชว์ใน --config
+    CONFIGS=d.configs.filter(n=>n!=='global.yaml'&&n!=='field_labels.yaml');
+    const sel=$('#cfg'); sel.innerHTML='';
+    CONFIGS.forEach(n=>{const id=n.replace(/\.(ya?ml)$/,'');
+      const o=document.createElement('option');o.value=id;o.textContent=n;sel.appendChild(o);});
+    if(CONFIGS.length){ sel.value=CONFIGS[0].replace(/\.(ya?ml)$/,''); await selectConfig(sel.value); }
+    else $('#formView').innerHTML='<div class="emptyhint">ไม่มี configs/*.yaml</div>';
+  }catch(e){$('#formView').innerHTML='<div class="emptyhint">โหลด configs ไม่ได้: '+esc(e.message)+'</div>';}
+}
+async function selectConfig(id){
+  curCfgId=id;
+  $('#formView').innerHTML='<div class="emptyhint">กำลังอ่าน '+esc(id)+'…</div>';
+  try{
+    const d=await getJSON('/api/configs/'+encodeURIComponent(id));
+    if(d.error){$('#formView').innerHTML='<div class="emptyhint">'+esc(d.error)+'</div>';return;}
+    curRaw=d.raw||''; $('#rawTxt').value=curRaw;
+    renderForm(d.tree||{});
+    if(!$('#saveName').value) $('#saveName').value=id+'_v2.yaml';
+    dirty=false;   // โหลดสด → ยังไม่มีการแก้
+  }catch(e){$('#formView').innerHTML='<div class="emptyhint">อ่าน config ไม่ได้: '+esc(e.message)+'</div>';}
+  suggestOut(); build();
+}
+
+// ---------- search / tabs ----------
+function applySearch(){
+  const q=($('#q').value||'').toLowerCase().trim();
+  $$('#formView .group').forEach(g=>{
+    let any=false;
+    g.querySelectorAll('.frow').forEach(r=>{
+      const hit=!q||r.dataset.key.includes(q);
+      r.style.display=hit?'':'none'; if(hit)any=true;
+    });
+    g.style.display=any?'':'none'; if(q&&any)g.open=true;
+  });
+}
+$('#q').addEventListener('input',applySearch);
+$$('.tabs button').forEach(b=>b.addEventListener('click',()=>{
+  $$('.tabs button').forEach(x=>x.classList.remove('on')); b.classList.add('on');
+  const raw=b.dataset.t==='raw';
+  $('#rawView').style.display=raw?'block':'none';
+  $('#formView').style.display=raw?'none':'block';
+}));
+
+// ---------- run target / command preview ----------
+function tfOf(dataVal){const m=String(dataVal).match(/_M(\d+)_/i);return m?('m'+m[1]):'tf';}
+function modeVal(){return $('#mode .on').dataset.v;}
+function lotVal(){return $('#lot .on').dataset.v;}
+function suggestOut(){
+  if(outEdited)return;
+  const id=curCfgId||'run', tf=tfOf($('#data').value||'');
+  $('#out').value=id+'_'+tf+'_'+modeVal();
+}
+function build(){
+  const strat=$('#strat').value, cfg=$('#cfg').value, data=$('#data').value, out=$('#out').value||'run';
+  $('#cmd').innerHTML='<span class="p">$</span> python3 -m bt run \\\n'+
+    '   <span class="flag">--strategy</span> <span class="val">'+esc(strat)+'</span> \\\n'+
+    '   <span class="flag">--config</span> <span class="val">configs/'+esc(cfg)+'.yaml</span> \\\n'+
+    '   <span class="flag">--data</span> <span class="val">data/'+esc(data)+'.csv</span> \\\n'+
+    '   <span class="flag">--out</span> <span class="val">runs/'+esc(out)+'/</span> \\\n'+
+    '   <span class="flag">--viewer</span>';
+}
+async function loadData(){
+  try{
+    const d=await getJSON('/api/data');
+    const sel=$('#data'); sel.innerHTML='';
+    d.data.forEach(n=>{const id=n.replace(/\.csv$/,'');
+      const o=document.createElement('option');o.value=id;o.textContent=n;sel.appendChild(o);});
+  }catch(e){}
+  suggestOut(); build();
+}
+$('#cfg').addEventListener('change',e=>{outEdited=false;selectConfig(e.target.value);});
+$('#data').addEventListener('change',()=>{suggestOut();build();});
+$('#strat').addEventListener('change',build);
+$('#out').addEventListener('input',()=>{outEdited=true;build();});
+$$('#mode button,#lot button').forEach(b=>b.addEventListener('click',()=>{
+  const seg=b.parentElement; seg.querySelectorAll('button').forEach(x=>x.classList.remove('on'));
+  b.classList.add('on'); suggestOut(); build();
+}));
+// ---------- UI helpers: toast + modal ----------
+function toast(msg, kind){
+  const t=document.createElement('div'); t.className='toast '+(kind||''); t.textContent=msg;
+  document.body.appendChild(t);
+  requestAnimationFrame(()=>t.classList.add('show'));
+  setTimeout(()=>{t.classList.remove('show');setTimeout(()=>t.remove(),300);},3400);
+}
+function modal(opts){  // {title, body, buttons:[{id,label,kind}]} → Promise<id>
+  return new Promise(res=>{
+    const ov=document.createElement('div'); ov.className='modal-ov';
+    const btns=opts.buttons.map(b=>'<button class="mbtn '+(b.kind||'')+'" data-id="'+b.id+'">'+esc(b.label)+'</button>').join('');
+    ov.innerHTML='<div class="modal"><div class="mtitle">'+esc(opts.title)+'</div>'+
+      '<div class="mbody">'+opts.body+'</div><div class="mbtns">'+btns+'</div></div>';
+    document.body.appendChild(ov);
+    function done(id){ov.remove();res(id);}
+    ov.addEventListener('click',e=>{ if(e.target===ov)return done('cancel');
+      const b=e.target.closest('.mbtn'); if(b)done(b.dataset.id); });
+    requestAnimationFrame(()=>ov.classList.add('show'));
+  });
+}
+function setRunResult(html){const el=$('#runResult');el.innerHTML=html;el.style.display=html?'block':'none';}
+function ensureCfgOption(name){
+  const id=name.replace(/\.(ya?ml)$/,''), sel=$('#cfg');
+  if(![...sel.options].some(o=>o.value===id)){
+    const o=document.createElement('option');o.value=id;o.textContent=name;sel.appendChild(o);CONFIGS.push(name);}
+  return id;
+}
+
+// ---------- Save as new (POST /api/configs) ----------
+async function saveConfig(){
+  if(busy)return null;
+  const name=$('#saveName').value.trim();
+  if(!name){toast('ใส่ชื่อไฟล์ก่อน เช่น mairuay_v205.yaml','err');return null;}
+  busy=true; $('#saveBtn').disabled=true;
+  try{
+    const r=await fetch('/api/configs',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({base:curCfgId,name:name,values:collectValues()})});
+    const d=await r.json();
+    if(!r.ok){ toast(d.error||('บันทึกไม่ได้ ('+r.status+')'),'err'); return null; }
+    toast('บันทึก '+d.name+' แล้ว ('+d.applied+' ค่า)','ok');
+    const id=ensureCfgOption(d.name); $('#cfg').value=id; outEdited=false;
+    await selectConfig(id);           // โหลดไฟล์ใหม่ → ฟอร์มโชว์ค่าที่ save · dirty=false
+    return id;
+  }catch(e){ toast('บันทึก error: '+e.message,'err'); return null; }
+  finally{ busy=false; $('#saveBtn').disabled=false; }
+}
+
+// ---------- Run (POST /api/run) ----------
+async function runBacktest(){
+  if(busy)return;
+  if(!$('#out').value.trim()){toast('ใส่ชื่อ output folder ก่อน','err');return;}
+  if(dirty){   // แก้ค้างแต่ยังไม่ save → ไม่รันค่าค้างเงียบ
+    const c=await modal({title:'มีค่าที่แก้ยังไม่ได้บันทึก',
+      body:'คุณแก้ค่าในฟอร์มไว้ แต่ยังไม่ได้ Save<br>การรันจะใช้ <b>config ที่บันทึกแล้ว</b> เท่านั้น (ค่าที่ค้างจะไม่ถูกใช้)',
+      buttons:[{id:'save',label:'Save as new แล้วรัน',kind:'gold'},{id:'orig',label:'รันไฟล์เดิม'},{id:'cancel',label:'ยกเลิก'}]});
+    if(c==='cancel')return;
+    if(c==='save'){ const id=await saveConfig(); if(!id)return; }
+  }
+  await doRun(false);
+}
+async function doRun(overwrite){
+  busy=true; const btn=$('#runBtn'); btn.disabled=true; const orig=btn.textContent; btn.textContent='⏳ กำลังรัน…';
+  setRunResult('<span class="dim">กำลังรัน backtest… (อาจใช้เวลาสักครู่ — อย่าปิดหน้านี้)</span>');
+  try{
+    const r=await fetch('/api/run',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({strategy:$('#strat').value,config:$('#cfg').value,data:$('#data').value,
+        out:$('#out').value.trim(),mode:modeVal(),lot:lotVal(),overwrite:overwrite})});
+    const d=await r.json();
+    if(r.status===409&&d.exists){    // folder ซ้ำ → ถามก่อนทับ ไม่ทับเงียบ
+      btn.disabled=false; btn.textContent=orig; busy=false; setRunResult('');
+      const c=await modal({title:'โฟลเดอร์ซ้ำ',body:'runs/<b>'+esc(d.out)+'</b>/ มีอยู่แล้ว — เขียนทับไหม?',
+        buttons:[{id:'ow',label:'เขียนทับ',kind:'gold'},{id:'cancel',label:'ยกเลิก'}]});
+      if(c==='ow')return doRun(true);
+      return;
+    }
+    if(!r.ok){ setRunResult('<span class="errtxt">'+esc(d.error||'รันไม่สำเร็จ')+'</span>'+
+        (d.stderr?'<pre class="errlog">'+esc(d.stderr)+'</pre>':'')); toast('รันไม่สำเร็จ','err'); return; }
+    const s=d.summary||{};
+    const stat=(s.n_trades!=null)?('<span class="stat">ไม้ <b>'+s.n_trades+'</b></span>'+
+        '<span class="stat">WR <b>'+s.win_rate+'%</b></span><span class="stat">net <b>'+fmtUsd(s.net_usd)+'</b></span>'):'';
+    setRunResult('<div class="rok">✅ รันเสร็จ → runs/'+esc(d.out)+'/</div>'+
+      '<div class="stats">'+stat+'<a class="openV" href="'+esc(d.viewer)+'" target="_blank">เปิด viewer →</a></div>');
+    toast('รันเสร็จ'+(s.n_trades!=null?(' — '+s.n_trades+' ไม้'):''),'ok');
+    loadRuns();
+  }catch(e){ setRunResult('<span class="errtxt">เชื่อมต่อ server ไม่ได้: '+esc(e.message)+'</span>'); }
+  finally{ busy=false; btn.disabled=false; btn.textContent=orig; }
+}
+$('#runBtn').addEventListener('click',runBacktest);
+$('#saveBtn').addEventListener('click',saveConfig);
+
+// ---------- history ----------
+function fmtUsd(n){return (n>=0?'+':'−')+Math.abs(n).toLocaleString('en-US',{maximumFractionDigits:0})+'$';}
+async function loadRuns(){
+  const el=$('#runList');
+  try{
+    const d=await getJSON('/api/runs');
+    $('#runMeta').textContent=d.runs.length+' runs';
+    if(!d.runs.length){el.innerHTML='<div class="emptyhint" style="padding:16px">ยังไม่มี runs/</div>';return;}
+    el.innerHTML='';
+    d.runs.forEach(r=>{
+      const s=r.summary||{};
+      const compat=/compat/i.test(r.name), pill=compat?'<span class="pill compat">COMPAT</span>':'<span class="pill correct">CORRECT</span>';
+      const tfm=r.name.match(/_M(\d+)/i), tf=tfm?('M'+tfm[1]):'';
+      const when=new Date(r.mtime*1000).toLocaleString('th-TH',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
+      const net=(s.net_usd!=null)?s.net_usd:null, winCls=(net==null)?'':(net>=0?'win':'loss');
+      let stats;
+      if(s.n_trades!=null){
+        stats='<span class="stat">ไม้ <b>'+s.n_trades+'</b></span>'+
+              '<span class="stat '+winCls+'">WR <b>'+(s.win_rate!=null?s.win_rate+'%':'—')+'</b></span>'+
+              '<span class="stat '+winCls+'">net <b>'+(net!=null?fmtUsd(net):'—')+'</b></span>';
+      }else stats='<span class="stat" style="color:var(--dim)">ไม่มี summary.json</span>';
+      const viewer=r.has_viewer
+        ?'<a class="openV" href="/runs/'+encodeURIComponent(r.name)+'/viewer.html" target="_blank">เปิด viewer →</a>'
+        :'<span class="openV dim">ไม่มี viewer</span>';
+      const sub='mai_ruay'+(tf?(' · '+tf):'');
+      const item=document.createElement('div');item.className='runItem';item.dataset.run=r.name;
+      if(cmpSel.has(r.name)) item.classList.add('cmpsel');
+      item.innerHTML='<div class="runTop">'+
+        '<span class="cmpck" title="เลือกเทียบ">✓</span>'+
+        '<span class="runNameWrap"><span class="runName" title="'+escAttr(r.name)+'">'+esc(r.name)+'</span>'+pill+'</span>'+
+        '<span class="runWhen">'+when+'</span>'+
+        '<button class="delBtn" title="ลบ run">✕</button>'+
+        '</div>'+
+        '<div class="runSub">'+sub+'</div>'+
+        '<div class="stats">'+stats+viewer+'</div>';
+      item.querySelector('.delBtn').onclick=(e)=>{e.stopPropagation();deleteRun(r.name);};
+      item.addEventListener('click',e=>{   // selmode: คลิกการ์ด/checkbox = เลือก · ปุ่มลบ/viewer ไม่นับ
+        if(!selMode) return;
+        if(e.target.closest('.delBtn')||e.target.closest('.openV')) return;
+        toggleSel(item, r.name);
+      });
+      el.appendChild(item);
+    });
+    [...cmpSel].forEach(n=>{ if(!d.runs.some(r=>r.name===n)) cmpSel.delete(n); });  // prune ที่ถูกลบ
+    cmpRefresh();
+  }catch(e){el.innerHTML='<div class="emptyhint" style="padding:16px">โหลด runs ไม่ได้: '+esc(e.message)+'</div>';}
+}
+// ลบ folder run — confirm modal บังคับ + ห้ามลบตอนกำลังรัน
+async function deleteRun(name){
+  if(busy){ toast('กำลังรัน backtest อยู่ — รอให้เสร็จก่อนลบ','err'); return; }
+  const c=await modal({title:'ลบ run',
+    body:'ลบโฟลเดอร์ <b>runs/'+esc(name)+'</b>/ ถาวร<br><span style="color:var(--down)">ย้อนกลับไม่ได้</span> — ยืนยัน?',
+    buttons:[{id:'del',label:'ลบถาวร',kind:'danger'},{id:'cancel',label:'ยกเลิก'}]});
+  if(c!=='del')return;
+  try{
+    const r=await fetch('/api/runs/'+encodeURIComponent(name),{method:'DELETE'});
+    const d=await r.json();
+    if(!r.ok){ toast(d.error||('ลบไม่ได้ ('+r.status+')'),'err'); return; }
+    toast('ลบ '+name+' แล้ว','ok'); loadRuns();
+  }catch(e){ toast('ลบ error: '+e.message,'err'); }
+}
+
+// ---------- compare entry (run-history) ----------
+let selMode=false; const cmpSel=new Set();
+function cmpRefresh(){
+  $('#cmpcnt').textContent=cmpSel.size;
+  $('#cmpbar').classList.toggle('show', selMode && cmpSel.size>=1);
+  $('#cmpGo').disabled=!(selMode && cmpSel.size>=2);
+}
+function toggleSel(item,name){
+  if(cmpSel.has(name)){ cmpSel.delete(name); item.classList.remove('cmpsel'); }
+  else{
+    if(cmpSel.size>=10){ toast('เลือกได้สูงสุด 10 run','err'); return; }
+    cmpSel.add(name); item.classList.add('cmpsel');
+  }
+  cmpRefresh();
+}
+function setSelMode(on){
+  selMode=on;
+  $('#runList').classList.toggle('selmode-off', !on);
+  $('#selToggle').textContent = on? 'ยกเลิกเลือก' : 'เลือกเพื่อเทียบ';
+  if(!on){ cmpSel.clear(); $$('#runList .runItem').forEach(it=>it.classList.remove('cmpsel')); }
+  cmpRefresh();
+}
+$('#selToggle').addEventListener('click',()=>setSelMode(!selMode));
+$('#openCompare').addEventListener('click',()=>{ location.href='/compare'; });
+$('#cmpClear').addEventListener('click',()=>{ cmpSel.clear();
+  $$('#runList .runItem').forEach(it=>it.classList.remove('cmpsel')); cmpRefresh(); });
+$('#cmpGo').addEventListener('click',()=>{
+  const runs=[...cmpSel]; if(runs.length<2) return;
+  location.href='/compare?runs='+runs.map(encodeURIComponent).join(',');
+});
+
+loadConfigs(); loadData(); loadRuns();
+</script>
+</body>
+</html>
