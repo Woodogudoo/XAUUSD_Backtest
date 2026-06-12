@@ -59,6 +59,8 @@ def _run(args) -> int:
     config_used = dict(scfg)
     config_used["_run"] = {
         "strategy": args.strategy,
+        "data": args.data,             # path data CSV ที่ใช้ — bt viewer regenerate อ่านจากนี่
+        "config": args.config,
         "mode": "compat" if inject_compat else "correct",
         "lot": "flat" if gcfg.get("winrate_mode") else "risk",
         "portfolio": portfolio,
@@ -91,6 +93,68 @@ def _run(args) -> int:
     return 0
 
 
+def _read_run_csv(path, int_fields, float_fields) -> list[dict]:
+    """อ่าน CSV ของ run กลับเป็น list[dict] — แปลงชนิดให้ตรงกับตอน bt run (int/float/str)
+    เพื่อให้ payload ที่ viewer ฝัง == ตอน bt run --viewer เป๊ะ (str→float round-trip ตรง)"""
+    import csv
+    rows = []
+    with open(path, encoding="utf-8") as f:
+        for row in csv.DictReader(f):
+            for k in int_fields:
+                v = row.get(k)
+                row[k] = int(v) if v not in (None, "") else None
+            for k in float_fields:
+                v = row.get(k)
+                row[k] = float(v) if v not in (None, "") else None
+            rows.append(row)
+    return rows
+
+
+def _viewer(args) -> int:
+    """render viewer.html ใหม่จาก run folder — ไม่รัน engine · อ่าน trades/unfilled/plan_meta อย่างเดียว"""
+    run_dir = args.run
+    if not os.path.isdir(run_dir):
+        print(f"❌ ไม่พบ run folder: {run_dir}")
+        return 1
+    trades_path = os.path.join(run_dir, "trades.csv")
+    if not os.path.isfile(trades_path):
+        print(f"❌ ไม่พบ trades.csv ใน {run_dir} (ไม่ใช่ run folder?)")
+        return 1
+
+    # หา data CSV: จาก config_used.yaml (_run.data) ก่อน · ไม่มี → --data
+    data_path, strategy = None, "mai_ruay"
+    cu = os.path.join(run_dir, "config_used.yaml")
+    if os.path.isfile(cu):
+        c = yaml.safe_load(open(cu, encoding="utf-8")) or {}
+        rm = c.get("_run", {}) if isinstance(c, dict) else {}
+        if isinstance(rm, dict):
+            data_path = rm.get("data")
+            strategy = rm.get("strategy", strategy)
+    if not (data_path and os.path.isfile(data_path)):
+        data_path = args.data
+    if not data_path or not os.path.isfile(data_path):
+        print("❌ หา data CSV ไม่เจอ — ระบุด้วย --data <path> "
+              "(config_used.yaml ไม่มี _run.data หรือ path ไม่อยู่จริง)")
+        return 1
+
+    bars = load_csv(data_path)
+    trades = _read_run_csv(trades_path,
+                           ["plan_id", "entry_bar", "exit_bar"],
+                           ["entry", "sl", "tp", "exit_price", "lot", "pnl_pips", "pnl_usd"])
+    unfilled = []
+    uf_path = os.path.join(run_dir, "unfilled.csv")
+    if os.path.isfile(uf_path):
+        unfilled = _read_run_csv(uf_path, ["plan_id", "place_bar", "death_bar"],
+                                 ["limit_price", "sl", "tp"])
+
+    out_path = os.path.join(run_dir, "viewer.html")   # write_viewer อ่าน plan_meta.csv จาก dir นี้เอง
+    viewer.write_viewer(bars, trades, out_path, title=strategy, unfilled=unfilled)
+    print(f"✅ regenerate viewer → {out_path}")
+    print(f"   data={os.path.basename(data_path)} · bars={len(bars)} · trades={len(trades)} "
+          f"· unfilled={len(unfilled)} · ไม่รัน engine (อ่านอย่างเดียว)")
+    return 0
+
+
 def main(argv=None) -> int:
     p = argparse.ArgumentParser(prog="python -m bt")
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -106,12 +170,18 @@ def main(argv=None) -> int:
     s.add_argument("--port", type=int, default=8000, help="พอร์ต (default 8000)")
     s.add_argument("--host", default="127.0.0.1", help="bind host (default 127.0.0.1 — local เท่านั้น)")
 
+    v = sub.add_parser("viewer", help="render viewer.html ใหม่จาก run folder (ไม่รัน engine)")
+    v.add_argument("--run", required=True, help="โฟลเดอร์ runs/<name>/ (มี trades.csv)")
+    v.add_argument("--data", help="data CSV (ใช้เมื่อ config_used.yaml ไม่มี _run.data)")
+
     args = p.parse_args(argv)
     if args.cmd == "run":
         return _run(args)
     if args.cmd == "serve":
         from bt import server   # lazy: bt run ไม่ต้องมี deps ของ server
         return server.serve(host=args.host, port=args.port)
+    if args.cmd == "viewer":
+        return _viewer(args)
     return 1
 
 
