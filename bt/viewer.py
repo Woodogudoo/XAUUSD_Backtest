@@ -9,7 +9,9 @@
 # ============================================================================
 from __future__ import annotations
 
+import csv
 import json
+import os
 from collections import defaultdict
 
 
@@ -48,6 +50,28 @@ def _unfilled_payload(unfilled) -> list[dict]:
     return out
 
 
+def _read_plan_meta(out_path: str) -> list[dict]:
+    """อ่าน plan_meta.csv (พ่อ/แม่/%/เหตุผล) จากโฟลเดอร์เดียวกับ viewer.html
+    — Phase A เขียนไฟล์นี้ก่อนเรียก viewer แล้ว · ไม่มีไฟล์ → [] (เช่น unit test)"""
+    p = os.path.join(os.path.dirname(out_path), "plan_meta.csv")
+    if not os.path.exists(p):
+        return []
+    out = []
+    with open(p, encoding="utf-8") as f:
+        for row in csv.DictReader(f):
+            reasons = (row.get("reasons") or "").split(" · ")
+            out.append({
+                "plan": int(row["plan_id"]),
+                "fs":   int(row["father_start_bar"]),
+                "fe":   int(row["father_end_bar"]),
+                "fp":   row["father_pct"],          # string — รักษาทศนิยม 1 ตำแหน่ง
+                "mb":   int(row["mother_bar"]),
+                "mp":   row["mother_pct"],
+                "reasons": [r for r in reasons if r],
+            })
+    return out
+
+
 def _plans_payload(trades) -> list[dict]:
     groups = defaultdict(list)
     for t in trades:
@@ -73,6 +97,7 @@ def write_viewer(bars, trades, out_path: str, title: str = "backtest",
         "trades": _trades_payload(trades),
         "plans": _plans_payload(trades),
         "unfilled": _unfilled_payload(unfilled),
+        "plan_meta": _read_plan_meta(out_path),
     }
     html = _TEMPLATE.replace("__TITLE__", title).replace(
         "__DATA__", json.dumps(data, separators=(",", ":")))
@@ -134,6 +159,8 @@ _TEMPLATE = r"""<!DOCTYPE html>
 </div>
 <script>
 const DATA=__DATA__, O=DATA.ohlc, TR=DATA.trades, PL=DATA.plans, N=O.t.length, UF=DATA.unfilled||[];
+// plan_meta (พ่อ/แม่/%/เหตุผล) → lookup ตาม plan_id · ครบทั้ง filled + unfilled
+const PM_ARR=DATA.plan_meta||[];var PM={};for(var _pm=0;_pm<PM_ARR.length;_pm++)PM[PM_ARR[_pm].plan]=PM_ARR[_pm];
 // รวม plan filled (PL) + plan ที่ไม่มีไม้ fill เลย (สร้างจาก UF) → เรียง plan_id ต่อเนื่อง (ไม่ข้าม)
 var ufBy={};for(var _k=0;_k<UF.length;_k++){(ufBy[UF[_k].plan]=ufBy[UF[_k].plan]||[]).push(UF[_k]);}
 var _fid={};for(var _k=0;_k<PL.length;_k++)_fid[PL[_k].plan_id]=1;
@@ -216,6 +243,42 @@ function drawPlanTags(id,hl,S){var ft=planTrades(id),Y=S.Y,fr=S.fr,groups={};
   if(g.hl&&!g.ghost){ctx.shadowColor=g.c;ctx.shadowBlur=8;}
   ctx.fillStyle=g.c;ctx.fillRect(tx,y-7,w,13);ctx.shadowBlur=0;
   ctx.fillStyle='#0e0e12';ctx.fillText(label,tx+3,y+3);ctx.globalAlpha=1;}}
+// === plan_meta overlay (focus mode เท่านั้น) ===
+// [1] tint แท่งพ่อ (fs→fe) / แม่ (mb) — แถบพื้นจาง + ขอบบน-ล่าง · subtle ไม่กลบไส้เทียน
+function drawPlanBars(id,S){var pm=PM[id];if(!pm)return;var fr=S.fr,cw=S.cw;
+ function band(b0,b1,fill,edge){var lx=Math.max(fr.x,S.X(b0)-cw/2),rx=Math.min(fr.x+fr.w,S.X(b1)+cw/2);
+  if(rx<=lx)return;ctx.fillStyle=fill;ctx.fillRect(lx,fr.y,rx-lx,fr.h);
+  ctx.strokeStyle=edge;ctx.lineWidth=1;ctx.beginPath();
+  ctx.moveTo(lx,fr.y+0.5);ctx.lineTo(rx,fr.y+0.5);ctx.moveTo(lx,fr.y+fr.h-0.5);ctx.lineTo(rx,fr.y+fr.h-0.5);ctx.stroke();}
+ band(pm.fs,pm.fe,'rgba(110,150,220,0.10)','rgba(110,150,220,0.30)');   // พ่อ — น้ำเงินจาง
+ band(pm.mb,pm.mb,'rgba(220,175,90,0.13)','rgba(220,175,90,0.40)');     // แม่ — ทอง/ส้มจาง (แยกสี)
+ ctx.lineWidth=1;}
+// ตัดข้อความให้พอดี maxw — เลือกตัดที่ช่องว่างก่อน, ไม่งั้นตัดราย char (รองรับไทย)
+function wrapTxt(s,maxw){var out=[],cur='';
+ for(var i=0;i<s.length;i++){var ch=s[i];
+  if(cur&&ctx.measureText(cur+ch).width>maxw){var sp=cur.lastIndexOf(' ');
+   if(sp>0){out.push(cur.slice(0,sp));cur=cur.slice(sp+1)+ch;}else{out.push(cur);cur=ch;}}
+  else cur+=ch;}
+ if(cur)out.push(cur);return out;}
+// [2] panel พ่อ/แม่/เหตุผล — โซนมืดซ้ายของกรอบ focus (ซ้ายแคบ → แถบบนใต้ header)
+function drawPlanPanel(id,S){var pm=PM[id];if(!pm)return;var fr=S.fr;
+ var topZone=(fr.x-16)<150, maxw=topZone?(fr.w-20):(fr.x-20);if(maxw<80)return;
+ var FNT=function(sz){return sz+'px -apple-system,Segoe UI,Roboto,sans-serif';};
+ var blocks=[{t:'พ่อ: #'+pm.fs+' → #'+pm.fe+' · '+pm.fp+'%',c:'#9ec1ff',sz:12},
+             {t:'แม่: #'+pm.mb+' · '+pm.mp+'%',c:'#e8c07a',sz:12},
+             {t:'เหตุผล:',c:'#9aa0b0',sz:11}];
+ for(var r=0;r<(pm.reasons||[]).length;r++)blocks.push({t:'• '+pm.reasons[r],c:'#cfd2dc',sz:11,bul:true});
+ var lines=[];
+ for(var b=0;b<blocks.length;b++){ctx.font=FNT(blocks[b].sz);var ind=blocks[b].bul?12:0,subs=wrapTxt(blocks[b].t,maxw-ind);
+  for(var s=0;s<subs.length;s++)lines.push({t:subs[s],c:blocks[b].c,sz:blocks[b].sz,x:(s>0?ind:0)});}
+ var lh=16,padX=8,padY=7,th=lines.length*lh,boxX,boxW,boxY;
+ if(topZone){boxX=fr.x;boxW=fr.w;boxY=Math.max(2,fr.y-th-2*padY-2);}
+ else{boxX=4;boxW=fr.x-8;boxY=fr.y;}
+ ctx.fillStyle='rgba(14,15,20,0.82)';ctx.fillRect(boxX,boxY,boxW,th+2*padY);
+ ctx.fillStyle='rgba(120,150,210,0.55)';ctx.fillRect(boxX,boxY,2,th+2*padY);   // accent ซ้าย
+ var ty=boxY+padY+11;
+ for(var k=0;k<lines.length;k++){ctx.font=FNT(lines[k].sz);ctx.fillStyle=lines[k].c;
+  ctx.fillText(lines[k].t,boxX+padX+(lines[k].x||0),ty);ty+=lh;}}
 function scale(){
  if(focus){
   var ratio=fw/fh, fH=Math.min(Hgt-20,Math.round(Hgt*0.82)), fW=Math.min(Math.round(W*0.95),Math.round(fH*ratio));
@@ -242,6 +305,7 @@ function draw(){
  var sp=(hoverPlan!==null?hoverPlan:openId), hl=(sp===openId?hlTrade:-1);  // แผนที่โชว์ + ไม้ที่ highlight
  ctx.lineWidth=1;ctx.font='11px monospace';
  for(var k=0;k<=4;k++){var p=lo+(hi-lo)*k/4,y=Y(p);ctx.strokeStyle='#1c1e26';ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();ctx.fillStyle='#5a5f70';ctx.fillText(p.toFixed(2),4,y-2);}
+ if(S.fr&&sp!==null)drawPlanBars(sp,S);              // tint แท่งพ่อ/แม่ (หลัง grid, ก่อนเทียน → ไม่กลบไส้)
  var bw=Math.max(1,cw*0.7);
  for(var i=a;i<b;i++){var x=X(i),up=O.c[i]>=O.o[i];ctx.strokeStyle=up?'#26a69a':'#ef5350';ctx.fillStyle=ctx.strokeStyle;
   ctx.beginPath();ctx.moveTo(x,Y(O.h[i]));ctx.lineTo(x,Y(O.l[i]));ctx.stroke();
@@ -261,6 +325,7 @@ function draw(){
   ctx.fillRect(0,fr.y,fr.x,fr.h);ctx.fillRect(fr.x+fr.w,fr.y,W-fr.x-fr.w,fr.h);
   ctx.strokeStyle='rgba(200,204,220,.65)';ctx.lineWidth=1;ctx.strokeRect(fr.x+0.5,fr.y+0.5,fr.w-1,fr.h-1);}
  if(sp!==null)drawPlanTags(sp,hl,S);                  // tag (หลัง overlay — อ่านได้แม้ focus)
+ if(S.fr&&sp!==null)drawPlanPanel(sp,S);              // panel พ่อ/แม่/เหตุผล (โซนมืดซ้าย · บนสุด)
  if(cross&&mx>=0&&mx<=W&&my>=0&&my<=Hgt){
   ctx.setLineDash([3,3]);ctx.lineWidth=1;ctx.strokeStyle='rgba(180,184,200,.55)';
   ctx.beginPath();ctx.moveTo(mx,0);ctx.lineTo(mx,Hgt);ctx.stroke();

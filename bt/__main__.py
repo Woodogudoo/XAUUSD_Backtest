@@ -48,6 +48,12 @@ def _run(args) -> int:
             "death_time": last_t, "death_bar": last_i, "reason": "end_of_data",
         })
     report.write_unfilled_csv(unfilled, os.path.join(args.out, "unfilled.csv"))
+
+    # plan_meta (analytics ล้วน): พ่อ/แม่/%/เหตุผล ต่อ plan_id — ไฟล์ใหม่ ไม่แตะ plans.csv
+    pm = getattr(strat, "plan_meta", {})
+    plan_meta = [pm[pid] for pid in sorted(pm)]
+    report.write_plan_meta_csv(plan_meta, os.path.join(args.out, "plan_meta.csv"))
+
     if args.viewer:
         viewer.write_viewer(bars, result["trades"],
                             os.path.join(args.out, "viewer.html"),
@@ -64,7 +70,7 @@ def _run(args) -> int:
     print(f"  Net USD      : {summary['net_usd']:+.2f}")
     print(f"  Portfolio    : {summary['init_portfolio']:.0f} → {summary['final_portfolio']:.2f}")
     print(f"  ไม้ไม่ fill   : {len(unfilled)}  (proximity/expiry/end_of_data)")
-    files = "trades.csv · plans.csv · summary.json · unfilled.csv" + (" · viewer.html" if args.viewer else "")
+    files = "trades.csv · plans.csv · summary.json · unfilled.csv · plan_meta.csv" + (" · viewer.html" if args.viewer else "")
     print(f"  → {args.out}  ({files})")
     print(f"{'='*52}")
     return 0

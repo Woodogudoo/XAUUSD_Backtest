@@ -61,6 +61,7 @@ class Signal:
     lot:              float
     is_round2:        bool
     entries:          list          # list[(price, label, lot, is_market)]
+    reasons:          list          # analytics ล้วน — เหตุผลไทยจาก branch ที่เดินจริง
 
 
 # ---------- bar helpers ----------
@@ -252,6 +253,7 @@ def analyze_bar(bars, bar_idx, cfg, portfolio, round2_info=None) -> Signal | Non
     if fr is None:
         return None
     f_start, f_end, f_dir, f_body, _f_pass = fr
+    reasons = [f"พ่อ: {_f_pass}"]   # analytics — เก็บเหตุผลจาก branch ที่เดินจริง
 
     f_first = bars[f_start]
     _f_first_pct = abs(f_first.open - f_first.close) / PIP / r55 * 100 if r55 > 0 else 0
@@ -272,6 +274,8 @@ def analyze_bar(bars, bar_idx, cfg, portfolio, round2_info=None) -> Signal | Non
     if mr is None:
         return None
     m_body, m_pct, m_quality = mr
+    reasons.append(f"แม่ {m_pct:.1f}% ({min_m:.0f}–{cfg['mother']['max_pct_r55']}%)"
+                   f" → ผ่านเงื่อนไขแม่ ({m_quality.split('(')[0].strip()})")
 
     mai_dir      = 'BUY' if f_dir == 'DOWN' else 'SELL'
     m_row        = bars[mother_idx]
@@ -289,8 +293,10 @@ def analyze_bar(bars, bar_idx, cfg, portfolio, round2_info=None) -> Signal | Non
     mk_max = cfg['mother']['market_entry_max_pct']
     if min_m <= m_pct < mk_max:
         _e1, _e1_label, _e1_mkt = child.open, 'จุด1:market(open_child)', True
+        reasons.append(f"แม่ {m_pct:.1f}% (<{mk_max}%) → จุด1 = market (open ลูก)")
     else:
         _e1, _e1_label, _e1_mkt = mid_mother, 'จุด1:mid_แม่', False
+        reasons.append(f"แม่ {m_pct:.1f}% (≥{mk_max}%) → จุด1 = mid แม่")
     entries = [
         (_e1,    _e1_label,        _e1_mkt),
         (_e_tech, 'จุด2:tech_point', False),
@@ -311,6 +317,7 @@ def analyze_bar(bars, bar_idx, cfg, portfolio, round2_info=None) -> Signal | Non
 
     # ── Round 2: TP/SL จากพ่อรวม (R1+R2) ──
     if round2_info:
+        reasons.append("ไม้รวยรอบ 2 → TP/SL จากพ่อรวม (R1+R2)")
         _combined = abs(round2_info['f_open_r1'] - bars[f_end].close) / PIP
         r2tp = cfg['round2_tp_sl']['tp_pct_combined'] / 100
         r2sl = cfg['round2_tp_sl']['sl_pct_combined'] / 100
@@ -336,6 +343,8 @@ def analyze_bar(bars, bar_idx, cfg, portfolio, round2_info=None) -> Signal | Non
             if max(b.high for b in pre50) <= _level40:
                 _trig = True
         if _trig:
+            reasons.append(f"TP30: 50 แท่งก่อนพ่อสะอาด → TP {t30['tp_pct_father']}%พ่อ"
+                           f" / SL {t30['sl_pct_father']}%พ่อ")
             tp30p = t30['tp_pct_father'] / 100
             sl30p = t30['sl_pct_father'] / 100
             tp_sel = tech_point + f_body * tp30p * PIP if mai_dir == 'BUY' \
@@ -353,9 +362,12 @@ def analyze_bar(bars, bar_idx, cfg, portfolio, round2_info=None) -> Signal | Non
     lot = _calc_lot(portfolio, sl_pips, lc['risk_pct'] / 100)
     if lc['mother_halve_min_pct'] <= m_pct <= lc['mother_halve_max_pct']:
         lot = _r(lot / 2, 2)
+        reasons.append(f"แม่ {m_pct:.1f}% ({lc['mother_halve_min_pct']}–"
+                       f"{lc['mother_halve_max_pct']}%) → lot ÷2")
     _f_pct = f_body / r55 * 100
     if _f_pct > lc['father_double_pct_r55']:
         lot = _r(lot * 2, 2)
+        reasons.append(f"พ่อ {_f_pct:.1f}% (>{lc['father_double_pct_r55']}%R55) → lot ×2")
 
     _n = len(entries)
     _lot_each = _r(lot / _n, 2) if _n > 0 else lot
@@ -372,7 +384,7 @@ def analyze_bar(bars, bar_idx, cfg, portfolio, round2_info=None) -> Signal | Non
         entry=entry, sl=sl, sl_pips=sl_pips,
         tp1=tp1, tp2=tp2, tp3=tp3, tp_selected=tp_sel, tp_pips=tp_pips,
         range55=r55, rr=rr, lot=lot, is_round2=bool(round2_info),
-        entries=entries_full,
+        entries=entries_full, reasons=reasons,
     )
 
 
@@ -394,6 +406,7 @@ class MaiRuay(Strategy):
         self._plan_id = 0      # mirror engine next_plan_id (เพิ่มต่อ 1 batch place ที่ไม่ว่าง)
         self.unfilled = []     # ไม้ที่ตายแบบไม่ fill (proximity/expiry) — report/viewer อ่าน
         self._placements = []  # {plan_id, bar, tags} ทุก batch — สำหรับ sanity check plan_id
+        self.plan_meta = {}    # plan_id -> {พ่อ/แม่/%/reasons} — report เขียน plan_meta.csv
 
     def on_bar(self, ctx) -> Decision:
         cfg = self.cfg
@@ -464,7 +477,19 @@ class MaiRuay(Strategy):
         self._placements.append({'plan_id': self._plan_id, 'bar': i,
                                  'tags': [e[1] for e in sig.entries]})
 
+        # analytics ล้วน — บันทึก พ่อ/แม่/%/เหตุผล (จาก branch ที่ analyze_bar เดินจริง)
+        self.plan_meta[self._plan_id] = {
+            'plan_id':          self._plan_id,
+            'father_start_bar': sig.father_start,
+            'father_end_bar':   sig.father_end,
+            'father_pct':       _r(sig.father_pct_r55, 1),
+            'mother_bar':       sig.mother_idx,
+            'mother_pct':       _r(sig.mother_pct_r55, 1),
+            'reasons':          list(sig.reasons),
+        }
+
         # (E) สร้าง Order ต่อไม้ + R:R=1.0 adjust (เข้าเสียเปรียบ → TP = entry ± SL_dist)
+        _rr_adjusted = False
         for ep, label, lot, is_mkt in sig.entries:
             sl_dist      = abs(ep - sig.sl)
             base_tp_dist = abs(sig.tp_selected - ep)
@@ -472,6 +497,7 @@ class MaiRuay(Strategy):
                 tp = sig.tp_selected
             else:
                 tp = ep + sl_dist if sig.direction == 'BUY' else ep - sl_dist
+                _rr_adjusted = True
             kind = "MARKET" if is_mkt else "LIMIT"
             place.append(Order(kind=kind, price=ep, lot=lot, sl=sig.sl, tp=tp, tag=label))
             if not is_mkt:
@@ -480,6 +506,9 @@ class MaiRuay(Strategy):
                                      'dir': sig.direction, 'placed': i,
                                      'plan_id': self._plan_id, 'price': ep,
                                      'place_time': str(ctx.bar.time)}
+        if _rr_adjusted:
+            self.plan_meta[self._plan_id]['reasons'].append(
+                "R:R<1 → ปรับ TP = entry ± SL_dist (บางไม้)")
         return Decision(place, cancel, modify)
 
     def _log_unfilled(self, tag, m, death_bar, bar, reason):

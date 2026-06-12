@@ -27,6 +27,10 @@ UNFILLED_FIELDS = [
     "plan_id", "tag", "direction", "kind", "limit_price", "sl", "tp",
     "place_time", "place_bar", "death_time", "death_bar", "reason",
 ]
+PLAN_META_FIELDS = [
+    "plan_id", "father_start_bar", "father_end_bar", "father_pct",
+    "mother_bar", "mother_pct", "reasons",
+]
 
 
 def _price(v):
@@ -84,6 +88,18 @@ def write_unfilled_csv(unfilled: list[dict], path: str) -> None:
             row = {k: u.get(k) for k in UNFILLED_FIELDS}
             for k in ("limit_price", "sl", "tp"):
                 row[k] = _price(row[k])
+            w.writerow(row)
+
+
+def write_plan_meta_csv(plan_meta: list[dict], path: str) -> None:
+    """พ่อ/แม่/%/เหตุผล ต่อ plan_id (analytics ล้วน) — ไฟล์ใหม่ ไม่ยุ่ง plans.csv"""
+    with open(path, "w", newline="", encoding="utf-8") as f:
+        w = csv.DictWriter(f, fieldnames=PLAN_META_FIELDS)
+        w.writeheader()
+        for m in plan_meta:
+            row = {k: m.get(k) for k in PLAN_META_FIELDS}
+            if isinstance(row["reasons"], (list, tuple)):
+                row["reasons"] = " · ".join(row["reasons"])
             w.writerow(row)
 
 
