@@ -94,6 +94,24 @@
   .saveas .f{flex:1}
   .btn-ghost{border:1px solid var(--gold-dim);background:transparent;color:var(--gold);cursor:pointer;font-family:var(--mono);font-size:12px;padding:9px 14px;border-radius:9px;white-space:nowrap}
   .btn-ghost:disabled,.run:disabled{opacity:.55;cursor:not-allowed}
+  /* config management */
+  .cfgmgr{border:1px solid var(--line);border-radius:11px;margin-top:14px;overflow:hidden;background:var(--panel2)}
+  .cfgmgr>summary{cursor:pointer;list-style:none;padding:10px 13px;display:flex;align-items:center;justify-content:space-between;font-family:var(--mono);font-size:12px}
+  .cfgmgr>summary::-webkit-details-marker{display:none}
+  .cfgmgr>summary .gname{display:flex;align-items:center;gap:9px} .cfgmgr>summary .gname::before{content:"▸";color:var(--gold);font-size:11px}
+  .cfgmgr[open]>summary .gname::before{content:"▾"}
+  .cfgmgr>summary .cnt{color:var(--dim);font-size:10.5px}
+  .cfgmgr .ginner{padding:6px 12px 12px;border-top:1px solid var(--line)}
+  .mgrlist{display:flex;flex-direction:column;gap:5px}
+  .mgrrow{display:flex;align-items:center;gap:8px;background:var(--panel);border:1px solid var(--line2);border-radius:8px;padding:7px 10px}
+  .mgrrow .mn{flex:1;min-width:0;font-family:var(--mono);font-size:11.5px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .mgrrow .mn small{color:var(--dim);font-size:9.5px;margin-left:6px}
+  .mgrrow .core{color:var(--dim);font-family:var(--mono);font-size:10px;flex-shrink:0}
+  .mgrbtn{flex-shrink:0;border:1px solid var(--line2);background:transparent;color:var(--dim);cursor:pointer;font-size:12px;line-height:1;width:24px;height:24px;display:grid;place-items:center;border-radius:6px;padding:0}
+  .mgrbtn:hover{border-color:var(--gold);color:var(--gold)} .mgrbtn.del:hover{border-color:var(--down);color:var(--down)}
+  .trashhd{margin-top:12px;padding:7px 2px;font-family:var(--mono);font-size:11px;color:var(--muted);cursor:pointer;border-top:1px dashed var(--line2)}
+  .trashhd:hover{color:var(--gold)}
+  .mgrempty{color:var(--dim);font-family:var(--mono);font-size:11px;padding:6px 2px}
 
   .seg{display:flex;background:#0a0b0e;border:1px solid var(--line2);border-radius:9px;padding:3px;gap:3px}
   .seg button{flex:1;border:0;background:transparent;color:var(--dim);cursor:pointer;font-family:var(--mono);font-size:11.5px;padding:7px;border-radius:6px}
@@ -210,6 +228,16 @@
             <input id="saveName" type="text" placeholder="เช่น mairuay_v205.yaml"></div>
           <button id="saveBtn" class="btn-ghost">💾 Save as new</button>
         </div>
+
+        <!-- ░ จัดการไฟล์ config (rename / trash / restore) ░ -->
+        <details class="cfgmgr">
+          <summary><span class="gname">จัดการไฟล์ config</span><span class="cnt" id="trashCnt"></span></summary>
+          <div class="ginner">
+            <div id="cfgMgrList" class="mgrlist"></div>
+            <div class="trashhd" id="trashToggle">🗑 ถังขยะ <span id="trashN">(0)</span></div>
+            <div id="trashList" class="mgrlist" style="display:none"></div>
+          </div>
+        </details>
 
         <!-- run target -->
         <div class="row2" style="margin-top:18px">
@@ -470,7 +498,7 @@ async function saveConfig(){
       body:JSON.stringify({base:curCfgId,name:name,values:collectValues()})});
     const d=await r.json();
     if(!r.ok){ toast(d.error||('บันทึกไม่ได้ ('+r.status+')'),'err'); return null; }
-    toast('บันทึก '+d.name+' แล้ว ('+d.applied+' ค่า)','ok');
+    toast('บันทึก '+d.name+' แล้ว ('+d.applied+' ค่า)','ok'); loadCfgMgr(); loadTrash();
     const id=ensureCfgOption(d.name); $('#cfg').value=id; outEdited=false;
     await selectConfig(id);           // โหลดไฟล์ใหม่ → ฟอร์มโชว์ค่าที่ save · dirty=false
     return id;
@@ -605,16 +633,107 @@ function setSelMode(on){
   if(!on){ cmpSel.clear(); $$('#runList .runItem').forEach(it=>it.classList.remove('cmpsel')); }
   cmpRefresh();
 }
+// id ต้องตรงชื่อโฟลเดอร์ที่ /api/runs คืน (ไม่แปลง) · encodeURIComponent ต่อ id กัน char พิเศษ
+function gotoCompare(runs){
+  location.href = runs.length ? ('/compare?runs='+runs.map(encodeURIComponent).join(',')) : '/compare';
+}
 $('#selToggle').addEventListener('click',()=>setSelMode(!selMode));
-$('#openCompare').addEventListener('click',()=>{ location.href='/compare'; });
+// ปุ่มหัว: มี run ติ๊กอยู่ → พาไปพร้อม ?runs= · ไม่มี → เปล่า
+$('#openCompare').addEventListener('click',()=>gotoCompare([...cmpSel]));
 $('#cmpClear').addEventListener('click',()=>{ cmpSel.clear();
   $$('#runList .runItem').forEach(it=>it.classList.remove('cmpsel')); cmpRefresh(); });
-$('#cmpGo').addEventListener('click',()=>{
-  const runs=[...cmpSel]; if(runs.length<2) return;
-  location.href='/compare?runs='+runs.map(encodeURIComponent).join(',');
-});
+$('#cmpGo').addEventListener('click',()=>{ if(cmpSel.size>=2) gotoCompare([...cmpSel]); });
 
-loadConfigs(); loadData(); loadRuns();
+// ---------- config management UI (rename / soft-delete / restore / perm-delete) ----------
+let CFG_CORE=new Set(['global.yaml','field_labels.yaml']);
+function fmtKB(n){ return n>=1024?(n/1024).toFixed(1)+'KB':n+'B'; }
+function inputModal(title,label,value){
+  return new Promise(res=>{
+    const ov=document.createElement('div'); ov.className='modal-ov';
+    ov.innerHTML='<div class="modal"><div class="mtitle">'+esc(title)+'</div>'+
+      '<div class="mbody"><label class="lab">'+esc(label)+'</label>'+
+      '<input type="text" id="imInput" value="'+escAttr(value)+'" style="margin-top:6px;width:100%"></div>'+
+      '<div class="mbtns"><button class="mbtn" data-id="cancel">ยกเลิก</button>'+
+      '<button class="mbtn gold" data-id="ok">ตกลง</button></div></div>';
+    document.body.appendChild(ov);
+    const inp=ov.querySelector('#imInput');
+    function done(v){ ov.remove(); res(v); }
+    ov.addEventListener('click',e=>{ if(e.target===ov)return done(null);
+      const b=e.target.closest('.mbtn'); if(b)done(b.dataset.id==='ok'?inp.value:null); });
+    inp.addEventListener('keydown',e=>{ if(e.key==='Enter')done(inp.value); if(e.key==='Escape')done(null); });
+    requestAnimationFrame(()=>{ ov.classList.add('show'); inp.focus(); inp.select(); });
+  });
+}
+async function loadCfgMgr(){
+  const el=$('#cfgMgrList'); if(!el)return;
+  try{
+    const d=await getJSON('/api/configs'); CFG_CORE=new Set(d.core||[]);
+    el.innerHTML=d.configs.map(name=>{
+      if(CFG_CORE.has(name)) return '<div class="mgrrow"><span class="mn">'+esc(name)+'</span><span class="core">🔒 ระบบ</span></div>';
+      return '<div class="mgrrow" data-cfg="'+escAttr(name)+'"><span class="mn">'+esc(name)+'</span>'+
+        '<button class="mgrbtn ren" title="เปลี่ยนชื่อ">✎</button>'+
+        '<button class="mgrbtn del" title="ลบ (ลงถังขยะ)">🗑</button></div>';
+    }).join('')||'<div class="mgrempty">ไม่มี config</div>';
+    el.querySelectorAll('.mgrrow[data-cfg]').forEach(row=>{ const n=row.getAttribute('data-cfg');
+      row.querySelector('.ren').onclick=()=>renameConfig(n);
+      row.querySelector('.del').onclick=()=>deleteConfig(n); });
+  }catch(e){ el.innerHTML='<div class="mgrempty">โหลดไม่ได้</div>'; }
+}
+async function loadTrash(){
+  const el=$('#trashList'); if(!el)return;
+  try{
+    const d=await getJSON('/api/configs/trash'); const n=d.trash.length;
+    $('#trashN').textContent='('+n+')'; $('#trashCnt').textContent=n?('ถังขยะ '+n):'';
+    el.innerHTML=n?d.trash.map(t=>{
+      const when=new Date(t.mtime*1000).toLocaleString('th-TH',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
+      return '<div class="mgrrow" data-t="'+escAttr(t.name)+'"><span class="mn">'+esc(t.name)+'<small>'+fmtKB(t.size)+' · '+when+'</small></span>'+
+        '<button class="mgrbtn rst" title="กู้คืน">♻️</button>'+
+        '<button class="mgrbtn del" title="ลบถาวร">✕</button></div>';
+    }).join(''):'<div class="mgrempty">ถังขยะว่าง</div>';
+    el.querySelectorAll('.mgrrow[data-t]').forEach(row=>{ const n2=row.getAttribute('data-t');
+      row.querySelector('.rst').onclick=()=>restoreConfig(n2);
+      row.querySelector('.del').onclick=()=>permDeleteConfig(n2); });
+  }catch(e){ el.innerHTML='<div class="mgrempty">โหลดถังขยะไม่ได้</div>'; }
+}
+function refreshCfgAll(){ loadConfigs(); loadCfgMgr(); loadTrash(); }
+async function renameConfig(name){
+  const nn=await inputModal('เปลี่ยนชื่อ config','ชื่อใหม่ (ไม่ใส่ .yaml ก็เติมให้)',name);
+  if(nn===null)return;
+  try{ const r=await fetch('/api/configs/'+encodeURIComponent(name)+'/rename',{method:'POST',
+        headers:{'Content-Type':'application/json'},body:JSON.stringify({new_name:nn})});
+    const d=await r.json(); if(!r.ok){ toast(d.error||'rename ไม่ได้','err'); return; }
+    toast('เปลี่ยนชื่อ → '+d.new,'ok'); refreshCfgAll();
+  }catch(e){ toast('rename error: '+e.message,'err'); }
+}
+async function deleteConfig(name){
+  const c=await modal({title:'ลบ config',
+    body:'ย้าย <b>'+esc(name)+'</b> ลงถังขยะ?<br><span style="font-size:11px;color:var(--dim)">กู้คืนได้จากถังขยะ (ลบถาวรอีกชั้น)</span>',
+    buttons:[{id:'del',label:'ลบ (ลงถังขยะ)',kind:'danger'},{id:'cancel',label:'ยกเลิก'}]});
+  if(c!=='del')return;
+  try{ const r=await fetch('/api/configs/'+encodeURIComponent(name),{method:'DELETE'});
+    const d=await r.json(); if(!r.ok){ toast(d.error||'ลบไม่ได้','err'); return; }
+    toast('ลบ '+name+' ลงถังขยะ','ok'); refreshCfgAll();
+  }catch(e){ toast('ลบ error: '+e.message,'err'); }
+}
+async function restoreConfig(name){
+  try{ const r=await fetch('/api/configs/trash/'+encodeURIComponent(name)+'/restore',{method:'POST'});
+    const d=await r.json(); if(!r.ok){ toast(d.error||'restore ไม่ได้','err'); return; }
+    toast('กู้คืน '+name,'ok'); refreshCfgAll();
+  }catch(e){ toast('restore error: '+e.message,'err'); }
+}
+async function permDeleteConfig(name){
+  const c=await modal({title:'ลบถาวร',
+    body:'ลบ <b>'+esc(name)+'</b> ออกจากถังขยะ<br><span style="color:var(--down)">ลบถาวร — กู้คืนไม่ได้</span>',
+    buttons:[{id:'del',label:'ลบถาวร',kind:'danger'},{id:'cancel',label:'ยกเลิก'}]});
+  if(c!=='del')return;
+  try{ const r=await fetch('/api/configs/trash/'+encodeURIComponent(name),{method:'DELETE'});
+    const d=await r.json(); if(!r.ok){ toast(d.error||'ลบไม่ได้','err'); return; }
+    toast('ลบถาวร '+name,'ok'); refreshCfgAll();
+  }catch(e){ toast('ลบ error: '+e.message,'err'); }
+}
+$('#trashToggle').addEventListener('click',()=>{ const t=$('#trashList'); t.style.display=t.style.display==='none'?'flex':'none'; });
+
+loadConfigs(); loadData(); loadRuns(); loadCfgMgr(); loadTrash();
 </script>
 </body>
 </html>

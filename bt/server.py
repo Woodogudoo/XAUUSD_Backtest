@@ -27,6 +27,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import unquote, urlparse
 
@@ -134,9 +135,147 @@ def _read_config(path: str) -> dict:
 # ---------- endpoint handlers (คืน (status, payload)) ----------
 def api_configs() -> tuple[int, dict]:
     d = os.path.join(_root(), "configs")
-    files = sorted(f for f in os.listdir(d) if f.endswith((".yaml", ".yml"))) \
+    # exclude hidden (.xxx) และ .trash/ — ไม่ให้ trashed โผล่เป็น config ที่เลือกได้
+    files = sorted(f for f in os.listdir(d)
+                   if not f.startswith(".") and f.endswith((".yaml", ".yml"))) \
         if os.path.isdir(d) else []
-    return 200, {"configs": files}
+    return 200, {"configs": files, "core": sorted(_CORE_CONFIGS)}
+
+
+# ---------- config management: rename · soft-delete (trash) · restore · hard-delete ----------
+_CORE_CONFIGS = {"global.yaml", "field_labels.yaml"}   # ห้าม rename/ลบ
+
+
+def _configs_dir() -> str:
+    return os.path.realpath(os.path.join(_root(), "configs"))
+
+
+def _trash_dir() -> str:
+    return os.path.join(_configs_dir(), ".trash")
+
+
+def _under(path: str, base: str) -> bool:
+    rp = os.path.realpath(path)
+    return rp == os.path.realpath(base) or rp.startswith(os.path.realpath(base) + os.sep)
+
+
+def _valid_new_name(new: str) -> str | None:
+    """ตรวจชื่อ config ใหม่ — เติม .yaml ถ้าไม่มี · charset + no traversal · คืนชื่อหรือ None"""
+    new = (new or "").strip()
+    if not new:
+        return None
+    if not (new.endswith(".yaml") or new.endswith(".yml")):
+        new += ".yaml"
+    if "/" in new or "\\" in new or ".." in new or "\x00" in new:
+        return None
+    if not re.fullmatch(r"[A-Za-z0-9_.-]+\.ya?ml", new):
+        return None
+    return new
+
+
+def api_config_rename(name: str, payload: dict) -> tuple[int, dict]:
+    safe = _safe_name(name)
+    if safe is None:
+        return 400, {"error": "ชื่อ config ไม่ถูกต้อง (ห้าม / .. absolute)"}
+    if safe in _CORE_CONFIGS:
+        return 403, {"error": f"{safe} เป็นไฟล์ระบบ — rename ไม่ได้"}
+    src = os.path.join(_configs_dir(), safe)
+    if not _under(src, _configs_dir()) or _under(src, _trash_dir()):
+        return 400, {"error": "อยู่นอก configs/"}
+    if not os.path.isfile(src):
+        return 404, {"error": f"ไม่พบ config: {safe}"}
+    new = _valid_new_name(payload.get("new_name", ""))
+    if new is None:
+        return 400, {"error": "ชื่อใหม่ใช้ได้แค่ A-Z a-z 0-9 _ . - และลงท้าย .yaml"}
+    if new in _CORE_CONFIGS:
+        return 403, {"error": f"{new} เป็นชื่อไฟล์ระบบ — ใช้ไม่ได้"}
+    dest = os.path.join(_configs_dir(), new)
+    if not _under(dest, _configs_dir()) or _under(dest, _trash_dir()):
+        return 400, {"error": "ปลายทางอยู่นอก configs/"}
+    if os.path.exists(dest):
+        return 409, {"error": f"มีไฟล์ {new} อยู่แล้ว — เปลี่ยนชื่ออื่น"}
+    try:
+        os.rename(src, dest)
+    except Exception as e:  # noqa: BLE001
+        return 500, {"error": f"rename ไม่สำเร็จ: {e}"}
+    return 200, {"ok": True, "old": safe, "new": new}
+
+
+def api_config_softdelete(name: str) -> tuple[int, dict]:
+    """soft-delete (ชั้น 1) — ย้ายไป configs/.trash/ (ไม่ unlink)"""
+    safe = _safe_name(name)
+    if safe is None:
+        return 400, {"error": "ชื่อ config ไม่ถูกต้อง (ห้าม / .. absolute)"}
+    if safe in _CORE_CONFIGS:
+        return 403, {"error": f"{safe} เป็นไฟล์ระบบ — ลบไม่ได้"}
+    src = os.path.join(_configs_dir(), safe)
+    if not _under(src, _configs_dir()) or _under(src, _trash_dir()):
+        return 400, {"error": "อยู่นอก configs/"}
+    if not os.path.isfile(src):
+        return 404, {"error": f"ไม่พบ config: {safe}"}
+    os.makedirs(_trash_dir(), exist_ok=True)
+    dest = os.path.join(_trash_dir(), safe)
+    if os.path.exists(dest):   # ชนชื่อในถัง → ต่อท้าย __<ts> กันทับ
+        base, ext = os.path.splitext(safe)
+        dest = os.path.join(_trash_dir(), f"{base}__{int(time.time())}{ext}")
+        while os.path.exists(dest):
+            dest = os.path.join(_trash_dir(), f"{base}__{int(time.time()*1000)}{ext}")
+    try:
+        shutil.move(src, dest)
+    except Exception as e:  # noqa: BLE001
+        return 500, {"error": f"ย้ายลงถังขยะไม่สำเร็จ: {e}"}
+    return 200, {"ok": True, "trashed": os.path.basename(dest)}
+
+
+def api_trash_list() -> tuple[int, dict]:
+    td = _trash_dir()
+    items = []
+    if os.path.isdir(td):
+        for f in os.listdir(td):
+            p = os.path.join(td, f)
+            if os.path.isfile(p) and f.endswith((".yaml", ".yml")) and not f.startswith("."):
+                items.append({"name": f, "size": os.path.getsize(p),
+                              "mtime": int(os.path.getmtime(p))})
+    items.sort(key=lambda x: x["mtime"], reverse=True)
+    return 200, {"trash": items}
+
+
+def api_config_restore(name: str) -> tuple[int, dict]:
+    safe = _safe_name(name)
+    if safe is None:
+        return 400, {"error": "ชื่อไม่ถูกต้อง (ห้าม / .. absolute)"}
+    src = os.path.join(_trash_dir(), safe)
+    if not _under(src, _trash_dir()):
+        return 400, {"error": "อยู่นอก configs/.trash/"}
+    if not os.path.isfile(src):
+        return 404, {"error": f"ไม่พบในถังขยะ: {safe}"}
+    dest = os.path.join(_configs_dir(), safe)
+    if not _under(dest, _configs_dir()) or _under(dest, _trash_dir()):
+        return 400, {"error": "ปลายทางอยู่นอก configs/"}
+    if os.path.exists(dest):
+        return 409, {"error": f"ชื่อ {safe} มีอยู่แล้วใน configs/ — เปลี่ยนชื่อก่อน restore"}
+    try:
+        shutil.move(src, dest)
+    except Exception as e:  # noqa: BLE001
+        return 500, {"error": f"restore ไม่สำเร็จ: {e}"}
+    return 200, {"ok": True, "restored": safe}
+
+
+def api_trash_delete(name: str) -> tuple[int, dict]:
+    """ลบถาวร (ชั้น 2) — hard unlink เฉพาะใน configs/.trash/"""
+    safe = _safe_name(name)
+    if safe is None:
+        return 400, {"error": "ชื่อไม่ถูกต้อง (ห้าม / .. absolute)"}
+    target = os.path.realpath(os.path.join(_trash_dir(), safe))
+    if not _under(target, _trash_dir()) or target == os.path.realpath(_trash_dir()):
+        return 400, {"error": "ลบถาวรได้เฉพาะไฟล์ใน configs/.trash/ เท่านั้น"}
+    if not os.path.isfile(target):
+        return 404, {"error": f"ไม่พบในถังขยะ: {safe}"}
+    try:
+        os.remove(target)
+    except Exception as e:  # noqa: BLE001
+        return 500, {"error": f"ลบถาวรไม่สำเร็จ: {e}"}
+    return 200, {"ok": True, "deleted": safe}
 
 
 def api_config_one(cid: str) -> tuple[int, dict]:
@@ -242,9 +381,26 @@ def api_metric_defs() -> tuple[int, dict]:
     return 200, {"metric_defs": metrics.METRIC_DEFS}
 
 
+def _flatten(d: dict) -> dict:
+    """nested dict → {dotted_key: value} (leaf เท่านั้น)"""
+    out: dict = {}
+
+    def _go(node, prefix=""):
+        for k, v in node.items():
+            key = f"{prefix}{k}"
+            if isinstance(v, dict):
+                _go(v, key + ".")
+            else:
+                out[key] = v
+    if isinstance(d, dict):
+        _go(d)
+    return out
+
+
 def api_run_config(name: str) -> tuple[int, dict]:
     """snapshot config ที่ใช้รัน (runs/<name>/config_used.yaml) → flat {dotted_key: value}
-    + labels จาก field_labels — สำหรับ config diff ในหน้าเทียบ · ไม่มี snapshot → exists:false"""
+    + labels จาก field_labels — สำหรับ config diff หน้าเทียบ · ไม่มี snapshot → 404
+    fallback: ไม่มี snapshot แต่ summary.json เก็บ config/global path → อ่าน+merge ใหม่"""
     safe = _safe_name(name)
     if safe is None:
         return 400, {"error": "ชื่อ run ไม่ถูกต้อง (ห้าม / .. หรือ absolute path)"}
@@ -252,29 +408,39 @@ def api_run_config(name: str) -> tuple[int, dict]:
     run_dir = os.path.realpath(os.path.join(runs_root, safe))
     if run_dir == runs_root or not run_dir.startswith(runs_root + os.sep):
         return 400, {"error": "อ่านได้เฉพาะ folder ภายใต้ runs/ เท่านั้น"}
-    p = os.path.join(run_dir, "config_used.yaml")
-    if not os.path.isfile(p):
-        return 200, {"exists": False, "values": {}, "labels": {}}
-    try:
-        import yaml
-        with open(p, encoding="utf-8") as f:
-            data = yaml.safe_load(f) or {}
-    except Exception as e:  # noqa: BLE001
-        return 500, {"error": f"อ่าน config_used ไม่ได้: {e}"}
-    values: dict = {}
 
-    def _flat(d, prefix=""):
-        for k, v in d.items():
-            key = f"{prefix}{k}"
-            if isinstance(v, dict):
-                _flat(v, key + ".")
-            else:
-                values[key] = v
-    if isinstance(data, dict):
-        _flat(data)
     labels = {k: (lab.get("label") if isinstance(lab, dict) else None)
               for k, lab in _load_labels().items()}
-    return 200, {"exists": True, "values": values, "labels": labels}
+    p = os.path.join(run_dir, "config_used.yaml")
+    import yaml
+
+    if os.path.isfile(p):
+        try:
+            with open(p, encoding="utf-8") as f:
+                data = yaml.safe_load(f) or {}
+        except Exception as e:  # noqa: BLE001
+            return 500, {"error": f"อ่าน config_used ไม่ได้: {e}"}
+        return 200, {"exists": True, "values": _flatten(data), "labels": labels}
+
+    # fallback: run เก่าไม่มี snapshot แต่ summary เก็บ config path → re-read + merge
+    sp = os.path.join(run_dir, "summary.json")
+    if os.path.isfile(sp):
+        try:
+            with open(sp, encoding="utf-8") as f:
+                summ = json.load(f)
+            cfg_path = summ.get("config") or summ.get("config_used")
+            if cfg_path:
+                cp = os.path.join(_root(), cfg_path)
+                if os.path.isfile(cp):
+                    with open(cp, encoding="utf-8") as f:
+                        data = yaml.safe_load(f) or {}
+                    return 200, {"exists": True, "values": _flatten(data),
+                                 "labels": labels, "from": "summary-fallback"}
+        except Exception:  # noqa: BLE001
+            pass
+
+    return 404, {"error": f"ไม่พบ config snapshot ของ run นี้ (config_used.yaml) — รันใหม่เพื่อบันทึก",
+                 "exists": False}
 
 
 # ---------- POST: save config (ruamel round-trip) ----------
@@ -455,13 +621,7 @@ def api_run(payload: dict) -> tuple[int, dict]:
     if proc.returncode != 0:
         return 500, {"error": "รัน backtest ไม่สำเร็จ (ดู log)",
                      "stderr": (proc.stderr or proc.stdout or "")[-1600:], "cmd": cmd}
-    # additive logging-only: snapshot config ที่ใช้ → runs/<out>/config_used.yaml (ไฟล์ใหม่)
-    # ไม่กระทบ trades/plans/summary — ใช้กับ config diff ในหน้าเทียบ
-    try:
-        shutil.copyfile(os.path.join(_root(), cfg_rel),
-                        os.path.join(out_dir, "config_used.yaml"))
-    except Exception:  # noqa: BLE001 — snapshot ล้มเหลวไม่ทำให้ run พัง
-        pass
+    # config_used.yaml เขียนโดย bt/__main__ (resolved config) — ครอบคลุมทั้ง CLI และ console run
     summary = None
     sp = os.path.join(out_dir, "summary.json")
     if os.path.isfile(sp):
@@ -514,6 +674,9 @@ class _Handler(BaseHTTPRequestHandler):
 
         if path == "/api/configs":
             return self._json(*api_configs())
+
+        if path == "/api/configs/trash":   # ก่อน /api/configs/<id> (กัน 'trash' ถูกอ่านเป็น config)
+            return self._json(*api_trash_list())
 
         m = re.fullmatch(r"/api/configs/([^/]+)", path)
         if m:
@@ -568,6 +731,12 @@ class _Handler(BaseHTTPRequestHandler):
             return self._json(*api_save_config(payload))
         if path == "/api/run":
             return self._json(*api_run(payload))
+        m = re.fullmatch(r"/api/configs/trash/([^/]+)/restore", path)
+        if m:
+            return self._json(*api_config_restore(m.group(1)))
+        m = re.fullmatch(r"/api/configs/([^/]+)/rename", path)
+        if m:
+            return self._json(*api_config_rename(m.group(1), payload))
         m = re.fullmatch(r"/api/runs/([^/]+)/delete", path)   # POST alias ของ DELETE
         if m:
             return self._json(*api_delete_run(m.group(1)))
@@ -575,6 +744,12 @@ class _Handler(BaseHTTPRequestHandler):
 
     def do_DELETE(self):
         path = urlparse(self.path).path
+        m = re.fullmatch(r"/api/configs/trash/([^/]+)", path)   # ลบถาวร (ชั้น 2) — ก่อน soft-delete
+        if m:
+            return self._json(*api_trash_delete(m.group(1)))
+        m = re.fullmatch(r"/api/configs/([^/]+)", path)         # soft-delete (ชั้น 1)
+        if m:
+            return self._json(*api_config_softdelete(m.group(1)))
         m = re.fullmatch(r"/api/runs/([^/]+)", path)
         if m:
             return self._json(*api_delete_run(m.group(1)))

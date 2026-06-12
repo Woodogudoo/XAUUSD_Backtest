@@ -2,3 +2,6 @@
 __pycache__/
 *.pyc
 runs/
+
+# config soft-delete trash (local only)
+configs/.trash/
