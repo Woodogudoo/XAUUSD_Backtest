@@ -65,6 +65,10 @@
   th:first-child,td:first-child{text-align:left;position:sticky;left:0;background:var(--panel)}
   thead th:first-child{background:var(--panel2)}
   thead th{font-family:var(--mono);font-size:11px;color:var(--muted);font-weight:500;background:var(--panel2)}
+  .rhead .rlink{cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:3px}
+  .rhead .rlink:hover{text-decoration:underline;filter:brightness(1.25)}
+  .rhead .ext{font-size:9px;opacity:.6}
+  .rhead .noviewer{border-bottom:1px dashed currentColor;opacity:.85}
   .grp td{font-family:var(--mono);font-size:10px;letter-spacing:1.2px;text-transform:uppercase;color:var(--dim);background:var(--panel2);padding:6px 14px}
   .grp td:first-child{background:var(--panel2)}
   .mname{color:var(--text)} .mname small{color:var(--dim);font-size:10px;display:block;font-family:var(--sans)}
@@ -91,6 +95,10 @@
     border:1px solid var(--line2);border-radius:10px;padding:11px 13px;font-size:11.5px;
     line-height:1.6;color:var(--text);box-shadow:0 10px 30px rgba(0,0,0,.55);z-index:50;font-family:var(--sans)}
   #calcpop .eb{display:block;font-family:var(--mono);font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--gold);margin-bottom:6px}
+  .ctoast{position:fixed;right:18px;bottom:18px;z-index:60;max-width:380px;background:var(--raise);
+    border:1px solid var(--gold);border-radius:10px;padding:11px 15px;font-family:var(--mono);font-size:12px;
+    color:var(--text);box-shadow:0 10px 30px -10px #000;opacity:0;transform:translateY(8px);transition:.25s}
+  .ctoast.show{opacity:1;transform:none}
 </style>
 </head>
 <body>
@@ -163,11 +171,22 @@ function cellOf(key, def, m){
   return {html:html, cmp:cmp};
 }
 
+// หัวคอลัมน์ run = ลิงก์เปิด viewer (แท็บใหม่) · ไม่มี viewer.html → คลิกได้แต่บอกวิธีสร้าง (ไม่ 404 เงียบ)
+function hasViewer(name){ var r=ALL_RUNS.find(function(x){return x.name===name;}); return !!(r&&r.has_viewer); }
+function runHeadTH(name,i){
+  var col=PALETTE[i];
+  if(hasViewer(name))
+    return '<th class="rhead"><a class="rlink" href="/runs/'+encodeURIComponent(name)+'/viewer.html" target="_blank" rel="noopener"'+
+      ' style="color:'+col+'" title="เปิด viewer ของ '+escAttr(name)+'">'+esc(name)+' <span class="ext">↗</span></a></th>';
+  return '<th class="rhead"><span class="rlink noviewer" data-noviewer="'+escAttr(name)+'" style="color:'+col+'"'+
+    ' title="run นี้ยังไม่มี viewer — รัน: bt viewer --run runs/'+escAttr(name)+'/ ก่อน">'+esc(name)+'</span></th>';
+}
+
 // ---------- metrics table ----------
 function buildTable(defs, runs, metricsList){
   const order = Object.keys(defs).sort((a,b)=>defs[a].order-defs[b].order);
   let html='<div class="tscroll"><table><thead><tr><th>เมตริก</th>';
-  runs.forEach((r,i)=>{ html+='<th style="color:'+PALETTE[i]+'">'+esc(r)+'</th>'; });
+  runs.forEach((r,i)=>{ html+=runHeadTH(r,i); });
   html+='</tr></thead><tbody>';
   let curGroup=null;
   order.forEach(key=>{
@@ -300,7 +319,7 @@ function buildConfig(runs, configs, showAll){
     ? '<div class="note" style="color:var(--gold);margin:0 0 10px">⚠ '+missing.length+' run ไม่มี config snapshot ('+missing.map(esc).join(', ')+') — แสดง “—” · รันใหม่เพื่อเทียบครบ</div>'
     : '';
   let head='<thead><tr><th>ค่า</th>';
-  runs.forEach((r,i)=>{ head+='<th style="color:'+PALETTE[i]+'">'+esc(r)+'</th>'; });
+  runs.forEach((r,i)=>{ head+=runHeadTH(r,i); });
   head+='</tr></thead>';
   return banner+'<div class="tscroll"><table>'+head+'<tbody>'+rows+'</tbody></table></div>';
 }
@@ -353,6 +372,11 @@ function renderChips(runs){
 
 // ---------- main ----------
 function warnBox(msg){ return msg? '<div class="note" style="color:var(--gold);margin-bottom:12px">⚠ '+esc(msg)+'</div>' : ''; }
+function ctoast(msg){
+  var t=document.createElement('div'); t.className='ctoast'; t.textContent=msg; document.body.appendChild(t);
+  requestAnimationFrame(function(){ t.classList.add('show'); });
+  setTimeout(function(){ t.classList.remove('show'); setTimeout(function(){ t.remove(); },300); }, 4200);
+}
 
 (async function(){
   try{ ALL_RUNS=(await getJSON('/api/runs')).runs||[]; }catch(e){ ALL_RUNS=[]; }
@@ -413,6 +437,11 @@ function warnBox(msg){ return msg? '<div class="note" style="color:var(--gold);m
 
     $$('#modeTg button').forEach(b=>b.onclick=()=>{ chartMode=b.getAttribute('data-m'); render(); });
     const ct=$('#cfgTg'); if(ct) ct.onclick=()=>{ showAllCfg=!showAllCfg; render(); };
+    // หัว run ที่ไม่มี viewer → คลิกแล้วบอกวิธีสร้าง (ไม่ใช่ลิงก์ตาย)
+    $$('.rlink.noviewer').forEach(el=>el.onclick=()=>{
+      const n=el.getAttribute('data-noviewer');
+      ctoast('run “'+n+'” ยังไม่มี viewer — รัน: bt viewer --run runs/'+n+'/ ก่อน');
+    });
     attachInfo();
   }
   render();
