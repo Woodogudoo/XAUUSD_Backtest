@@ -142,13 +142,28 @@ def api_strategies() -> tuple[int, dict]:
         return 500, {"error": f"โหลด registry ไม่ได้: {e}"}
 
 
+def _config_strategy(path: str) -> str | None:
+    """อ่าน field strategy (top-level) ของ config — ไม่มี/พัง → None (console โชว์แต่ mark 'ไม่มี tag')"""
+    try:
+        import yaml  # config = data ล้วน ไม่ต้อง round-trip
+        with open(path, encoding="utf-8") as f:
+            d = yaml.safe_load(f) or {}
+        s = d.get("strategy") if isinstance(d, dict) else None
+        return str(s) if s else None
+    except Exception:  # noqa: BLE001 — กรอง config เสริมเท่านั้น ห้ามทำ endpoint ล่ม
+        return None
+
+
 def api_configs() -> tuple[int, dict]:
     d = os.path.join(_root(), "configs")
     # exclude hidden (.xxx) และ .trash/ — ไม่ให้ trashed โผล่เป็น config ที่เลือกได้
     files = sorted(f for f in os.listdir(d)
                    if not f.startswith(".") and f.endswith((".yaml", ".yml"))) \
         if os.path.isdir(d) else []
-    return 200, {"configs": files, "core": sorted(_CORE_CONFIGS)}
+    # strategy tag ต่อไฟล์ (สำหรับกรอง config ตาม strategy ในคอนโซล) — core configs ข้าม
+    strategies = {f: _config_strategy(os.path.join(d, f))
+                  for f in files if f not in _CORE_CONFIGS}
+    return 200, {"configs": files, "core": sorted(_CORE_CONFIGS), "strategies": strategies}
 
 
 # ---------- config management: rename · soft-delete (trash) · restore · hard-delete ----------

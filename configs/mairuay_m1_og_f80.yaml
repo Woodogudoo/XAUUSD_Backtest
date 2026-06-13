@@ -8,7 +8,7 @@
 # หน่วย: ค่าที่ลงท้าย _pct_* เป็นเปอร์เซ็นต์ (กลยุทธ์หารด้วย 100 ตอนใช้เป็นตัวคูณ;
 #        ค่าที่ใช้เทียบกับ pct โดยตรง เช่น min_total_pct_r55 ใช้ตามค่าเลย)
 # ============================================================================
-strategy: mairuayM1_basic
+strategy: mai_ruay
 
 # -- R55 -- (mirror RANGE_WINDOW ใน bt/data.py · calc_r55 ปัจจุบัน fix 55)
 range_window: 55              # ref: RANGE_WINDOW = 55
