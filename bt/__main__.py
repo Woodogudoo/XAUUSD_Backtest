@@ -17,8 +17,9 @@ import os
 from bt import engine, report, viewer
 from bt.data import load_csv
 from bt.strategies.mai_ruay import MaiRuay
+from bt.strategies.mai_ruay_v2 import MaiRuayV2
 
-STRATEGIES = {"mai_ruay": MaiRuay}
+STRATEGIES = {"mai_ruay": MaiRuay, "mai_ruay_v2": MaiRuayV2}
 
 
 def _run(args) -> int:
