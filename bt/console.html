@@ -458,6 +458,20 @@ async function loadData(){
   }catch(e){}
   suggestOut(); build();
 }
+// ---------- strategies (registry → dropdown) ----------
+async function loadStrategies(){
+  const sel=$('#strat'); const prev=sel.value;
+  try{
+    const d=await getJSON('/api/strategies');
+    const ids=(d&&d.strategies)||[];
+    if(ids.length){
+      sel.innerHTML='';
+      ids.forEach(id=>{const o=document.createElement('option');o.value=id;o.textContent=id;sel.appendChild(o);});
+      sel.value=ids.includes(prev)?prev:ids[0];
+    }
+  }catch(e){/* คง option เดิม (mai_ruay) ถ้าโหลดไม่ได้ */}
+  build();
+}
 $('#cfg').addEventListener('change',e=>{outEdited=false;selectConfig(e.target.value);});
 $('#data').addEventListener('change',()=>{suggestOut();build();});
 $('#strat').addEventListener('change',build);
@@ -768,7 +782,7 @@ async function permDeleteConfig(name){
 }
 $('#trashToggle').addEventListener('click',()=>{ const t=$('#trashList'); t.style.display=t.style.display==='none'?'flex':'none'; });
 
-loadConfigs(); loadData(); loadRuns(); loadCfgMgr(); loadTrash();
+loadStrategies(); loadConfigs(); loadData(); loadRuns(); loadCfgMgr(); loadTrash();
 </script>
 </body>
 </html>

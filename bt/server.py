@@ -133,6 +133,15 @@ def _read_config(path: str) -> dict:
 
 
 # ---------- endpoint handlers (คืน (status, payload)) ----------
+def api_strategies() -> tuple[int, dict]:
+    """list strategy id ที่ลงทะเบียน (registry) — สำหรับ dropdown เลือกกลยุทธ์ในคอนโซล"""
+    try:
+        from bt.strategies.registry import strategy_ids   # lazy: เลี่ยง pull deps ตอน import server
+        return 200, {"strategies": strategy_ids()}
+    except Exception as e:  # noqa: BLE001 — endpoint เสริม ห้ามทำ server ล่ม
+        return 500, {"error": f"โหลด registry ไม่ได้: {e}"}
+
+
 def api_configs() -> tuple[int, dict]:
     d = os.path.join(_root(), "configs")
     # exclude hidden (.xxx) และ .trash/ — ไม่ให้ trashed โผล่เป็น config ที่เลือกได้
@@ -699,6 +708,9 @@ class _Handler(BaseHTTPRequestHandler):
             return self._send(200, b"<h1>btconsole</h1><p>console.html missing</p>",
                               "text/html; charset=utf-8")
 
+        if path == "/api/strategies":
+            return self._json(*api_strategies())
+
         if path == "/api/configs":
             return self._json(*api_configs())
 
@@ -799,7 +811,7 @@ def serve(host: str = "127.0.0.1", port: int = 8000) -> int:
     print(f"{'='*52}")
     print(f"  เปิดที่   : {url}")
     print(f"  root      : {_root()}")
-    print("  GET       : /api/configs · /api/configs/<id> · /api/data · /api/runs")
+    print("  GET       : /api/strategies · /api/configs · /api/configs/<id> · /api/data · /api/runs")
     print("              /api/runs/<name>/metrics · /api/metric-defs")
     print("  POST      : /api/configs (save as new) · /api/run (รัน backtest)")
     print("  DELETE    : /api/runs/<name> (ลบ folder ใต้ runs/ เท่านั้น)")
