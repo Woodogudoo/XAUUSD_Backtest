@@ -189,6 +189,12 @@
     opacity:0;pointer-events:none;transition:opacity .15s}
   .cmpbar.show{opacity:1;pointer-events:auto}
   .cmpbar .cnt{color:var(--muted)} .cmpbar .cnt b{color:var(--gold)} .cmpbar .cmphint{color:var(--dim);font-size:10.5px}
+  /* TF filter chips (run history) */
+  .tffilter{display:flex;flex-wrap:wrap;gap:6px;padding:10px 16px;border-bottom:1px solid var(--line);background:var(--panel2)}
+  .tfchip{border:1px solid var(--line2);background:#0e0e12;color:var(--muted);cursor:pointer;
+    font-family:var(--mono);font-size:11px;padding:5px 11px;border-radius:20px}
+  .tfchip:hover{border-color:var(--gold);color:var(--gold)}
+  .tfchip.on{background:var(--raise);border-color:#6f5a2e;color:var(--gold)}
 </style>
 </head>
 <body>
@@ -266,6 +272,7 @@
         <div class="hdacts"><span class="meta" id="runMeta">—</span>
           <button class="btn-cmp" id="selToggle">เลือกเพื่อเทียบ</button>
           <button class="btn-cmp gold" id="openCompare">เทียบกลยุทธ์ →</button></div></div>
+      <div id="tfFilter" class="tffilter" style="display:none"></div>
       <div id="runList" class="selmode-off"><div class="emptyhint" style="padding:16px">กำลังโหลด…</div></div>
     </section>
   </div>
@@ -551,50 +558,78 @@ $('#saveBtn').addEventListener('click',saveConfig);
 
 // ---------- history ----------
 function fmtUsd(n){return (n>=0?'+':'−')+Math.abs(n).toLocaleString('en-US',{maximumFractionDigits:0})+'$';}
+let RUNS_DATA=[]; const tfSel=new Set();   // filter TF (ว่าง = ทั้งหมด)
+function runTF(r){ return r.tf || null; }   // TF จาก server (config_used._run.data / ชื่อ run) · null=ไม่ระบุ
+function tfRank(t){ var m=String(t).match(/^([MHD])(\d+)$/i); if(!m)return 9999;
+  var u={M:1,H:60,D:1440}[m[1].toUpperCase()]||1; return u*parseInt(m[2],10); }
 async function loadRuns(){
-  const el=$('#runList');
   try{
     const d=await getJSON('/api/runs');
-    $('#runMeta').textContent=d.runs.length+' runs';
-    if(!d.runs.length){el.innerHTML='<div class="emptyhint" style="padding:16px">ยังไม่มี runs/</div>';return;}
-    el.innerHTML='';
-    d.runs.forEach(r=>{
-      const s=r.summary||{};
-      const compat=/compat/i.test(r.name), pill=compat?'<span class="pill compat">COMPAT</span>':'<span class="pill correct">CORRECT</span>';
-      const tfm=r.name.match(/_M(\d+)/i), tf=tfm?('M'+tfm[1]):'';
-      const when=new Date(r.mtime*1000).toLocaleString('th-TH',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
-      const net=(s.net_usd!=null)?s.net_usd:null, winCls=(net==null)?'':(net>=0?'win':'loss');
-      let stats;
-      if(s.n_trades!=null){
-        stats='<span class="stat">ไม้ <b>'+s.n_trades+'</b></span>'+
-              '<span class="stat '+winCls+'">WR <b>'+(s.win_rate!=null?s.win_rate+'%':'—')+'</b></span>'+
-              '<span class="stat '+winCls+'">net <b>'+(net!=null?fmtUsd(net):'—')+'</b></span>';
-      }else stats='<span class="stat" style="color:var(--dim)">ไม่มี summary.json</span>';
-      const viewer=r.has_viewer
-        ?'<a class="openV" href="/runs/'+encodeURIComponent(r.name)+'/viewer.html" target="_blank">เปิด viewer →</a>'
-        :'<span class="openV dim">ไม่มี viewer</span>';
-      const sub='mai_ruay'+(tf?(' · '+tf):'');
-      const item=document.createElement('div');item.className='runItem';item.dataset.run=r.name;
-      if(cmpSel.has(r.name)) item.classList.add('cmpsel');
-      item.innerHTML='<div class="runTop">'+
-        '<span class="cmpck" title="เลือกเทียบ">✓</span>'+
-        '<span class="runNameWrap"><span class="runName" title="'+escAttr(r.name)+'">'+esc(r.name)+'</span>'+pill+'</span>'+
-        '<span class="runWhen">'+when+'</span>'+
-        '<button class="delBtn" title="ลบ run">✕</button>'+
-        '</div>'+
-        '<div class="runSub">'+sub+'</div>'+
-        '<div class="stats">'+stats+viewer+'</div>';
-      item.querySelector('.delBtn').onclick=(e)=>{e.stopPropagation();deleteRun(r.name);};
-      item.addEventListener('click',e=>{   // selmode: คลิกการ์ด/checkbox = เลือก · ปุ่มลบ/viewer ไม่นับ
-        if(!selMode) return;
-        if(e.target.closest('.delBtn')||e.target.closest('.openV')) return;
-        toggleSel(item, r.name);
-      });
-      el.appendChild(item);
+    RUNS_DATA=d.runs||[];
+    [...cmpSel].forEach(n=>{ if(!RUNS_DATA.some(r=>r.name===n)) cmpSel.delete(n); });  // prune ที่ถูกลบ
+    const tfs=[...new Set(RUNS_DATA.map(runTF))];
+    [...tfSel].forEach(t=>{ if(!tfs.some(x=>x===t)) tfSel.delete(t); });   // TF ที่ไม่มี run แล้ว → เอาออก
+    renderTfBar();
+    renderRunList();
+  }catch(e){ $('#runList').innerHTML='<div class="emptyhint" style="padding:16px">โหลด runs ไม่ได้: '+esc(e.message)+'</div>'; }
+}
+function renderTfBar(){
+  const bar=$('#tfFilter');
+  const tfs=[...new Set(RUNS_DATA.map(runTF))].sort((a,b)=>{ if(a===null)return 1; if(b===null)return -1; return tfRank(a)-tfRank(b); });
+  if(tfs.length<2){ bar.style.display='none'; bar.innerHTML=''; return; }   // TF เดียว → ไม่ต้อง filter
+  let h='<button class="tfchip'+(tfSel.size===0?' on':'')+'" data-tf="__all">ทั้งหมด</button>';
+  tfs.forEach(t=>{ const lab=t===null?'ไม่ระบุ':t, key=t===null?'__none':t;
+    h+='<button class="tfchip'+(tfSel.has(t)?' on':'')+'" data-tf="'+escAttr(key)+'">'+esc(lab)+'</button>'; });
+  bar.innerHTML=h; bar.style.display='flex';
+  bar.querySelectorAll('.tfchip').forEach(c=>c.onclick=()=>{
+    const k=c.getAttribute('data-tf');
+    if(k==='__all'){ tfSel.clear(); }
+    else{ const v=(k==='__none')?null:k; tfSel.has(v)?tfSel.delete(v):tfSel.add(v); }   // กดซ้ำ=เอาออก
+    renderTfBar(); renderRunList();
+  });
+}
+function renderRunList(){
+  const el=$('#runList');
+  const shown=RUNS_DATA.filter(r=> tfSel.size===0 || tfSel.has(runTF(r)));
+  $('#runMeta').textContent=(tfSel.size? shown.length+'/'+RUNS_DATA.length : RUNS_DATA.length)+' runs';
+  if(!RUNS_DATA.length){ el.innerHTML='<div class="emptyhint" style="padding:16px">ยังไม่มี runs/</div>'; cmpRefresh(); return; }
+  if(!shown.length){ el.innerHTML='<div class="emptyhint" style="padding:16px">ไม่มี run สำหรับ TF นี้</div>'; cmpRefresh(); return; }
+  el.innerHTML='';
+  shown.forEach(r=>{
+    const s=r.summary||{};
+    const compat=/compat/i.test(r.name), pill=compat?'<span class="pill compat">COMPAT</span>':'<span class="pill correct">CORRECT</span>';
+    const tf=runTF(r)||'';
+    const when=new Date(r.mtime*1000).toLocaleString('th-TH',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
+    const net=(s.net_usd!=null)?s.net_usd:null, winCls=(net==null)?'':(net>=0?'win':'loss');
+    let stats;
+    if(s.n_trades!=null){
+      stats='<span class="stat">ไม้ <b>'+s.n_trades+'</b></span>'+
+            '<span class="stat '+winCls+'">WR <b>'+(s.win_rate!=null?s.win_rate+'%':'—')+'</b></span>'+
+            '<span class="stat '+winCls+'">net <b>'+(net!=null?fmtUsd(net):'—')+'</b></span>';
+    }else stats='<span class="stat" style="color:var(--dim)">ไม่มี summary.json</span>';
+    const viewer=r.has_viewer
+      ?'<a class="openV" href="/runs/'+encodeURIComponent(r.name)+'/viewer.html" target="_blank">เปิด viewer →</a>'
+      :'<span class="openV dim">ไม่มี viewer</span>';
+    const sub='mai_ruay'+(tf?(' · '+tf):'');
+    const item=document.createElement('div');item.className='runItem';item.dataset.run=r.name;
+    if(cmpSel.has(r.name)) item.classList.add('cmpsel');
+    item.innerHTML='<div class="runTop">'+
+      '<span class="cmpck" title="เลือกเทียบ">✓</span>'+
+      '<span class="runNameWrap"><span class="runName" title="'+escAttr(r.name)+'">'+esc(r.name)+'</span>'+pill+'</span>'+
+      '<span class="runWhen">'+when+'</span>'+
+      '<button class="delBtn" title="ลบ run">✕</button>'+
+      '</div>'+
+      '<div class="runSub">'+sub+'</div>'+
+      '<div class="stats">'+stats+viewer+'</div>';
+    item.querySelector('.delBtn').onclick=(e)=>{e.stopPropagation();deleteRun(r.name);};
+    item.addEventListener('click',e=>{   // selmode: ติ๊กได้เฉพาะการ์ดที่โชว์ · ปุ่มลบ/viewer ไม่นับ
+      if(!selMode) return;
+      if(e.target.closest('.delBtn')||e.target.closest('.openV')) return;
+      toggleSel(item, r.name);
     });
-    [...cmpSel].forEach(n=>{ if(!d.runs.some(r=>r.name===n)) cmpSel.delete(n); });  // prune ที่ถูกลบ
-    cmpRefresh();
-  }catch(e){el.innerHTML='<div class="emptyhint" style="padding:16px">โหลด runs ไม่ได้: '+esc(e.message)+'</div>';}
+    el.appendChild(item);
+  });
+  cmpRefresh();
 }
 // ลบ folder run — confirm modal บังคับ + ห้ามลบตอนกำลังรัน
 async function deleteRun(name){

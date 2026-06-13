@@ -311,6 +311,32 @@ def api_data() -> tuple[int, dict]:
     return 200, {"data": files}
 
 
+_TF_RE = re.compile(r"(?:^|[_\-./ ])([MHDmhd]\d{1,3})(?:[_\-./ ]|$)")
+
+
+def _tf_of(s: str):
+    """หา timeframe token (M1/M5/M15/H1/D1…) จากชื่อ data/ชื่อ run · ไม่เจอ → None"""
+    m = _TF_RE.search(s or "")
+    return m.group(1).upper() if m else None
+
+
+def _run_tf(rdir: str, name: str):
+    """TF ของ run: จาก config_used.yaml (_run.data) ก่อน · ไม่มี → derive จากชื่อ run"""
+    cu = os.path.join(rdir, "config_used.yaml")
+    if os.path.isfile(cu):
+        try:
+            import yaml
+            c = yaml.safe_load(open(cu, encoding="utf-8")) or {}
+            data = (c.get("_run") or {}).get("data") if isinstance(c, dict) else None
+            if data:
+                tf = _tf_of(os.path.basename(str(data)))
+                if tf:
+                    return tf
+        except Exception:  # noqa: BLE001
+            pass
+    return _tf_of(name)
+
+
 def api_runs() -> tuple[int, dict]:
     base = os.path.join(_root(), "runs")
     runs = []
@@ -332,6 +358,7 @@ def api_runs() -> tuple[int, dict]:
                 "summary": summary,
                 "has_viewer": os.path.isfile(os.path.join(rdir, "viewer.html")),
                 "mtime": int(os.path.getmtime(rdir)),
+                "tf": _run_tf(rdir, name),   # timeframe — สำหรับ filter ในประวัติ
             })
     runs.sort(key=lambda r: r["mtime"], reverse=True)
     return 200, {"runs": runs}
