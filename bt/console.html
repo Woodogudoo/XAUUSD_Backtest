@@ -80,6 +80,7 @@
   .ifield{display:flex;align-items:center;gap:7px}
   .ifield input{flex:1;min-width:0}
   .usuffix{font-family:var(--mono);font-size:10px;color:var(--dim);white-space:nowrap}
+  .nestedhint{font-family:var(--mono);font-size:11px;color:var(--dim);font-style:italic}
   .group>summary .gname .glabel{font-family:var(--sans);color:var(--text)}
   .group>summary .gname .kraw{font-family:var(--mono);font-size:10px;color:var(--dim);margin-left:7px}
   .toggle{display:flex;background:#0a0b0e;border:1px solid var(--line2);border-radius:8px;padding:2px}
@@ -311,6 +312,9 @@ function fieldInput(node, dpath){
   if(t==='int'||t==='float'){
     return '<input type="number" step="any" value="'+escAttr(node.value)+'" data-path="'+escAttr(dpath)+'" data-type="'+t+'">';
   }
+  if(t==='list'&&node.nested){   // โครงซ้อน (entries) → read-only · ไม่มี data-path = ไม่ถูกเก็บตอน save
+    return '<span class="nestedhint">'+esc(node.summary||'ซ้อนหลายชั้น')+' — แก้ผ่าน Raw YAML</span>';
+  }
   if(t==='list'){
     return '<input type="text" value="'+escAttr((node.value||[]).join(', '))+'" data-path="'+escAttr(dpath)+'" data-type="list">';
   }
@@ -534,8 +538,12 @@ async function saveConfig(){
   if(!name){toast('ใส่ชื่อไฟล์ก่อน เช่น mairuay_v205.yaml','err');return null;}
   busy=true; $('#saveBtn').disabled=true;
   try{
+    // Raw tab → ส่ง raw YAML ทั้งก้อน (แก้ entries ได้) · Form tab → ส่ง values (server patch leaf-only)
+    const rawMode=!!document.querySelector('.tabs button.on[data-t="raw"]');
+    const payload=rawMode?{base:curCfgId,name:name,raw:$('#rawTxt').value}
+                         :{base:curCfgId,name:name,values:collectValues()};
     const r=await fetch('/api/configs',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({base:curCfgId,name:name,values:collectValues()})});
+      body:JSON.stringify(payload)});
     const d=await r.json();
     if(!r.ok){ toast(d.error||('บันทึกไม่ได้ ('+r.status+')'),'err'); return null; }
     toast('บันทึก '+d.name+' แล้ว ('+d.applied+' ค่า)','ok'); loadCfgMgr(); loadTrash();

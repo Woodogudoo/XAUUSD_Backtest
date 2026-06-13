@@ -142,6 +142,27 @@ def _validate_mother(bars, mother_idx, f_dir, r55, f_body, mc):
     return (m_body, pct)
 
 
+# ---------- validate รูปร่าง entries (กัน config เพี้ยน → error ชัดแทน AttributeError ดิบ) ----------
+def _validate_entries(entries) -> None:
+    """entries ต้องเป็น list ของ tier · แต่ละ tier = dict {when: dict, legs: [ {point}... ]}
+    config ที่ถูก Form-save ทับจะกลายเป็น list ของ string → จับได้ตรงนี้พร้อมบอกวิธีแก้"""
+    if not isinstance(entries, list) or not entries:
+        raise ValueError("config 'entries' ต้องเป็น list ของ tier ที่ไม่ว่าง "
+                         "(โครงเพี้ยน? แก้ผ่าน Raw YAML — ดู docs/MAIRUAY_V2_SPEC.md)")
+    for i, tier in enumerate(entries):
+        if not isinstance(tier, dict) or 'when' not in tier or 'legs' not in tier:
+            raise ValueError(f"config 'entries[{i}]' ต้องเป็น dict ที่มี key 'when' และ 'legs' "
+                             f"(เจอ {type(tier).__name__}: {tier!r}) — โครง entries เพี้ยน แก้ผ่าน Raw YAML")
+        if not isinstance(tier['when'], dict):
+            raise ValueError(f"config 'entries[{i}].when' ต้องเป็น dict (เจอ {type(tier['when']).__name__})")
+        legs = tier['legs']
+        if not isinstance(legs, list) or not legs:
+            raise ValueError(f"config 'entries[{i}].legs' ต้องเป็น list ของไม้ที่ไม่ว่าง")
+        for j, leg in enumerate(legs):
+            if not isinstance(leg, dict) or 'point' not in leg:
+                raise ValueError(f"config 'entries[{i}].legs[{j}]' ต้องเป็น dict ที่มี key 'point'")
+
+
 # ---------- เลือก tier จาก entries ตามเงื่อนไข when ----------
 def _select_tier(entries, f_pct, m_pct):
     """tier แรกที่ match (พ่อ ≥ father_min_pct และ mother_min ≤ แม่ ≤ mother_max) — ลำดับใน list = ลำดับความสำคัญ"""
@@ -251,6 +272,7 @@ class MaiRuayV2(Strategy):
 
     def __init__(self, cfg: dict, portfolio: float = 1000.0,
                  pre_fill_cancel: bool = False):
+        _validate_entries(cfg.get('entries'))   # fail fast ถ้าโครง entries เพี้ยน (error ชัด)
         self.cfg = cfg
         self.portfolio = portfolio
         self.pre_fill_cancel = pre_fill_cancel

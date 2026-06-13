@@ -1,0 +1,45 @@
+# ============================================================================
+# configs/mairuay_v2_default.yaml
+# ----------------------------------------------------------------------------
+# ไม้รวย v2 (ฉบับสะอาด) — config เริ่มต้น · สเปค: docs/MAIRUAY_V2_SPEC.md
+# โครง: general / father / mother / entries / tpsl
+# หน่วย: ค่าที่ลงท้าย _pct เป็นเปอร์เซ็นต์ (กลยุทธ์หารด้วย 100 ตอนใช้เป็นตัวคูณ)
+# ============================================================================
+strategy: mai_ruay_v2          # tag สำหรับจับคู่ strategy↔config ใน console
+
+general:
+  r55_bars: 55                 # จำนวนแท่งย้อนหลังคำนวณ R55 (ช่วงราคาอ้างอิงของทุกเงื่อนไข)
+  min_tp_pip: 200              # TP ขั้นต่ำ (pip) — ระยะ TP จาก tech_point น้อยกว่านี้ → ทิ้งสัญญาณ
+  pending_max_age: 5           # อายุ pending (แท่ง) — limit ค้างเกินนี้ → ยกเลิก
+  proximity_cancel_enabled: true   # เปิดกฎยกเลิกเมื่อราคาเฉียด TP (≤10%R55)
+
+father:                        # การวัดขนาดแท่งพ่อ
+  count_min: 1                 # จำนวนนับแท่งพ่อ (ต่ำสุด)
+  count_max: 10                # จำนวนนับแท่งพ่อ (สูงสุด)
+  body_min_pct_r55: 60         # ขนาดแท่งพ่อรวมขั้นต่ำ (%R55)
+  per_bar_body_min: 4          # เนื้อพ่อต่อแท่งขั้นต่ำ (%R55)
+  vol_ratio_min: 1.0           # อัตราส่วน Volume ขั้นต่ำ (เนื้อเฉลี่ยพ่อ ÷ เนื้อเฉลี่ยก่อนหน้า)
+  vol_window: 20               # ช่วงเทียบ Volume (แท่งก่อนพ่อ)
+  doji_stop_pct: 2             # เกณฑ์ Doji หยุดสแกน (%R55)
+  big_bar_pct: 10              # เกณฑ์แท่งใหญ่ (%R55) — ใช้ดูว่าแท่งใหญ่เป็นส่วนมากไหม
+  small_bar_allow: 2           # อนุโลมแท่งเล็กได้ (จำนวนแท่ง · เมื่อแท่งใหญ่เป็นส่วนมาก)
+  head_trim_small_max: 2       # ตัดแท่งเล็กหัวขบวนได้สูงสุด (แท่ง)
+
+mother:                        # การวัดขนาดแท่งแม่
+  compare_mode: r55            # r55 | father  ← เทียบกับ %R55 หรือ %ขนาดแท่งพ่อ
+  body_min_pct: 2              # เนื้อแม่ขั้นต่ำ (% ตาม compare_mode)
+  body_max_pct: 25             # เนื้อแม่สูงสุด (% ตาม compare_mode)
+
+entries:                       # หัวใจ: เลือกได้กี่ไม้ / จุดไหน / เงื่อนไขพ่อ-แม่แบบไหน
+  - when: { father_min_pct: 70, mother_min_pct: 10, mother_max_pct: 15 }
+    legs:
+      - { point: market }      # ไม้ 1 = เข้าราคา market เลย
+      - { point: half_mother } # ไม้ 2 = ครึ่งแท่งแม่
+      - { point: tech }        # ไม้ 3 = จุดเทคนิค
+  - when: { father_min_pct: 50, mother_min_pct: 15, mother_max_pct: 30 }
+    legs:
+      - { point: tech }        # เงื่อนไขอื่น → เข้าไม้เดียว
+
+tpsl:                          # Fixed % จากแท่งพ่อ (ยังไม่มีเงื่อนไข)
+  tp_pct_father: 50
+  sl_pct_father: 30

@@ -106,7 +106,11 @@ def _build_tree(cmap, labels: dict, prefix: str = "") -> dict:
         if isinstance(v, dict):
             node = {"type": "map", "comment": cmt, "items": _build_tree(v, labels, full + ".")}
         elif isinstance(v, list):
-            node = {"type": "list", "comment": cmt, "value": [_scalar(x)[1] for x in v]}
+            if any(isinstance(x, (dict, list)) for x in v):   # list ซ้อน (entries) → read-only, แก้ผ่าน Raw
+                node = {"type": "list", "comment": cmt, "nested": True,
+                        "summary": f"{len(v)} รายการ (ซ้อนหลายชั้น)", "value": []}
+            else:
+                node = {"type": "list", "comment": cmt, "value": [_scalar(x)[1] for x in v]}
         else:
             t, val = _scalar(v)
             node = {"type": t, "comment": cmt, "value": val}
@@ -521,9 +525,19 @@ def _coerce(cur, raw):
     return str(raw)
 
 
+def _is_structural(v) -> bool:
+    """โครงซ้อน (map / list-of-map-or-list เช่น entries) ที่ฟอร์มแบนแก้ไม่ได้ — ห้ามทับด้วยค่าแบน"""
+    if isinstance(v, dict):
+        return True
+    if isinstance(v, list):
+        return any(isinstance(x, (dict, list)) for x in v)
+    return False
+
+
 def _set_path(root, dotted: str, raw) -> bool:
     """เซ็ตค่า leaf ตาม dotted path บน CommentedMap เดิม (key ต้องมีอยู่แล้ว — ไม่สร้างใหม่)
-    → comment/ลำดับ/โครงสร้างเดิมอยู่ครบ (อัปเดตเฉพาะค่า)"""
+    → comment/ลำดับ/โครงสร้างเดิมอยู่ครบ (อัปเดตเฉพาะค่า)
+    *** ข้าม node ที่เป็นโครงซ้อน (entries ฯลฯ) — กันฟอร์มแบนทับโครงหาย ***"""
     node = root
     parts = dotted.split(".")
     for seg in parts[:-1]:
@@ -533,6 +547,8 @@ def _set_path(root, dotted: str, raw) -> bool:
     last = parts[-1]
     if not isinstance(node, dict) or last not in node:
         return False
+    if _is_structural(node[last]):
+        return False   # leaf-only patch — โครงซ้อนแก้ผ่าน Raw YAML เท่านั้น
     node[last] = _coerce(node[last], raw)
     return True
 
@@ -541,6 +557,7 @@ def api_save_config(payload: dict) -> tuple[int, dict]:
     base = _safe_name(payload.get("base", ""))
     name = str(payload.get("name", "")).strip()
     values = payload.get("values") or {}
+    raw = payload.get("raw")     # Raw YAML mode → เขียนทั้งก้อน (แก้ entries ฯลฯ) · None = Form mode (patch base)
     if base is None:
         return 400, {"error": "base config ไม่ถูกต้อง"}
     if not _NAME_RE.fullmatch(name):
@@ -565,16 +582,29 @@ def api_save_config(payload: dict) -> tuple[int, dict]:
         from ruamel.yaml import YAML
         yaml = YAML()
         yaml.preserve_quotes = True
-        with open(bfile, encoding="utf-8") as f:
-            data = yaml.load(f)
-        applied, skipped = 0, []
-        for dotted, val in values.items():
-            if _set_path(data, str(dotted), val):
-                applied += 1
-            else:
-                skipped.append(dotted)
-        with open(target, "w", encoding="utf-8") as f:
-            yaml.dump(data, f)
+        if isinstance(raw, str):
+            # Raw YAML mode — validate ก่อนเขียนทั้งก้อน (รักษาข้อความ/คอมเมนต์ของผู้ใช้เป๊ะ)
+            try:
+                parsed = yaml.load(raw)
+            except Exception as e:  # noqa: BLE001
+                return 400, {"error": f"YAML ไม่ถูกต้อง — แก้ก่อนบันทึก: {e}"}
+            if not isinstance(parsed, dict):
+                return 400, {"error": "YAML ราก ต้องเป็น mapping (key: value)"}
+            with open(target, "w", encoding="utf-8") as f:
+                f.write(raw if raw.endswith("\n") else raw + "\n")
+            applied, skipped = len(parsed), []
+        else:
+            # Form mode — โหลดไฟล์ base จาก disk แล้ว patch เฉพาะ leaf ที่ฟอร์มแก้ (โครงซ้อนคงเดิม)
+            with open(bfile, encoding="utf-8") as f:
+                data = yaml.load(f)
+            applied, skipped = 0, []
+            for dotted, val in values.items():
+                if _set_path(data, str(dotted), val):
+                    applied += 1
+                else:
+                    skipped.append(dotted)
+            with open(target, "w", encoding="utf-8") as f:
+                yaml.dump(data, f)
     except ModuleNotFoundError:
         return 501, {"error": "ต้องติดตั้ง ruamel.yaml ก่อน: pip install ruamel.yaml"}
     except Exception as e:  # noqa: BLE001
