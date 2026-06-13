@@ -303,6 +303,24 @@ let CONFIGS=[], CFG_ALL=[], curCfgId=null, curRaw='', outEdited=false, dirty=fal
 // ===== YAML EDITOR — generate form จากโครงสร้างที่ server ส่งมา (ไม่ hardcode field) =====
 function fieldInput(node, dpath){
   const t=node.type;
+  // enum (มี options ใน field_labels) → toggle 2 สถานะ · >2 = select · ค่าเซฟยังเป็น string ดิบ
+  if(Array.isArray(node.options)&&node.options.length){
+    const cur=node.value==null?'':String(node.value);
+    const inList=node.options.some(o=>String(o.value)===cur);
+    if(node.options.length<=2){
+      let btns='';
+      node.options.forEach(o=>{const val=String(o.value);
+        btns+='<button class="'+(val===cur?'on':'')+'" data-v="'+escAttr(val)+'">'+esc(o.label||val)+'</button>';});
+      if(!inList&&cur!=='')   // กันพัง: ค่าปัจจุบันไม่อยู่ใน options → ยังโชว์ ไม่ทิ้ง
+        btns+='<button class="on" data-v="'+escAttr(cur)+'">'+esc(cur)+' (?)</button>';
+      return '<div class="toggle" data-path="'+escAttr(dpath)+'" data-type="enum">'+btns+'</div>';
+    }
+    let opts='';
+    if(!inList&&cur!=='') opts+='<option value="'+escAttr(cur)+'" selected>'+esc(cur)+' (?)</option>';
+    node.options.forEach(o=>{const val=String(o.value);
+      opts+='<option value="'+escAttr(val)+'"'+(val===cur?' selected':'')+'>'+esc(o.label||val)+'</option>';});
+    return '<select data-path="'+escAttr(dpath)+'" data-type="enum">'+opts+'</select>';
+  }
   if(t==='bool'){
     const tv=node.value===true;
     return '<div class="toggle" data-path="'+escAttr(dpath)+'" data-type="bool">'+
@@ -332,7 +350,9 @@ function keyCell(n, dp){
 }
 // ช่อง input + หน่วย (suffix) · bool=toggle ไม่มีหน่วย
 function valueCell(n, fp){
-  if(n.type==='bool') return '<div class="fval">'+fieldInput(n,fp)+'</div>';
+  // bool + enum toggle (≤2 options) = ช่องเลือกล้วน ไม่มีหน่วยต่อท้าย
+  if(n.type==='bool'||(Array.isArray(n.options)&&n.options.length&&n.options.length<=2))
+    return '<div class="fval">'+fieldInput(n,fp)+'</div>';
   const unit=n.unit?'<span class="usuffix">'+esc(n.unit)+'</span>':'';
   return '<div class="fval"><div class="ifield">'+fieldInput(n,fp)+unit+'</div></div>';
 }
@@ -368,6 +388,7 @@ function renderForm(tree){
   $('#formView').innerHTML=h||'<div class="emptyhint">ไฟล์นี้ไม่มีค่า</div>';
   bindToggles();
   $$('#formView input').forEach(i=>i.addEventListener('input',()=>{dirty=true;}));  // แก้ค่า → dirty
+  $$('#formView select').forEach(s=>s.addEventListener('change',()=>{dirty=true;}));  // enum select (>2 ค่า) → dirty
   applySearch();
 }
 function bindToggles(){
@@ -383,6 +404,10 @@ function collectValues(){
   $$('#formView [data-path]').forEach(el=>{
     const path=el.getAttribute('data-path'), type=el.getAttribute('data-type');
     if(type==='bool'){ const on=el.querySelector('button.on'); v[path]=!!(on&&on.dataset.v==='true'); }
+    else if(type==='enum'){   // toggle = ปุ่ม .on · select = el.value · ค่าเป็น string ดิบ (r55/father)
+      if(el.tagName==='SELECT'){ v[path]=el.value; }
+      else { const on=el.querySelector('button.on'); if(on) v[path]=on.dataset.v; }
+    }
     else { v[path]=el.value; }
   });
   return v;

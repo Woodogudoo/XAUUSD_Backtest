@@ -116,7 +116,7 @@ def _build_tree(cmap, labels: dict, prefix: str = "") -> dict:
             node = {"type": t, "comment": cmt, "value": val}
         lab = labels.get(full)
         if isinstance(lab, dict):
-            for f in ("label", "unit", "help"):
+            for f in ("label", "unit", "help", "options"):
                 if lab.get(f):
                     node[f] = lab[f]
         out[ks] = node

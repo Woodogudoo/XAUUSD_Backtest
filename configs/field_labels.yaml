@@ -140,7 +140,7 @@ father.small_bar_allow:           { label: "อนุโลมแท่งเล
 father.head_trim_small_max:       { label: "ตัดแท่งเล็กหัวขบวน", unit: "แท่ง", help: "ตัดแท่งเล็ก (≤ เนื้อต่อแท่ง) ที่หัวขบวนพ่อได้สูงสุดกี่แท่ง" }
 
 # ── แท่งแม่ (v2 · เทียบ %R55 หรือ %พ่อ) ──
-mother.compare_mode:              { label: "โหมดเทียบขนาดแม่", help: "r55 = เทียบ %R55 · father = เทียบ %ขนาดแท่งพ่อ" }
+mother.compare_mode:              { label: "โหมดเทียบขนาดแม่", help: "r55 = เทียบ %R55 · father = เทียบ %ขนาดแท่งพ่อ", options: [ { value: r55, label: "เทียบ R55" }, { value: father, label: "เทียบขนาดพ่อ" } ] }
 mother.body_min_pct:              { label: "เนื้อแม่ขั้นต่ำ", unit: "%", help: "เนื้อแม่ต้อง ≥ ค่านี้ (% ตาม compare_mode)" }
 mother.body_max_pct:              { label: "เนื้อแม่สูงสุด", unit: "%", help: "เนื้อแม่ต้อง ≤ ค่านี้ (% ตาม compare_mode)" }
 
