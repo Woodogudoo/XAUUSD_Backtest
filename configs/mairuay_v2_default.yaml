@@ -29,7 +29,6 @@ mother:                        # การวัดขนาดแท่งแ�
   compare_mode: r55            # r55 | father  ← เทียบกับ %R55 หรือ %ขนาดแท่งพ่อ
   body_min_pct: 2              # เนื้อแม่ขั้นต่ำ (% ตาม compare_mode)
   body_max_pct: 25             # เนื้อแม่สูงสุด (% ตาม compare_mode)
-  market_entry_threshold: 5    # แม่ < ค่านี้ → ไม้ market เข้าตลาดเลย · ≥ ค่านี้ → วาง limit ที่ half_mother
 
 entries:                       # หัวใจ: เลือกได้กี่ไม้ / จุดไหน / เงื่อนไขพ่อ-แม่แบบไหน
   - when: { father_min_pct: 70, mother_min_pct: 10, mother_max_pct: 15 }

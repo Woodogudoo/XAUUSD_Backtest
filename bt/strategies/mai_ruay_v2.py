@@ -203,16 +203,13 @@ def analyze_bar(bars, bar_idx, cfg, portfolio) -> Signal | None:
         return None
 
     # สร้างไม้ตาม legs ของ tier (point ∈ market | half_mother | tech)
-    mk_thr = mc['market_entry_threshold']
+    # leg market = เข้า market เสมอ · เงื่อนไขเข้า/เลือกไม้อยู่ที่ entries tier when{} อย่างเดียว
     point_price = {'market': child.open, 'half_mother': half_mother, 'tech': tech_point}
     entries = []
     for idx, leg in enumerate(tier['legs']):
         pt = leg['point']
         price = point_price.get(pt, tech_point)
         is_mkt = (pt == 'market')
-        # market_entry_threshold: ไม้ market เข้าได้เมื่อแม่เล็กพอ · แม่ใหญ่ → วาง limit ที่ half_mother แทน
-        if pt == 'market' and m_pct >= mk_thr:
-            price, is_mkt, pt = half_mother, False, 'market→half_mother'
         entries.append((price, f"ไม้{idx + 1}:{pt}", is_mkt))
 
     # lot รวมจาก SL ของไม้แรก (risk คงที่ — V2 ตัด lot scaling) แล้วหารตามจำนวนไม้

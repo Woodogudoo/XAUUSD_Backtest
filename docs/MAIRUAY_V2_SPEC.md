@@ -47,7 +47,6 @@ mother:                        # การวัดขนาดแท่งแ�
   compare_mode: r55            # r55 | father  ← เทียบกับ %R55 หรือ %ขนาดแท่งพ่อ
   body_min_pct: 2              # เนื้อแม่ขั้นต่ำ (% ตาม compare_mode)
   body_max_pct: 25             # เนื้อแม่สูงสุด (% ตาม compare_mode)
-  market_entry_threshold: 5    # เกณฑ์เข้าตลาด (จุด1)
 
 entries:                       # หัวใจ: เลือกได้กี่ไม้ / จุดไหน / เงื่อนไขพ่อ-แม่แบบไหน
   - when: { father_min_pct: 70, mother_min_pct: 10, mother_max_pct: 15 }
@@ -69,6 +68,8 @@ tpsl:                          # Fixed % จากแท่งพ่อ (ยั�
 - เป็น **list ของ tier** — แต่ละ tier มีเงื่อนไข `when` (พ่อใหญ่กี่ %, แม่อยู่ช่วงไหน)
 - เข้าเงื่อนไข tier ไหน → เปิดไม้ตาม `legs` ของ tier นั้น (กี่ไม้ / จุดไหน)
 - `point` ที่รองรับ: `market` · `half_mother` · `tech` (ออกแบบให้ขยายจุดอื่นได้ภายหลัง)
+- **leg `market` = เข้า market เสมอ** (ไม่ถอยไป half_mother ไม่ว่าแม่ใหญ่แค่ไหน) ·
+  เงื่อนไขเข้า/เลือกไม้อยู่ที่ `entries` tier `when{}` อย่างเดียว
 
 ---
 
