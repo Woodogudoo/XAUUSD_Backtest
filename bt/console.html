@@ -411,7 +411,53 @@ function renderRows(items, disp, data){
 }
 function countLeaves(items){let c=0;for(const k in items){const n=items[k];c+=(n.type==='map')?countLeaves(n.items||{}):1;}return c;}
 function renderForm(tree){
-  ENTRIES_MODEL=null;   // reset ก่อน render · renderRows จะตั้งใหม่ถ้าเจอ entries (mai_ruay_v2)
+  ENTRIES_MODEL=null;   // reset · render path จะตั้งใหม่ถ้าเจอ entries (mai_ruay_v2)
+  // mai_ruay_v2 + มี group metadata → จัดกลุ่ม/เรียงตาม field_labels · อื่นๆ (V1) → ตามโครง YAML เดิม
+  const leaves=flattenLeaves(tree);
+  const useMeta = tree.strategy && String(tree.strategy.value)==='mai_ruay_v2' && leaves.some(l=>l.node.group);
+  if(useMeta) renderFormGrouped(leaves, tree); else renderFormByYaml(tree);
+  finishForm();
+}
+// flatten ทุก leaf (ข้าม map) → {fp เต็ม, node, idx ลำดับใน YAML} · ใช้จัดกลุ่ม/เรียง
+function flattenLeaves(tree){
+  const out=[]; let i=0;
+  (function walk(items, prefix){
+    for(const k in items){
+      const node=items[k], fp=prefix?prefix+'.'+k:k;
+      if(node.type==='map') walk(node.items||{}, fp);
+      else out.push({fp, node, idx:i++});
+    }
+  })(tree, '');
+  return out;
+}
+function sectionLabelFor(fp, tree){   // fallback group = label ของ section บนสุด (top scalar → "ทั่วไป")
+  if(fp.indexOf('.')<0) return 'ทั่วไป';
+  const sec=tree[fp.split('.')[0]];
+  return (sec&&sec.label)||fp.split('.')[0];
+}
+// ── render ตาม metadata (group + order) ──
+function renderFormGrouped(leaves, tree){
+  leaves.forEach(l=>{
+    l.g = l.node.group || sectionLabelFor(l.fp, tree);
+    l.o = (l.node.order!=null && l.node.order!=='') ? Number(l.node.order) : (10000+l.idx);  // explicit ชนะ · ที่เหลือคงลำดับ YAML ต่อท้าย
+  });
+  const map=new Map();
+  leaves.forEach(l=>{ if(!map.has(l.g)) map.set(l.g, []); map.get(l.g).push(l); });
+  const groups=[...map.entries()].map(([name,arr])=>{
+    arr.sort((a,b)=>(a.o-b.o)||(a.idx-b.idx));
+    return {name, arr, min:Math.min.apply(null, arr.map(x=>x.o))};
+  });
+  groups.sort((a,b)=>(a.min-b.min)||0);   // ลำดับกลุ่ม = order ต่ำสุดในกลุ่ม
+  let h='';
+  groups.forEach((grp,gi)=>{
+    h+='<details class="group"'+(gi===0?' open':'')+'><summary><span class="gname">'+esc(grp.name)+'</span>'+
+       '<span class="cnt">'+grp.arr.length+' ค่า</span></summary>'+
+       '<div class="ginner">'+grp.arr.map(l=>leafRowHTML(l.node, l.fp)).join('')+'</div></details>';
+  });
+  $('#formView').innerHTML=h||'<div class="emptyhint">ไฟล์นี้ไม่มีค่า</div>';
+}
+// ── render ตามโครง YAML (เดิม — V1/ไม่มี metadata) ──
+function renderFormByYaml(tree){
   const scalars={}, sections=[];
   for(const k in tree){ (tree[k].type==='map')?sections.push(k):scalars[k]=tree[k]; }
   let h='';
@@ -428,9 +474,20 @@ function renderForm(tree){
        '<div class="ginner">'+renderRows(sec.items||{}, '', k)+'</div></details>';
   });
   $('#formView').innerHTML=h||'<div class="emptyhint">ไฟล์นี้ไม่มีค่า</div>';
+}
+// render 1 leaf เป็นแถว (รวม entries card editor) — data-path = fp เต็ม (เซฟกลับ key เดิมถูกที่)
+function leafRowHTML(n, fp){
+  if(fp==='entries'&&n.nested&&Array.isArray(n.data)){
+    ENTRIES_MODEL=JSON.parse(JSON.stringify(n.data));
+    return '<div class="frow entries-row" data-key="entries จุดเข้า tier ไม้"><div class="ee-seclabel" style="margin-bottom:9px">จุดเข้า (entries) — แก้เป็นการ์ดต่อ tier · % ของแท่งแม่</div><div id="entriesHost"></div></div>';
+  }
+  const sk=((n.label||'')+' '+fp+' '+(n.help||n.comment||'')).toLowerCase();
+  return '<div class="frow" data-key="'+escAttr(sk)+'">'+keyCell(n,fp)+valueCell(n,fp)+'</div>';
+}
+function finishForm(){   // post-render ร่วม (ทั้ง 2 path)
   bindToggles();
-  $$('#formView input').forEach(i=>i.addEventListener('input',()=>{dirty=true;}));  // แก้ค่า → dirty
-  $$('#formView select').forEach(s=>s.addEventListener('change',()=>{dirty=true;}));  // enum select (>2 ค่า) → dirty
+  $$('#formView input').forEach(i=>i.addEventListener('input',()=>{dirty=true;}));
+  $$('#formView select').forEach(s=>s.addEventListener('change',()=>{dirty=true;}));
   if($('#entriesHost')&&ENTRIES_MODEL){ buildEntriesEditor(); bindEntriesEvents(); }   // card editor (mai_ruay_v2)
   applySearch();
 }

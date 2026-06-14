@@ -11,7 +11,7 @@
 # ============================================================================
 
 # ── ทั่วไป ──
-strategy:      { label: "กลยุทธ์", help: "ชื่อกลยุทธ์ที่ใช้รัน" }
+strategy:      { label: "กลยุทธ์", help: "ชื่อกลยุทธ์ที่ใช้รัน", group: "ทั่วไป", order: 1 }
 range_window:  { label: "หน้าต่าง Range55", unit: "แท่ง", help: "จำนวนแท่งย้อนหลังที่ใช้คำนวณ R55 (ช่วงราคาอ้างอิงของทุกเงื่อนไข)" }
 
 # ── แท่งพ่อ รอบ 1 ──
@@ -22,7 +22,7 @@ father.per_bar_min_pct_r55:   { label: "เนื้อต่อแท่งข�
 father.doji_pct_r55:          { label: "เกณฑ์ Doji หยุดสแกน", unit: "%R55", help: "เจอแท่งเนื้อ ≤ ค่านี้ (โดจิ) → หยุดนับแท่งพ่อ" }
 father.big_bar_pct_r55:       { label: "เกณฑ์แท่งใหญ่", unit: "%R55", help: "แท่งเนื้อ > ค่านี้ นับเป็น 'แท่งใหญ่' (ใช้ดูว่าแท่งใหญ่เป็นส่วนมากไหม เพื่ออนุโลม)" }
 father.leniency_max_bars:     { label: "อนุโลมแท่งเล็กได้", unit: "แท่ง", help: "ยอมให้มีแท่งเนื้อบางเกินเกณฑ์ได้ไม่เกินกี่แท่ง (เมื่อแท่งใหญ่เป็นส่วนมาก)" }
-father.vol_ratio_min:         { label: "อัตราส่วน Volume ขั้นต่ำ", unit: "เท่า", help: "เนื้อเฉลี่ยพ่อ ÷ เนื้อเฉลี่ย 20 แท่งก่อนหน้า ต้องมากกว่าค่านี้ (พ่อต้องแรงกว่าปกติ)" }
+father.vol_ratio_min:         { label: "อัตราส่วน Volume ขั้นต่ำ", unit: "เท่า", help: "เนื้อเฉลี่ยพ่อ ÷ เนื้อเฉลี่ย 20 แท่งก่อนหน้า ต้องมากกว่าค่านี้ (พ่อต้องแรงกว่าปกติ)", group: "แท่งพ่อ", order: 14 }
 father.vol_pre_bars:          { label: "ช่วงเทียบ Volume", unit: "แท่ง", help: "จำนวนแท่งก่อนพ่อที่ใช้หาค่าเฉลี่ยเทียบ volume" }
 
 # ── แท่งพ่อ รอบ 2 ──
@@ -121,36 +121,40 @@ guards.gap.wait_bars:             { label: "เว้นหลัง Gap", unit:
 #   entries เป็น list ซ้อน (tier→legs) → แก้ผ่าน Raw YAML mode (custom UI ทีหลัง)
 # ════════════════════════════════════════════════════════════════════════════
 
+# การจัดกลุ่ม/เรียงใน Form (mai_ruay_v2) ผ่าน group + order — presentation อย่างเดียว (เซฟเขียนกลับ key เดิม)
+#   กลุ่ม + ลำดับ: ทั่วไป(1-7) → แท่งพ่อ(10-19) → แท่งแม่(20-22) → กลยุทธ entry(23-24) → TP/SL(25-26)
+#   lot_split_mode อยู่ใน general (YAML) แต่ "แสดง" ใต้กลุ่มกลยุทธ entry · V1 ไม่มี group → ฟอร์มเดิม
+
 # ── ทั่วไป (v2) ──
 general:                          { label: "ทั่วไป (v2)" }
-general.r55_bars:                 { label: "หน้าต่าง Range55", unit: "แท่ง", help: "จำนวนแท่งย้อนหลังที่ใช้คำนวณ R55 (ช่วงราคาอ้างอิงของทุกเงื่อนไข)" }
-general.min_tp_pip:               { label: "TP ขั้นต่ำ", unit: "pip", help: "ระยะ TP จาก tech point น้อยกว่าค่านี้ → ทิ้งสัญญาณ" }
-general.pending_max_age:          { label: "อายุ pending", unit: "แท่ง", help: "ออร์เดอร์ limit ค้างเกินกี่แท่ง → ยกเลิก" }
-general.proximity_cancel_enabled: { label: "เปิดกฎยกเลิกใกล้ TP", help: "false = ไม่ยก pending ตอนราคาเฉียด TP" }
-general.portfolio_start:          { label: "พอร์ตเริ่มต้น", unit: "$", help: "เงินทุนเริ่มต้น (คงที่ ไม่ทบต้น) — source เดียวของขนาด lot ใน V2" }
-general.risk_per_plan_pct:        { label: "ความเสี่ยงต่อแผน", unit: "%พอร์ต", help: "เสี่ยงกี่ % ของพอร์ตต่อ 1 แผน (budget = พอร์ต × ค่านี้ ÷ 100)" }
-general.lot_split_mode:           { label: "โหมดแบ่ง lot ต่อไม้", help: "equal_risk = risk ต่อไม้เท่ากัน · equal_lot = lot ต่อไม้เท่ากัน", options: [ { value: equal_risk, label: "risk เท่ากัน" }, { value: equal_lot, label: "lot เท่ากัน" } ] }
+general.r55_bars:                 { label: "หน้าต่าง Range55", unit: "แท่ง", help: "จำนวนแท่งย้อนหลังที่ใช้คำนวณ R55 (ช่วงราคาอ้างอิงของทุกเงื่อนไข)", group: "ทั่วไป", order: 4 }
+general.min_tp_pip:               { label: "TP ขั้นต่ำ", unit: "pip", help: "ระยะ TP จาก tech point น้อยกว่าค่านี้ → ทิ้งสัญญาณ", group: "ทั่วไป", order: 5 }
+general.pending_max_age:          { label: "อายุ pending", unit: "แท่ง", help: "ออร์เดอร์ limit ค้างเกินกี่แท่ง → ยกเลิก", group: "ทั่วไป", order: 6 }
+general.proximity_cancel_enabled: { label: "เปิดกฎยกเลิกใกล้ TP", help: "false = ไม่ยก pending ตอนราคาเฉียด TP", group: "ทั่วไป", order: 7 }
+general.portfolio_start:          { label: "พอร์ตเริ่มต้น", unit: "$", help: "เงินทุนเริ่มต้น (คงที่ ไม่ทบต้น) — source เดียวของขนาด lot ใน V2", group: "ทั่วไป", order: 2 }
+general.risk_per_plan_pct:        { label: "ความเสี่ยงต่อแผน", unit: "%พอร์ต", help: "เสี่ยงกี่ % ของพอร์ตต่อ 1 แผน (budget = พอร์ต × ค่านี้ ÷ 100)", group: "ทั่วไป", order: 3 }
+general.lot_split_mode:           { label: "โหมดแบ่ง lot ต่อไม้", help: "equal_risk = risk ต่อไม้เท่ากัน · equal_lot = lot ต่อไม้เท่ากัน", options: [ { value: equal_risk, label: "risk เท่ากัน" }, { value: equal_lot, label: "lot เท่ากัน" } ], group: "กลยุทธ entry", order: 23 }
 
 # ── แท่งพ่อ (v2 · นับแท่ง/ขนาด/vol/head-trim) ──
-father.count_min:                 { label: "จำนวนนับแท่งพ่อ (ต่ำสุด)", unit: "แท่ง", help: "ความยาวขบวนพ่อต้องมีอย่างน้อยกี่แท่ง" }
-father.count_max:                 { label: "จำนวนนับแท่งพ่อ (สูงสุด)", unit: "แท่ง", help: "สแกนหาแท่งพ่อย้อนหลังได้ไม่เกินกี่แท่ง" }
-father.body_min_pct_r55:          { label: "ขนาดพ่อรวมขั้นต่ำ", unit: "%R55", help: "ผลรวมเนื้อเทียนของแท่งพ่อต้อง ≥ ค่านี้ (เทียบ R55)" }
-father.per_bar_body_min:          { label: "เนื้อต่อแท่งขั้นต่ำ", unit: "%R55", help: "เนื้อเทียนแต่ละแท่งในพ่อต้อง > ค่านี้" }
-father.vol_window:                { label: "ช่วงเทียบ Volume", unit: "แท่ง", help: "จำนวนแท่งก่อนพ่อที่ใช้หาค่าเฉลี่ยเทียบ volume" }
-father.doji_stop_pct:             { label: "เกณฑ์ Doji หยุดสแกน", unit: "%R55", help: "เจอแท่งเนื้อ ≤ ค่านี้ (โดจิ) → หยุดนับแท่งพ่อ" }
-father.big_bar_pct:               { label: "เกณฑ์แท่งใหญ่", unit: "%R55", help: "แท่งเนื้อ > ค่านี้ นับเป็น 'แท่งใหญ่' (ใช้อนุโลมแท่งเล็กเมื่อแท่งใหญ่เป็นส่วนมาก)" }
-father.small_bar_allow:           { label: "อนุโลมแท่งเล็กได้", unit: "แท่ง", help: "ยอมให้มีแท่งเนื้อบางเกินเกณฑ์ได้ไม่เกินกี่แท่ง" }
-father.head_trim_small_max:       { label: "ตัดแท่งเล็กหัวขบวน", unit: "แท่ง", help: "ตัดแท่งเล็ก (≤ เนื้อต่อแท่ง) ที่หัวขบวนพ่อได้สูงสุดกี่แท่ง" }
+father.count_min:                 { label: "จำนวนนับแท่งพ่อ (ต่ำสุด)", unit: "แท่ง", help: "ความยาวขบวนพ่อต้องมีอย่างน้อยกี่แท่ง", group: "แท่งพ่อ", order: 10 }
+father.count_max:                 { label: "จำนวนนับแท่งพ่อ (สูงสุด)", unit: "แท่ง", help: "สแกนหาแท่งพ่อย้อนหลังได้ไม่เกินกี่แท่ง", group: "แท่งพ่อ", order: 11 }
+father.body_min_pct_r55:          { label: "ขนาดพ่อรวมขั้นต่ำ", unit: "%R55", help: "ผลรวมเนื้อเทียนของแท่งพ่อต้อง ≥ ค่านี้ (เทียบ R55)", group: "แท่งพ่อ", order: 12 }
+father.per_bar_body_min:          { label: "เนื้อต่อแท่งขั้นต่ำ", unit: "%R55", help: "เนื้อเทียนแต่ละแท่งในพ่อต้อง > ค่านี้", group: "แท่งพ่อ", order: 13 }
+father.vol_window:                { label: "ช่วงเทียบ Volume", unit: "แท่ง", help: "จำนวนแท่งก่อนพ่อที่ใช้หาค่าเฉลี่ยเทียบ volume", group: "แท่งพ่อ", order: 15 }
+father.doji_stop_pct:             { label: "เกณฑ์ Doji หยุดสแกน", unit: "%R55", help: "เจอแท่งเนื้อ ≤ ค่านี้ (โดจิ) → หยุดนับแท่งพ่อ", group: "แท่งพ่อ", order: 16 }
+father.big_bar_pct:               { label: "เกณฑ์แท่งใหญ่", unit: "%R55", help: "แท่งเนื้อ > ค่านี้ นับเป็น 'แท่งใหญ่' (ใช้อนุโลมแท่งเล็กเมื่อแท่งใหญ่เป็นส่วนมาก)", group: "แท่งพ่อ", order: 17 }
+father.small_bar_allow:           { label: "อนุโลมแท่งเล็กได้", unit: "แท่ง", help: "ยอมให้มีแท่งเนื้อบางเกินเกณฑ์ได้ไม่เกินกี่แท่ง", group: "แท่งพ่อ", order: 18 }
+father.head_trim_small_max:       { label: "ตัดแท่งเล็กหัวขบวน", unit: "แท่ง", help: "ตัดแท่งเล็ก (≤ เนื้อต่อแท่ง) ที่หัวขบวนพ่อได้สูงสุดกี่แท่ง", group: "แท่งพ่อ", order: 19 }
 
 # ── แท่งแม่ (v2 · เทียบ %R55 หรือ %พ่อ) ──
-mother.compare_mode:              { label: "โหมดเทียบขนาดแม่", help: "r55 = เทียบ %R55 · father = เทียบ %ขนาดแท่งพ่อ", options: [ { value: r55, label: "เทียบ R55" }, { value: father, label: "เทียบขนาดพ่อ" } ] }
-mother.body_min_pct:              { label: "เนื้อแม่ขั้นต่ำ", unit: "%", help: "เนื้อแม่ต้อง ≥ ค่านี้ (% ตาม compare_mode)" }
-mother.body_max_pct:              { label: "เนื้อแม่สูงสุด", unit: "%", help: "เนื้อแม่ต้อง ≤ ค่านี้ (% ตาม compare_mode)" }
+mother.compare_mode:              { label: "โหมดเทียบขนาดแม่", help: "r55 = เทียบ %R55 · father = เทียบ %ขนาดแท่งพ่อ", options: [ { value: r55, label: "เทียบ R55" }, { value: father, label: "เทียบขนาดพ่อ" } ], group: "แท่งแม่", order: 20 }
+mother.body_min_pct:              { label: "เนื้อแม่ขั้นต่ำ", unit: "%", help: "เนื้อแม่ต้อง ≥ ค่านี้ (% ตาม compare_mode)", group: "แท่งแม่", order: 21 }
+mother.body_max_pct:              { label: "เนื้อแม่สูงสุด", unit: "%", help: "เนื้อแม่ต้อง ≤ ค่านี้ (% ตาม compare_mode)", group: "แท่งแม่", order: 22 }
 
-# ── จุดเข้า (tier · v2) — nested ──
-entries:                          { label: "จุดเข้า (tier · v2)", help: "list ของ tier (when{พ่อ%/แม่%} → legs) — ซ้อนหลายชั้น · แก้ผ่าน Raw YAML mode" }
+# ── จุดเข้า (tier · v2) — nested · แสดงใต้กลุ่ม "กลยุทธ entry" ──
+entries:                          { label: "จุดเข้า (tier · v2)", help: "list ของ tier (when{พ่อ%/แม่%} → legs) — ซ้อนหลายชั้น · แก้ผ่าน Raw YAML mode", group: "กลยุทธ entry", order: 24 }
 
 # ── TP / SL (% พ่อ · v2) ──
 tpsl:                             { label: "TP / SL (% พ่อ)" }
-tpsl.tp_pct_father:               { label: "ระยะ TP", unit: "%พ่อ", help: "TP ห่างจาก tech point = เนื้อพ่อ × ค่านี้" }
-tpsl.sl_pct_father:               { label: "ระยะ SL", unit: "%พ่อ", help: "SL ห่างจาก tech point = เนื้อพ่อ × ค่านี้" }
+tpsl.tp_pct_father:               { label: "ระยะ TP", unit: "%พ่อ", help: "TP ห่างจาก tech point = เนื้อพ่อ × ค่านี้", group: "TP / SL", order: 25 }
+tpsl.sl_pct_father:               { label: "ระยะ SL", unit: "%พ่อ", help: "SL ห่างจาก tech point = เนื้อพ่อ × ค่านี้", group: "TP / SL", order: 26 }
