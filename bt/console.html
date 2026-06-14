@@ -328,7 +328,7 @@
 
 <div class="cmpbar" id="cmpbar">
   <span class="cnt">เลือกแล้ว <b id="cmpcnt">0</b> run</span>
-  <span class="cmphint">(เลือก 2 อันขึ้นไป · สูงสุด 10)</span>
+  <span class="cmphint">(เลือก 1 อันขึ้นไป · สูงสุด 10)</span>
   <button class="btn-cmp" id="cmpClear">ล้าง</button>
   <button class="btn-cmp gold" id="cmpGo">เทียบ →</button>
 </div>
@@ -1042,7 +1042,7 @@ let selMode=false; const cmpSel=new Set();
 function cmpRefresh(){
   $('#cmpcnt').textContent=cmpSel.size;
   $('#cmpbar').classList.toggle('show', selMode && cmpSel.size>=1);
-  $('#cmpGo').disabled=!(selMode && cmpSel.size>=2);
+  $('#cmpGo').disabled=!(selMode && cmpSel.size>=1);   // เปิดหน้าเทียบได้ตั้งแต่ 1 run (ดูรายละเอียด run เดียว)
 }
 function toggleSel(item,name){
   if(cmpSel.has(name)){ cmpSel.delete(name); item.classList.remove('cmpsel'); }
@@ -1068,7 +1068,7 @@ $('#selToggle').addEventListener('click',()=>setSelMode(!selMode));
 $('#openCompare').addEventListener('click',()=>gotoCompare([...cmpSel]));
 $('#cmpClear').addEventListener('click',()=>{ cmpSel.clear();
   $$('#runList .runItem').forEach(it=>it.classList.remove('cmpsel')); cmpRefresh(); });
-$('#cmpGo').addEventListener('click',()=>{ if(cmpSel.size>=2) gotoCompare([...cmpSel]); });
+$('#cmpGo').addEventListener('click',()=>{ if(cmpSel.size>=1) gotoCompare([...cmpSel]); });
 
 // ---------- config management UI (rename / soft-delete / restore / perm-delete) ----------
 let CFG_CORE=new Set(['global.yaml','field_labels.yaml']);

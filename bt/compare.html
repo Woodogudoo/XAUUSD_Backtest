@@ -50,6 +50,7 @@
 
   .needmore{padding:28px 16px;text-align:center;color:var(--muted);font-family:var(--mono);font-size:13px}
   .needmore b{color:var(--gold)}
+  .singlehint{font-family:var(--mono);font-size:12px;color:var(--gold);background:rgba(232,177,76,.07);border:1px solid #6f5a2e;border-radius:8px;padding:8px 13px;margin-bottom:14px}
 
   .legend{display:flex;gap:16px;margin-bottom:8px;flex-wrap:wrap}
   .lg{display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:11.5px;color:var(--muted)}
@@ -193,10 +194,10 @@ function buildTable(defs, runs, metricsList){
     const def=defs[key];
     if(def.group!==curGroup){ curGroup=def.group;
       html+='<tr class="grp"><td colspan="'+(runs.length+1)+'">'+esc(curGroup)+'</td></tr>'; }
-    // compute cells + best
+    // compute cells + best · ★ เฉพาะเมื่อมี ≥2 run (run เดียวไม่มีอะไรเทียบ)
     const cells=metricsList.map(m=>cellOf(key,def,m));
     let best=null;
-    if(def.direction!=='none'){
+    if(def.direction!=='none' && runs.length>1){
       const valid=cells.map(c=>c.cmp).filter(c=>c!=null);
       if(valid.length){ best = def.direction==='max'? Math.max.apply(null,valid) : Math.min.apply(null,valid); }
     }
@@ -302,12 +303,13 @@ function buildConfig(runs, configs, showAll){
   const keys={}; configs.forEach(c=>{ if(c&&c.values) Object.keys(c.values).forEach(k=>keys[k]=1); });
   const allKeys=Object.keys(keys).sort();
   const str=v=> v===true?'true': v===false?'false': v==null?'—': String(v);
+  const single = runs.length===1;   // run เดียว → โชว์ config ทั้งหมด ไม่ไฮไลต์ diff
   let rows='';
   allKeys.forEach(k=>{
     const vals=configs.map(c=> (c&&c.values&&k in c.values)? c.values[k] : undefined);
     const present=vals.filter(v=>v!==undefined).map(str);
-    const diff = new Set(present).size>1;
-    if(!showAll && !diff) return;
+    const diff = !single && new Set(present).size>1;
+    if(!showAll && !single && !diff) return;
     let tds='';
     vals.forEach(v=>{ const sv=v===undefined?'—':str(v);
       tds+='<td class="cfg'+(diff?' diff':'')+'">'+esc(sv)+'</td>'; });
@@ -387,9 +389,9 @@ function ctoast(msg){
   let warn = skipped.length? ('ข้าม run ที่ไม่มี: '+skipped.join(', ')) : '';
   renderChips(runs);
 
-  if(runs.length<2){
+  if(runs.length<1){
     $('#content').innerHTML='<section class="card"><div class="needmore">'+warnBox(warn)+
-      'เลือกอย่างน้อย <b>2 run</b> เพื่อเทียบ<br><span style="font-size:11px">กด “+ เพิ่ม run” ด้านบน หรือเลือกจาก console</span></div></section>';
+      'เลือกอย่างน้อย <b>1 run</b><br><span style="font-size:11px">กด “+ เพิ่ม run” ด้านบน หรือเลือกจาก console</span></div></section>';
     return;
   }
 
@@ -404,9 +406,9 @@ function ctoast(msg){
     runs=ok.map(x=>x.r); metricsList=ok.map(x=>x.m);
     renderChips(runs);
     if(failed.length){ warn=(warn?warn+' · ':'')+'โหลด metrics ไม่ได้: '+failed.join(', '); }
-    if(runs.length<2){
+    if(runs.length<1){
       $('#content').innerHTML='<section class="card"><div class="needmore">'+warnBox(warn)+
-        'มี run ใช้ได้ < 2 — เลือกเพิ่มอย่างน้อย <b>2 run</b></div></section>';
+        'ไม่มี run ที่โหลด metrics ได้</div></section>';
       return;
     }
     configs=await Promise.all(runs.map(r=>getJSON('/api/runs/'+encodeURIComponent(r)+'/config').catch(()=>({exists:false}))));
@@ -416,9 +418,11 @@ function ctoast(msg){
   }
 
   let chartMode='pct', showAllCfg=false;
+  const single = runs.length===1;   // run เดียว = "รายละเอียด run เดียว" (ไม่มี ★/diff)
   function render(){
     $('#content').innerHTML=
       warnBox(warn)+
+      (single?'<div class="singlehint">รายละเอียด run เดียว — '+esc(runs[0])+'</div>':'')+
       '<section class="card"><div class="hd"><div><div class="eyebrow">Equity curve</div>'+
         '<h2>เส้นทุน<span class="info" data-calc="เรียงตามเวลาปิดไม้ (exit time) · เริ่มทุน $1000 · บวก pnl สะสมทีละไม้. %profit = (ทุน − 1000) ÷ 1000 × 100. แกน X เป็นเวลาจริง map เชิงเส้น — grid ห่างเท่ากันคงที่ ไม่ยืด/หดตามจำนวนไม้ · ทุก run วางบนแกนเวลาเดียวกัน (จุดเวลาเดียวกันตรงกัน) · ช่วงไม่มีไม้ เส้นจะแบน. สลับ %/USD ที่ปุ่มขวา.">i</span></h2></div>'+
         '<div class="toggle" id="modeTg"><button class="'+(chartMode==='pct'?'on':'')+'" data-m="pct">%</button>'+
@@ -427,12 +431,12 @@ function ctoast(msg){
         '<div class="note">แกน X = เวลาจริง · grid แนวตั้งห่างเท่ากัน · ทุก run แกนเวลาเดียวกัน — ช่วงไม่มีไม้ = เส้นแบน · สลับ %/USD มุมขวา</div></div></section>'+
 
       '<section class="card"><div class="hd"><div><div class="eyebrow">Metrics</div>'+
-        '<h2>เมตริกเทียบ<span class="info" data-calc="ทุกค่าคิดจากทุนตั้งต้นคงที่ $1000 ไม่ทบต้น. แต่ละคอลัมน์ = 1 run (สูงสุด 10 · ตารางเลื่อนแนวนอนได้). กด ⓘ ท้ายแต่ละแถวเพื่อดูวิธีคิด. ★ = ดีที่สุดในแถว.">i</span></h2></div></div>'+
+        '<h2>'+(single?'เมตริก':'เมตริกเทียบ')+'<span class="info" data-calc="ทุกค่าคิดจากทุนตั้งต้นคงที่ $1000 ไม่ทบต้น. แต่ละคอลัมน์ = 1 run (สูงสุด 10 · ตารางเลื่อนแนวนอนได้). กด ⓘ ท้ายแต่ละแถวเพื่อดูวิธีคิด. ★ = ดีที่สุดในแถว (เฉพาะเมื่อมี ≥2 run).">i</span></h2></div></div>'+
         buildTable(defs,runs,metricsList)+'</section>'+
 
-      '<section class="card"><div class="hd"><div><div class="eyebrow">Config diff</div>'+
-        '<h2>ค่าที่ตั้งต่างกัน<span class="info" data-calc="เทียบ YAML config ของทุก run ทีละ key. ช่องไฮไลต์ทอง = ค่าที่ต่างจาก run อื่น. key ที่ทุก run เท่ากันซ่อนได้.">i</span></h2></div>'+
-        '<button class="toggle" style="padding:0"><span id="cfgTg" style="font-family:var(--mono);font-size:11px;color:var(--gold);padding:6px 11px;cursor:pointer">'+(showAllCfg?'โชว์ทั้งหมด':'โชว์เฉพาะที่ต่าง')+'</span></button></div>'+
+      '<section class="card"><div class="hd"><div><div class="eyebrow">Config'+(single?'':' diff')+'</div>'+
+        '<h2>'+(single?'ค่าที่ตั้ง':'ค่าที่ตั้งต่างกัน')+'<span class="info" data-calc="เทียบ YAML config ของทุก run ทีละ key. ช่องไฮไลต์ทอง = ค่าที่ต่างจาก run อื่น. key ที่ทุก run เท่ากันซ่อนได้.">i</span></h2></div>'+
+        (single?'':'<button class="toggle" style="padding:0"><span id="cfgTg" style="font-family:var(--mono);font-size:11px;color:var(--gold);padding:6px 11px;cursor:pointer">'+(showAllCfg?'โชว์ทั้งหมด':'โชว์เฉพาะที่ต่าง')+'</span></button>')+'</div>'+
         '<div class="body" style="padding-top:6px">'+buildConfig(runs,configs,showAllCfg)+'</div></section>';
 
     $$('#modeTg button').forEach(b=>b.onclick=()=>{ chartMode=b.getAttribute('data-m'); render(); });
