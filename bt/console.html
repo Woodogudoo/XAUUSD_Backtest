@@ -97,6 +97,10 @@
   .btn-ghost:disabled,.run:disabled{opacity:.55;cursor:not-allowed}
   .btn-ghost.gold{background:linear-gradient(150deg,#2a2410,#1a1c24);border-color:#6f5a2e;color:var(--gold)}
   .btn-ghost.gold:hover{border-color:var(--gold)}
+  /* unsaved-edits warning (amber) + dot บนปุ่ม Save */
+  .dirtywarn{color:#f0ad22;font-family:var(--mono);font-size:12.5px;margin:10px 0 -2px;font-weight:600;letter-spacing:.2px}
+  #saveInplaceBtn.dirty{border-color:#f0ad22;color:#f7c54f;box-shadow:0 0 0 2px rgba(240,173,34,.18)}
+  #saveInplaceBtn.dirty::after{content:"●";margin-left:6px;color:#f0ad22;font-size:10px;vertical-align:middle}
   /* config management */
   .cfgmgr{border:1px solid var(--line);border-radius:11px;margin-top:14px;overflow:hidden;background:var(--panel2)}
   .cfgmgr>summary{cursor:pointer;list-style:none;padding:10px 13px;display:flex;align-items:center;justify-content:space-between;font-family:var(--mono);font-size:12px}
@@ -263,6 +267,7 @@
         <div id="formView"><div class="emptyhint">กำลังโหลด config…</div></div>
         <div id="rawView" style="display:none"><textarea id="rawTxt" class="raw" spellcheck="false"></textarea></div>
 
+        <div id="dirtyWarn" class="dirtywarn" style="display:none">● ค่าที่แก้ไขยังไม่ได้บันทึก</div>
         <div class="saveas">
           <button id="saveInplaceBtn" class="btn-ghost gold" title="เขียนทับไฟล์ที่โหลดอยู่">💾 บันทึก</button>
           <div class="f"><label class="lab">บันทึกเป็นไฟล์ใหม่ <span class="hint">configs/</span></label>
@@ -330,6 +335,27 @@ async function getJSON(u){const r=await fetch(u);if(!r.ok)throw new Error(u+' �
 
 let CONFIGS=[], CFG_ALL=[], curCfgId=null, curRaw='', outEdited=false, dirty=false, busy=false;
 let ENTRIES_MODEL=null;   // โครง entries (tier/legs) สำหรับ card editor ของ mai_ruay_v2 · null = config ไม่มี entries
+let BASELINE=null;        // {values, entries} = ค่าจากไฟล์ตอนโหลด (ฐานเทียบ dirty + overlay ค่าค้าง)
+let UIST={};              // UI state ที่จำไว้ (อ่านจาก localStorage ตอน init) — restore ครั้งแรก
+let RESTORING=false;      // true ระหว่าง init/restore → กัน saveUI เขียนทับ state ก่อน restore เสร็จ
+
+// ---------- persistence (localStorage · กันพังด้วย try/catch) ----------
+const LS={
+  get(k,d){ try{const v=localStorage.getItem(k); return v==null?d:JSON.parse(v);}catch(e){return d;} },
+  set(k,v){ try{localStorage.setItem(k,JSON.stringify(v));}catch(e){} },
+  del(k){ try{localStorage.removeItem(k);}catch(e){} },
+};
+const UI_KEY='btc.ui.v1';
+const editsKey=(strat,cfg)=>'btc.edits.'+(strat||'?')+'.'+(cfg||'?');   // แยกค่าค้างต่อ strategy+config
+function curTab(){ return document.querySelector('.tabs button.on[data-t="raw"]')?'raw':'form'; }
+function saveUI(){
+  if(RESTORING) return;   // ระหว่าง restore ยังเก็บ state ไม่ครบ → อย่าเพิ่งเขียนทับ
+  LS.set(UI_KEY, {
+    strategy:$('#strat').value, config:curCfgId, tab:curTab(),
+    mode:modeVal(), lot:lotVal(), data:$('#data').value, out:$('#out').value, outEdited:outEdited,
+    q:$('#q').value, tf:[...tfSel],
+  });
+}
 
 // ---------- server status ----------
 (async()=>{try{await getJSON('/api/configs');$('#dot').classList.add('ok');$('#srv').textContent='server: '+location.host;}
@@ -486,8 +512,8 @@ function leafRowHTML(n, fp){
 }
 function finishForm(){   // post-render ร่วม (ทั้ง 2 path)
   bindToggles();
-  $$('#formView input').forEach(i=>i.addEventListener('input',()=>{dirty=true;}));
-  $$('#formView select').forEach(s=>s.addEventListener('change',()=>{dirty=true;}));
+  $$('#formView input').forEach(i=>i.addEventListener('input',onFormChange));
+  $$('#formView select').forEach(s=>s.addEventListener('change',onFormChange));
   if($('#entriesHost')&&ENTRIES_MODEL){ buildEntriesEditor(); bindEntriesEvents(); }   // card editor (mai_ruay_v2)
   applySearch();
 }
@@ -551,17 +577,18 @@ function bindEntriesEvents(){
     else if(act==='delleg') M[ti].legs.splice(li,1);
     else if(act==='mode') M[ti].legs[li]=(b.dataset.mode==='market')?{mode:'market'}:{mode:'mother_pct',value:0};
     else return;
-    dirty=true; buildEntriesEditor();
+    buildEntriesEditor(); onFormChange();
   });
   host.addEventListener('input',e=>{
     const inp=e.target.closest('input.ee-num'); if(!inp)return;
-    const ti=+inp.dataset.ti, field=inp.dataset.field, raw=inp.value.trim(); dirty=true;
+    const ti=+inp.dataset.ti, field=inp.dataset.field, raw=inp.value.trim();
     if(field==='value'){ const li=+inp.dataset.li; ENTRIES_MODEL[ti].legs[li].value=raw;
       const span=host.querySelector('[data-meanfor="'+ti+'-'+li+'"]');
       if(span){ const [mc,mt]=entriesMeaning(raw); span.textContent=mt; span.className='ee-pmean '+mc; }
     } else ENTRIES_MODEL[ti].when[field]=raw;
+    onFormChange();
   });
-  host.addEventListener('change',e=>{ if(e.target.closest('input.ee-num')) buildEntriesEditor(); });  // blur → refresh สรุป/ความหมาย
+  host.addEventListener('change',e=>{ if(e.target.closest('input.ee-num')){ buildEntriesEditor(); onFormChange(); } });  // blur → refresh
 }
 function eeNum(v){ const n=Number(v); return isFinite(n)?n:null; }   // '' '-' NaN → null
 function collectEntries(){   // โครงสะอาด → ส่งให้ server เขียน nested (market ไม่มี value)
@@ -593,7 +620,7 @@ function bindToggles(){
   $$('#formView .toggle').forEach(t=>t.addEventListener('click',e=>{
     if(e.target.tagName!=='BUTTON')return;
     t.querySelectorAll('button').forEach(b=>b.classList.remove('on'));
-    e.target.classList.add('on'); dirty=true;
+    e.target.classList.add('on'); onFormChange();
   }));
 }
 // เก็บค่าจากฟอร์มทุกช่อง keyed by dotted path (data-path) → ส่งให้ POST /api/configs
@@ -609,6 +636,47 @@ function collectValues(){
     else { v[path]=el.value; }
   });
   return v;
+}
+// ---------- dirty tracking + ค่าที่แก้ค้าง (ยังไม่เซฟ) ----------
+function setFieldValue(path, val){   // เซ็ตค่าลง field ตาม data-path (key หาย → ข้าม ไม่พัง)
+  const el=document.querySelector('#formView [data-path="'+(window.CSS&&CSS.escape?CSS.escape(path):path)+'"]');
+  if(!el) return false;
+  const type=el.getAttribute('data-type');
+  if(type==='bool'||type==='enum'){
+    if(el.tagName==='SELECT'){ el.value=String(val); }
+    else el.querySelectorAll('button').forEach(b=>b.classList.toggle('on', String(b.dataset.v)===String(val)));
+  } else el.value=val;
+  return true;
+}
+function entriesSig(){ return ENTRIES_MODEL? JSON.stringify(collectEntries()) : null; }   // ลายเซ็น entries (เทียบ dirty)
+function computeDirty(){
+  if(!BASELINE){ dirty=false; return false; }
+  const cur=collectValues(); let d=false;
+  const keys=new Set([...Object.keys(cur),...Object.keys(BASELINE.values||{})]);
+  for(const k of keys){ if(String(cur[k])!==String((BASELINE.values||{})[k])){ d=true; break; } }
+  if(!d && entriesSig()!==BASELINE.entries) d=true;
+  dirty=d; return d;
+}
+function collectEdits(){   // เฉพาะ field ที่ต่างจาก baseline + entries (raw model) ถ้าต่าง
+  const cur=collectValues(), out={values:{}};
+  for(const k in cur){ if(String(cur[k])!==String((BASELINE.values||{})[k])) out.values[k]=cur[k]; }
+  if(ENTRIES_MODEL && entriesSig()!==BASELINE.entries) out.entries=ENTRIES_MODEL;
+  return out;
+}
+function applyEdits(edits){   // overlay ค่าค้างทับ baseline ที่ render แล้ว (key หาย → ข้าม)
+  if(!edits) return;
+  if(edits.values) for(const k in edits.values) setFieldValue(k, edits.values[k]);
+  if(edits.entries && ENTRIES_MODEL!==undefined){ ENTRIES_MODEL=JSON.parse(JSON.stringify(edits.entries)); if($('#entriesHost')) buildEntriesEditor(); }
+}
+function updateDirtyUI(){
+  const w=$('#dirtyWarn'); if(w) w.style.display=dirty?'':'none';
+  const b=$('#saveInplaceBtn'); if(b) b.classList.toggle('dirty', !!dirty);
+}
+function onFormChange(){   // เรียกทุกครั้งที่ฟอร์มเปลี่ยน → คำนวณ dirty + เก็บค่าค้าง + อัปเดตคำเตือน
+  computeDirty();
+  const k=editsKey($('#strat').value, curCfgId);
+  if(dirty) LS.set(k, collectEdits()); else LS.del(k);
+  updateDirtyUI();
 }
 
 // ---------- configs ----------
@@ -636,7 +704,10 @@ async function applyCfgFilter(forceReload){
     $('#formView').innerHTML='<div class="emptyhint">ไม่มี config สำหรับ strategy: '+esc(strat)+'</div>';
     suggestOut(); build(); return;
   }
-  const keep=vis.some(c=>c.id===prev)?prev:vis[0].id;
+  // restore config ที่จำไว้ (one-shot ตอน init · ถ้ายัง visible) → ไม่งั้นคงค่าเดิม/ตัวแรก (fallback ไม่ error)
+  let want=prev;
+  if(UIST.config && vis.some(c=>c.id===UIST.config)){ want=UIST.config; UIST.config=null; }
+  const keep=vis.some(c=>c.id===want)?want:vis[0].id;
   sel.value=keep;
   if(forceReload||keep!==prev) await selectConfig(keep);   // เปลี่ยนไฟล์ → โหลดฟอร์มใหม่
   else build();                                             // ไฟล์เดิม → แค่อัปเดต command preview
@@ -650,9 +721,12 @@ async function selectConfig(id){
     curRaw=d.raw||''; $('#rawTxt').value=curRaw;
     renderForm(d.tree||{});
     if(!$('#saveName').value) $('#saveName').value=id+'_v2.yaml';
-    dirty=false;   // โหลดสด → ยังไม่มีการแก้
+    // baseline = ค่าจากไฟล์ตอนโหลด → overlay ค่าค้าง (ถ้ามี) ของ config นี้ → คำนวณ dirty + คำเตือน
+    BASELINE={values:collectValues(), entries:entriesSig()};
+    applyEdits(LS.get(editsKey($('#strat').value, id), null));
+    onFormChange();   // computeDirty + updateDirtyUI (ค่าค้าง → โชว์คำเตือนทันที · ไม่มี → เคลียร์)
   }catch(e){$('#formView').innerHTML='<div class="emptyhint">อ่าน config ไม่ได้: '+esc(e.message)+'</div>';}
-  suggestOut(); build();
+  suggestOut(); build(); saveUI();
 }
 
 // ---------- search / tabs ----------
@@ -667,12 +741,13 @@ function applySearch(){
     g.style.display=any?'':'none'; if(q&&any)g.open=true;
   });
 }
-$('#q').addEventListener('input',applySearch);
+$('#q').addEventListener('input',()=>{applySearch();saveUI();});
 $$('.tabs button').forEach(b=>b.addEventListener('click',()=>{
   $$('.tabs button').forEach(x=>x.classList.remove('on')); b.classList.add('on');
   const raw=b.dataset.t==='raw';
   $('#rawView').style.display=raw?'block':'none';
   $('#formView').style.display=raw?'none':'block';
+  saveUI();
 }));
 
 // ---------- run target / command preview ----------
@@ -699,6 +774,7 @@ async function loadData(){
     const sel=$('#data'); sel.innerHTML='';
     d.data.forEach(n=>{const id=n.replace(/\.csv$/,'');
       const o=document.createElement('option');o.value=id;o.textContent=n;sel.appendChild(o);});
+    if(UIST.data && [...sel.options].some(o=>o.value===UIST.data)) sel.value=UIST.data;   // restore data ที่จำไว้
   }catch(e){}
   suggestOut(); build();
 }
@@ -711,18 +787,19 @@ async function loadStrategies(){
     if(ids.length){
       sel.innerHTML='';
       ids.forEach(id=>{const o=document.createElement('option');o.value=id;o.textContent=id;sel.appendChild(o);});
-      sel.value=ids.includes(prev)?prev:ids[0];
+      // restore strategy ที่จำไว้ (ถ้ายังมี) · ไม่งั้นคงค่าเดิม/ตัวแรก (fallback ไม่ error)
+      sel.value = (UIST.strategy && ids.includes(UIST.strategy)) ? UIST.strategy : (ids.includes(prev)?prev:ids[0]);
     }
   }catch(e){/* คง option เดิม (mai_ruay) ถ้าโหลดไม่ได้ */}
   if(CFG_ALL.length) applyCfgFilter(false); else build();   // config โหลดแล้ว → กรองตาม strategy ที่เลือก
 }
 $('#cfg').addEventListener('change',e=>{outEdited=false;selectConfig(e.target.value);});
-$('#data').addEventListener('change',()=>{suggestOut();build();});
-$('#strat').addEventListener('change',()=>{applyCfgFilter(false);});
-$('#out').addEventListener('input',()=>{outEdited=true;build();});
+$('#data').addEventListener('change',()=>{suggestOut();build();saveUI();});
+$('#strat').addEventListener('change',()=>{applyCfgFilter(false);saveUI();});
+$('#out').addEventListener('input',()=>{outEdited=true;build();saveUI();});
 $$('#mode button,#lot button').forEach(b=>b.addEventListener('click',()=>{
   const seg=b.parentElement; seg.querySelectorAll('button').forEach(x=>x.classList.remove('on'));
-  b.classList.add('on'); suggestOut(); build();
+  b.classList.add('on'); suggestOut(); build(); saveUI();
 }));
 // ---------- UI helpers: toast + modal ----------
 function toast(msg, kind){
@@ -784,7 +861,8 @@ async function doSave(overwrite){
     if(!r.ok){ toast(d.error||('บันทึกไม่ได้ ('+r.status+')'),'err'); return null; }
     if(overwrite){
       toast('บันทึกลง '+d.name+' แล้ว','ok');
-      dirty=false; await selectConfig(curCfgId);   // reload ไฟล์เดิม (ทับ in-place)
+      LS.del(editsKey($('#strat').value, curCfgId));   // เคลียร์ค่าค้าง → คำเตือนหาย
+      await selectConfig(curCfgId);   // reload ไฟล์เดิม (baseline ใหม่ · ไม่มีค่าค้าง)
       return curCfgId;
     }
     toast('บันทึก '+d.name+' แล้ว ('+d.applied+' ค่า)','ok'); loadCfgMgr(); loadTrash();
@@ -869,7 +947,7 @@ function renderTfBar(){
     const k=c.getAttribute('data-tf');
     if(k==='__all'){ tfSel.clear(); }
     else{ const v=(k==='__none')?null:k; tfSel.has(v)?tfSel.delete(v):tfSel.add(v); }   // กดซ้ำ=เอาออก
-    renderTfBar(); renderRunList();
+    renderTfBar(); renderRunList(); saveUI();
   });
 }
 function renderRunList(){
@@ -1052,7 +1130,28 @@ async function permDeleteConfig(name){
 }
 $('#trashToggle').addEventListener('click',()=>{ const t=$('#trashList'); t.style.display=t.style.display==='none'?'flex':'none'; });
 
-loadStrategies(); loadConfigs(); loadData(); loadRuns(); loadCfgMgr(); loadTrash();
+// ---------- init + restore state จาก localStorage ----------
+(async function init(){
+  RESTORING=true;
+  UIST = LS.get(UI_KEY, {}) || {};
+  // restore element ที่มีอยู่แล้วใน DOM ก่อนโหลด (tab / mode / lot / q)
+  try{
+    if(UIST.tab==='raw'){ const b=document.querySelector('.tabs button[data-t="raw"]'); if(b) b.click(); }
+    ['mode','lot'].forEach(seg=>{ const v=UIST[seg]; if(!v)return;
+      const btn=document.querySelector('#'+seg+' button[data-v="'+v+'"]');
+      if(btn){ document.querySelectorAll('#'+seg+' button').forEach(x=>x.classList.remove('on')); btn.classList.add('on'); } });
+    if(typeof UIST.q==='string') $('#q').value=UIST.q;
+  }catch(e){/* restore เสริม — พังไม่ได้ */}
+  await loadStrategies();   // → UIST.strategy
+  await loadConfigs();      // → UIST.config (one-shot) · selectConfig overlay ค่าค้าง + คำเตือน
+  await loadData();         // → UIST.data
+  if(UIST.outEdited && UIST.out){ outEdited=true; $('#out').value=UIST.out; build(); }   // out ที่ผู้ใช้พิมพ์เอง → คงไว้ (ไม่งั้นปล่อย auto-suggest)
+  await loadRuns();
+  if(Array.isArray(UIST.tf) && UIST.tf.length){ UIST.tf.forEach(v=>tfSel.add(v)); renderTfBar(); renderRunList(); }
+  loadCfgMgr(); loadTrash();
+  applySearch();
+  RESTORING=false; saveUI();   // restore เสร็จ → persist state ที่ resolve แล้ว
+})();
 </script>
 </body>
 </html>
