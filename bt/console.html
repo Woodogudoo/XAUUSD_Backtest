@@ -166,7 +166,8 @@
   .runItem:last-child{border-bottom:0}
   .runTop{display:flex;align-items:center;gap:8px}
   .runNameWrap{flex:1 1 auto;min-width:0;display:flex;align-items:center;gap:7px;overflow:hidden}
-  .runName{font-family:var(--mono);font-size:12.5px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .runName{font-family:var(--mono);font-size:12.5px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer}
+  .runName:hover{color:var(--gold);text-decoration:underline}
   .runWhen{flex-shrink:0;font-family:var(--mono);font-size:10.5px;color:var(--dim);white-space:nowrap}
   .runSub{font-family:var(--mono);font-size:10.5px;color:var(--muted)}
   .stats{display:flex;gap:14px;align-items:center;flex-wrap:wrap}
@@ -1013,6 +1014,11 @@ function renderRunList(){
       '<div class="runSub">'+sub+'</div>'+
       '<div class="stats">'+stats+viewer+'</div>';
     item.querySelector('.delBtn').onclick=(e)=>{e.stopPropagation();deleteRun(r.name);};
+    item.querySelector('.runName').onclick=(e)=>{   // คลิกชื่อ: ปกติ → เปิด run เดียวในหน้าเทียบ · selmode → ปล่อยให้ card toggle
+      if(selMode) return;
+      e.stopPropagation();
+      gotoCompare([r.name]);   // /compare?runs=<encoded> (gotoCompare encodeURIComponent ให้)
+    };
     item.addEventListener('click',e=>{   // selmode: ติ๊กได้เฉพาะการ์ดที่โชว์ · ปุ่มลบ/viewer ไม่นับ
       if(!selMode) return;
       if(e.target.closest('.delBtn')||e.target.closest('.openV')) return;
