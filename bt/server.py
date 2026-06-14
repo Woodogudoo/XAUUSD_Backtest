@@ -589,6 +589,7 @@ def api_save_config(payload: dict) -> tuple[int, dict]:
     values = payload.get("values") or {}
     raw = payload.get("raw")     # Raw YAML mode → เขียนทั้งก้อน (แก้ entries ฯลฯ) · None = Form mode (patch base)
     entries = payload.get("entries")   # Form mode + custom editor → เขียน nested ตรงๆ (ไม่ผ่าน coerce)
+    overwrite = bool(payload.get("overwrite", False))   # True = บันทึกทับไฟล์เดิม in-place · False = สร้างไฟล์ใหม่
     if base is None:
         return 400, {"error": "base config ไม่ถูกต้อง"}
     if not _NAME_RE.fullmatch(name):
@@ -597,8 +598,14 @@ def api_save_config(payload: dict) -> tuple[int, dict]:
     target = os.path.join(cdir, name)
     if os.path.dirname(os.path.abspath(target)) != os.path.abspath(cdir):
         return 400, {"error": "ชื่อไฟล์ไม่ถูกต้อง"}
-    if os.path.exists(target):
-        return 409, {"error": f"มีไฟล์ {name} อยู่แล้ว — เปลี่ยนชื่อใหม่ (เก็บทุกเวอร์ชัน ไม่ทับของเดิม)"}
+    if overwrite:
+        # บันทึกทับไฟล์เดิม — บล็อก core (global/field_labels) · ไฟล์ต้องมีอยู่จริง
+        if name in _CORE_CONFIGS:
+            return 403, {"error": f"{name} เป็นไฟล์ระบบ — บันทึกทับไม่ได้ (ใช้ บันทึกเป็น… ตั้งชื่อใหม่)"}
+        if not os.path.isfile(target):
+            return 404, {"error": f"ไม่พบไฟล์ {name} ที่จะบันทึกทับ — ใช้ บันทึกเป็น… แทน"}
+    elif os.path.exists(target):
+        return 409, {"error": f"มีไฟล์ {name} อยู่แล้ว — เปลี่ยนชื่อใหม่ หรือใช้ บันทึก (ทับไฟล์เดิม)"}
     # resolve base file
     bbase = base[:-5] if base.endswith((".yaml", ".yml")) else base
     bfile = None
@@ -648,7 +655,8 @@ def api_save_config(payload: dict) -> tuple[int, dict]:
     except Exception as e:  # noqa: BLE001
         return 500, {"error": f"เขียน YAML ไม่ได้: {e}"}
     return 200, {"ok": True, "name": name, "id": name[:-5] if name.endswith((".yaml", ".yml")) else name,
-                 "file": os.path.relpath(target, _root()), "applied": applied, "skipped": skipped}
+                 "file": os.path.relpath(target, _root()), "applied": applied, "skipped": skipped,
+                 "overwrite": overwrite}
 
 
 # ---------- POST: run backtest (subprocess arg-list, shell=False) ----------

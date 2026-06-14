@@ -95,6 +95,8 @@
   .saveas .f{flex:1}
   .btn-ghost{border:1px solid var(--gold-dim);background:transparent;color:var(--gold);cursor:pointer;font-family:var(--mono);font-size:12px;padding:9px 14px;border-radius:9px;white-space:nowrap}
   .btn-ghost:disabled,.run:disabled{opacity:.55;cursor:not-allowed}
+  .btn-ghost.gold{background:linear-gradient(150deg,#2a2410,#1a1c24);border-color:#6f5a2e;color:var(--gold)}
+  .btn-ghost.gold:hover{border-color:var(--gold)}
   /* config management */
   .cfgmgr{border:1px solid var(--line);border-radius:11px;margin-top:14px;overflow:hidden;background:var(--panel2)}
   .cfgmgr>summary{cursor:pointer;list-style:none;padding:10px 13px;display:flex;align-items:center;justify-content:space-between;font-family:var(--mono);font-size:12px}
@@ -262,9 +264,10 @@
         <div id="rawView" style="display:none"><textarea id="rawTxt" class="raw" spellcheck="false"></textarea></div>
 
         <div class="saveas">
-          <div class="f"><label class="lab">บันทึกเป็นเวอร์ชันใหม่ <span class="hint">configs/</span></label>
+          <button id="saveInplaceBtn" class="btn-ghost gold" title="เขียนทับไฟล์ที่โหลดอยู่">💾 บันทึก</button>
+          <div class="f"><label class="lab">บันทึกเป็นไฟล์ใหม่ <span class="hint">configs/</span></label>
             <input id="saveName" type="text" placeholder="เช่น mairuay_v205.yaml"></div>
-          <button id="saveBtn" class="btn-ghost">💾 Save as new</button>
+          <button id="saveBtn" class="btn-ghost">บันทึกเป็น…</button>
         </div>
 
         <!-- ░ จัดการไฟล์ config (rename / trash / restore) ░ -->
@@ -694,36 +697,47 @@ function ensureCfgOption(name){
   return id;
 }
 
-// ---------- Save as new (POST /api/configs) ----------
-async function saveConfig(){
-  if(busy)return null;
-  const name=$('#saveName').value.trim();
-  if(!name){toast('ใส่ชื่อไฟล์ก่อน เช่น mairuay_v205.yaml','err');return null;}
+// ---------- Save: in-place (overwrite) + Save as new ----------
+// สร้าง payload จากฟอร์ม/raw + validate entries (Form mode) · คืน {payload} หรือ {error}
+function buildSavePayload(name){
   const rawMode=!!document.querySelector('.tabs button.on[data-t="raw"]');
-  let payload;
-  if(rawMode){ payload={base:curCfgId,name:name,raw:$('#rawTxt').value}; }
-  else {
-    payload={base:curCfgId,name:name,values:collectValues()};
-    if(ENTRIES_MODEL){   // mai_ruay_v2 → ส่งโครง entries nested ตรงๆ (validate ก่อน · ไม่เซฟถ้าผิด)
-      const err=validateEntries();
-      if(err){ toast('entries: '+err,'err'); return null; }
-      payload.entries=collectEntries();
-    }
+  if(rawMode) return {payload:{base:curCfgId,name:name,raw:$('#rawTxt').value}};
+  const payload={base:curCfgId,name:name,values:collectValues()};
+  if(ENTRIES_MODEL){   // mai_ruay_v2 → ส่งโครง entries nested ตรงๆ (validate ก่อน · ไม่เซฟถ้าผิด)
+    const err=validateEntries();
+    if(err) return {error:'entries: '+err};
+    payload.entries=collectEntries();
   }
-  busy=true; $('#saveBtn').disabled=true;
+  return {payload};
+}
+async function doSave(overwrite){
+  if(busy)return null;
+  if(!curCfgId){ toast('ยังไม่ได้เลือก config','err'); return null; }
+  // overwrite → เขียนทับไฟล์ที่โหลดอยู่ (curCfgId) · save-as → ชื่อจากช่อง #saveName
+  const name = overwrite ? (curCfgId+'.yaml') : $('#saveName').value.trim();
+  if(!overwrite && !name){ toast('ใส่ชื่อไฟล์ก่อน เช่น mairuay_v205.yaml','err'); return null; }
+  const built=buildSavePayload(name);
+  if(built.error){ toast(built.error,'err'); return null; }   // validate ผิด → ไม่เขียน
+  const payload=built.payload; payload.overwrite=overwrite;
+  busy=true; $('#saveBtn').disabled=true; $('#saveInplaceBtn').disabled=true;
   try{
-    // Raw tab → ส่ง raw YAML ทั้งก้อน · Form tab → values (patch leaf-only) + entries (nested editor)
     const r=await fetch('/api/configs',{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify(payload)});
     const d=await r.json();
     if(!r.ok){ toast(d.error||('บันทึกไม่ได้ ('+r.status+')'),'err'); return null; }
+    if(overwrite){
+      toast('บันทึกลง '+d.name+' แล้ว','ok');
+      dirty=false; await selectConfig(curCfgId);   // reload ไฟล์เดิม (ทับ in-place)
+      return curCfgId;
+    }
     toast('บันทึก '+d.name+' แล้ว ('+d.applied+' ค่า)','ok'); loadCfgMgr(); loadTrash();
     const id=ensureCfgOption(d.name); $('#cfg').value=id; outEdited=false;
     await selectConfig(id);           // โหลดไฟล์ใหม่ → ฟอร์มโชว์ค่าที่ save · dirty=false
     return id;
   }catch(e){ toast('บันทึก error: '+e.message,'err'); return null; }
-  finally{ busy=false; $('#saveBtn').disabled=false; }
+  finally{ busy=false; $('#saveBtn').disabled=false; $('#saveInplaceBtn').disabled=false; }
 }
+const saveConfig=()=>doSave(false);   // คงชื่อเดิม (runBacktest เรียกตอน dirty guard)
 
 // ---------- Run (POST /api/run) ----------
 async function runBacktest(){
@@ -766,7 +780,8 @@ async function doRun(overwrite){
   finally{ busy=false; btn.disabled=false; btn.textContent=orig; }
 }
 $('#runBtn').addEventListener('click',runBacktest);
-$('#saveBtn').addEventListener('click',saveConfig);
+$('#saveBtn').addEventListener('click',()=>doSave(false));
+$('#saveInplaceBtn').addEventListener('click',()=>doSave(true));
 
 // ---------- history ----------
 function fmtUsd(n){return (n>=0?'+':'−')+Math.abs(n).toLocaleString('en-US',{maximumFractionDigits:0})+'$';}
