@@ -30,6 +30,9 @@ general:
   min_tp_pip: 50               # TP ขั้นต่ำ (pip)
   pending_max_age: 30          # อายุ pending (แท่ง)
   proximity_cancel_enabled: true   # เปิดกฎยกเลิกเมื่อใกล้ TP
+  portfolio_start: 1000        # พอร์ตเริ่มต้น (คงที่ ไม่ทบต้น) — source เดียวของ lot V2
+  risk_per_plan_pct: 10        # % พอร์ตที่เสี่ยงต่อ 1 แผน
+  lot_split_mode: equal_risk   # equal_risk (B, default) | equal_lot (A)
 
 father:                        # การวัดขนาดแท่งพ่อ
   count_min: 1                 # จำนวนนับแท่งพ่อ (ต่ำสุด)
@@ -88,6 +91,31 @@ leg_price       = tech_price ± (mother_body_len × value / 100)      (± ตา
   · **floor `−100`**
 
 > เดิม `point: tech` = `value: 0` · `point: half_mother` = `value: 50` (ยุบเข้าระบบ % แล้ว — ลบ `point` เก่าทิ้ง)
+
+---
+
+## ขนาด lot ต่อแผน (risk-based)
+
+แทนการหาร lot รวมด้วยจำนวนไม้ (`/N` เดิม = บั๊ก) — คิด lot **ต่อไม้** จาก budget ความเสี่ยงต่อแผน
+convention เดิม: **risk = lot × ระยะ SL**
+
+```
+budget = portfolio_start × risk_per_plan_pct / 100
+N      = จำนวนไม้ของ tier ที่ match
+dist_i = |entry_i − SL_i|        (SL ร่วมทั้งแผน · entry ต่างกันต่อไม้)
+```
+
+**สองโหมด (`lot_split_mode`):**
+- `equal_risk` (B, default): risk ต่อไม้เท่ากัน = `budget/N` → `lot_i = (budget/N) / dist_i`
+- `equal_lot` (A): `L = budget / Σ dist_i` → `lot_i = L` (lot เท่ากันทุกไม้)
+
+**ปัดต่อไม้:** `lot < 0.01` → ปัดขึ้น `0.01` · `lot ≥ 0.01` → ปัดลงทีละ `0.01` (floor)
+
+**กัน budget เกิน:** `total_risk = Σ(lot_i × dist_i)` ; ถ้า `> budget` → ตัดไม้ **ตัวล่างสุด (ท้าย `legs`)** ออก 1
+→ `N−=1` คิดใหม่ตั้งแต่ base · วนจน `total_risk ≤ budget` หรือเหลือ 1 ไม้
+
+> `portfolio_start` ใน config = **source เดียว** ของ lot ใน V2 (ไม่พึ่ง `global.yaml`/param) ·
+> `winrate_mode` ไม่ได้ส่งถึง strategy (เหมือนเดิม) — ไม่ override 0.01
 
 ---
 

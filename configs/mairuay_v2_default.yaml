@@ -12,6 +12,9 @@ general:
   min_tp_pip: 50               # TP ขั้นต่ำ (pip) — ระยะ TP จาก tech_point น้อยกว่านี้ → ทิ้งสัญญาณ
   pending_max_age: 30          # อายุ pending (แท่ง) — limit ค้างเกินนี้ → ยกเลิก
   proximity_cancel_enabled: true   # เปิดกฎยกเลิกเมื่อราคาเฉียด TP (≤10%R55)
+  portfolio_start: 1000        # พอร์ตเริ่มต้น (คงที่ ไม่ทบต้น) — source เดียวของ lot V2
+  risk_per_plan_pct: 10        # % พอร์ตที่เสี่ยงต่อ 1 แผน (budget = พอร์ต×ค่านี้/100)
+  lot_split_mode: equal_risk   # equal_risk (risk ต่อไม้เท่ากัน) | equal_lot (lot ต่อไม้เท่ากัน)
 
 father:                        # การวัดขนาดแท่งพ่อ
   count_min: 1                 # จำนวนนับแท่งพ่อ (ต่ำสุด)

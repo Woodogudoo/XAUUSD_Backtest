@@ -17,18 +17,52 @@
 # ============================================================================
 from __future__ import annotations
 
+import math
+
 from bt.contract import Bar, Decision, Order
 from bt.data import PIP
 from bt.strategies.base import Strategy
 from bt.strategies.mai_ruay import Signal   # ใช้ Signal เดิม (contract ภายใน strategy)
 
-# ค่าคงที่ภายใน (ไม่อยู่ใน config — V2 ตัด lot scaling/buffer ออก)
-_RISK_PCT          = 10.0    # % พอร์ตต่อ 1 แผน (lot รวม = พอร์ต×risk÷SL_pips แล้วหารตามจำนวนไม้)
+# ค่าคงที่ภายใน (lot/risk ย้ายไป config: general.portfolio_start/risk_per_plan_pct/lot_split_mode)
 _PROXIMITY_PCT_R55 = 10.0    # ราคาเฉียด TP ≤ ค่านี้ (%R55) → ยก pending (เปิด/ปิดด้วย toggle ใน config)
+_MIN_LOT           = 0.01    # lot ขั้นต่ำ (ปัดต่อไม้: <0.01 → 0.01 · ≥0.01 → ปัดลงทีละ 0.01)
 
 
 def _r(x, n):
     return round(float(x), n)
+
+
+# ---------- lot sizing ต่อแผน (risk = lot × ระยะ SL · convention เดิม) ----------
+def _round_lot(x: float) -> float:
+    """ปัดต่อไม้: <0.01 → ปัดขึ้น 0.01 (min) · ≥0.01 → ปัดลงทีละ 0.01 (floor)"""
+    if x < _MIN_LOT:
+        return _MIN_LOT
+    return math.floor(x * 100 + 1e-9) / 100
+
+
+def _compute_lots(dists_pips, budget, split_mode):
+    """คิด lot ต่อไม้จาก budget (= พอร์ต×risk%) · dists_pips = [ระยะ SL ต่อไม้ (pip), >0]
+      - equal_risk (B): risk ต่อไม้ = budget/N → lot_i = (budget/N) / dist_i
+      - equal_lot  (A): L = budget / Σdist → lot_i = L (เท่ากันทุกไม้)
+    ปัดต่อไม้แล้วเช็ค total_risk = Σ(lot_i×dist_i); ถ้า > budget → ตัดไม้ "ตัวล่างสุด" (ท้าย legs) ออก
+    คิดใหม่ วนจน ≤ budget หรือเหลือ 1 ไม้ · คืน list[lot] (ยาว = จำนวนไม้ที่เหลือ)"""
+    n = len(dists_pips)
+    while n >= 1:
+        sub = dists_pips[:n]
+        if split_mode == 'equal_lot':
+            total = sum(sub)
+            L = budget / total if total > 0 else _MIN_LOT
+            raw = [L] * n
+        else:   # equal_risk (default)
+            per = budget / n
+            raw = [(per / d if d > 0 else 0.0) for d in sub]
+        lots = [_round_lot(x) for x in raw]
+        total_risk = sum(l * d for l, d in zip(lots, sub))
+        if total_risk <= budget or n == 1:
+            return lots
+        n -= 1   # เกิน budget → ตัดไม้ท้ายสุดออก 1 แล้วคิดใหม่
+    return []
 
 
 # ---------- R55 (window ปรับได้ตาม general.r55_bars — calc_r55 ใน data.py fix 55) ----------
@@ -191,7 +225,7 @@ def _select_tier(entries, f_pct, m_pct):
 
 
 # ---------- core analyzer ----------
-def analyze_bar(bars, bar_idx, cfg, portfolio) -> Signal | None:
+def analyze_bar(bars, bar_idx, cfg) -> Signal | None:
     g  = cfg['general']
     rw = g['r55_bars']
     if bar_idx < rw - 1:
@@ -254,22 +288,33 @@ def analyze_bar(bars, bar_idx, cfg, portfolio) -> Signal | None:
             price = tech_point + sign * mother_body_len * (val / 100)
             entries.append((price, f"ไม้{idx + 1}:แม่{val:g}%", False))
 
-    # lot รวมจาก SL ของไม้แรก (risk คงที่ — V2 ตัด lot scaling) แล้วหารตามจำนวนไม้
+    # lot ต่อไม้: risk ต่อแผน = portfolio_start × risk_per_plan_pct/100 · แบ่งตาม lot_split_mode
+    #   (config = source เดียวของ V2 · ระยะ SL ต่อไม้ต่างกัน — SL ร่วม, entry ต่างกัน)
     first_price = entries[0][0]
     sl_pips = abs(first_price - sl) / PIP
     if sl_pips <= 0:
         return None
-    lot = _r((portfolio * (_RISK_PCT / 100)) / sl_pips, 2)
-    lot_each = _r(lot / len(entries), 2) if entries else lot
-    entries_full = [(ep, er, lot_each, mkt) for ep, er, mkt in entries]
+    portfolio_start = g.get('portfolio_start', 1000)
+    risk_pct = g.get('risk_per_plan_pct', 10)
+    split_mode = g.get('lot_split_mode', 'equal_risk')
+    budget = portfolio_start * (risk_pct / 100)
+    dists_pips = [abs(ep - sl) / PIP for ep, _, _ in entries]
+    lots = _compute_lots(dists_pips, budget, split_mode)
+    if not lots:
+        return None
+    kept = entries[:len(lots)]                       # ไม้ที่เหลือหลังตัดตัวล่างสุด (ถ้าเกิน budget)
+    entries_full = [(ep, er, _r(lots[k], 2), mkt) for k, (ep, er, mkt) in enumerate(kept)]
+    lot = _r(sum(lots), 2)                            # lot รวมของแผน (analytics)
 
+    _cut = len(entries) - len(kept)
     reasons = [
         f"พ่อ {f_pct:.1f}%R55 ({f_end - f_start + 1} แท่ง) · vol {vol_ratio:.2f}",
         f"แม่ {m_pct:.1f}% (compare={mc.get('compare_mode')})",
         f"เข้า tier: พ่อ≥{tier['when'].get('father_min_pct')}%, "
         f"แม่ {tier['when'].get('mother_min_pct')}–{tier['when'].get('mother_max_pct')}% "
-        f"→ {len(entries)} ไม้",
+        f"→ {len(kept)} ไม้" + (f" (ตัดท้าย {_cut} ไม้ — เกิน budget)" if _cut else ""),
         f"TP/SL = {cfg['tpsl']['tp_pct_father']}% / {cfg['tpsl']['sl_pct_father']}% ของพ่อ",
+        f"lot: {split_mode} · budget {budget:.0f} (พอร์ต {portfolio_start:.0f}×{risk_pct}%)",
     ]
 
     return Signal(
@@ -295,6 +340,8 @@ class MaiRuayV2(Strategy):
                  pre_fill_cancel: bool = False):
         _validate_entries(cfg.get('entries'))   # fail fast ถ้าโครง entries เพี้ยน (error ชัด)
         self.cfg = cfg
+        # portfolio (จาก global.yaml) รับไว้ตาม signature ร่วม แต่ V2 ใช้ config.general.portfolio_start
+        # เป็น source เดียวสำหรับ lot (กัน 2 แหล่งขัดกัน) — ดู analyze_bar
         self.portfolio = portfolio
         self.pre_fill_cancel = pre_fill_cancel
         self._pend = {}        # tag -> {tp_sel, sl, r55, dir, placed, plan_id, price, place_time}
@@ -342,7 +389,7 @@ class MaiRuayV2(Strategy):
             return Decision(place, cancel, modify)
 
         # (D) หาสัญญาณ
-        sig = analyze_bar(ctx.window, i, cfg, self.portfolio)
+        sig = analyze_bar(ctx.window, i, cfg)   # lot จาก config (portfolio_start) — ไม่พึ่ง self.portfolio
         if sig is None:
             return Decision(place, cancel, modify)
 

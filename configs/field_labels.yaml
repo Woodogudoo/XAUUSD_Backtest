@@ -127,6 +127,9 @@ general.r55_bars:                 { label: "หน้าต่าง Range55", u
 general.min_tp_pip:               { label: "TP ขั้นต่ำ", unit: "pip", help: "ระยะ TP จาก tech point น้อยกว่าค่านี้ → ทิ้งสัญญาณ" }
 general.pending_max_age:          { label: "อายุ pending", unit: "แท่ง", help: "ออร์เดอร์ limit ค้างเกินกี่แท่ง → ยกเลิก" }
 general.proximity_cancel_enabled: { label: "เปิดกฎยกเลิกใกล้ TP", help: "false = ไม่ยก pending ตอนราคาเฉียด TP" }
+general.portfolio_start:          { label: "พอร์ตเริ่มต้น", unit: "$", help: "เงินทุนเริ่มต้น (คงที่ ไม่ทบต้น) — source เดียวของขนาด lot ใน V2" }
+general.risk_per_plan_pct:        { label: "ความเสี่ยงต่อแผน", unit: "%พอร์ต", help: "เสี่ยงกี่ % ของพอร์ตต่อ 1 แผน (budget = พอร์ต × ค่านี้ ÷ 100)" }
+general.lot_split_mode:           { label: "โหมดแบ่ง lot ต่อไม้", help: "equal_risk = risk ต่อไม้เท่ากัน · equal_lot = lot ต่อไม้เท่ากัน", options: [ { value: equal_risk, label: "risk เท่ากัน" }, { value: equal_lot, label: "lot เท่ากัน" } ] }
 
 # ── แท่งพ่อ (v2 · นับแท่ง/ขนาด/vol/head-trim) ──
 father.count_min:                 { label: "จำนวนนับแท่งพ่อ (ต่ำสุด)", unit: "แท่ง", help: "ความยาวขบวนพ่อต้องมีอย่างน้อยกี่แท่ง" }
