@@ -19,7 +19,7 @@ general:
 father:                        # การวัดขนาดแท่งพ่อ
   count_min: 1                 # จำนวนนับแท่งพ่อ (ต่ำสุด)
   count_max: 10                # จำนวนนับแท่งพ่อ (สูงสุด)
-  body_min_pct_r55: 60         # ขนาดแท่งพ่อรวมขั้นต่ำ (%R55)
+  body_min_pct_r55: 50         # ขนาดแท่งพ่อรวมขั้นต่ำ (%R55)
   per_bar_body_min: 4          # เนื้อพ่อต่อแท่งขั้นต่ำ (%R55)
   vol_ratio_min: 1.0           # อัตราส่วน Volume ขั้นต่ำ (เนื้อเฉลี่ยพ่อ ÷ เนื้อเฉลี่ยก่อนหน้า)
   vol_window: 20               # ช่วงเทียบ Volume (แท่งก่อนพ่อ)
@@ -34,15 +34,22 @@ mother:                        # การวัดขนาดแท่งแ�
   body_max_pct: 25             # เนื้อแม่สูงสุด (% ตาม compare_mode)
 
 entries:                       # หัวใจ: เลือกได้กี่ไม้ / จุดไหน / เงื่อนไขพ่อ-แม่แบบไหน
-  - when: { father_min_pct: 70, mother_min_pct: 10, mother_max_pct: 15 }
-    legs:
-      - { point: market }      # ไม้ 1 = เข้าราคา market เลย
-      - { point: half_mother } # ไม้ 2 = ครึ่งแท่งแม่
-      - { point: tech }        # ไม้ 3 = จุดเทคนิค
-  - when: { father_min_pct: 50, mother_min_pct: 15, mother_max_pct: 30 }
-    legs:
-      - { point: tech }        # เงื่อนไขอื่น → เข้าไม้เดียว
-
+- when:
+    father_min_pct: 80
+    mother_min_pct: 2
+    mother_max_pct: 25
+  legs:
+  - mode: market
+  - mode: mother_pct
+    value: 50
+  - mode: mother_pct
+    value: 0
+- when:
+    father_min_pct: 60
+    mother_min_pct: 2
+    mother_max_pct: 25
+  legs:
+  - mode: market
 tpsl:                          # Fixed % จากแท่งพ่อ (ยังไม่มีเงื่อนไข)
-  tp_pct_father: 50
-  sl_pct_father: 30
+  tp_pct_father: 45
+  sl_pct_father: 40

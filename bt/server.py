@@ -133,14 +133,56 @@ def _build_tree(cmap, labels: dict, prefix: str = "") -> dict:
     return out
 
 
+# ---------- schema defaults: เติม key ที่ strategy รู้จักแต่ไฟล์ยังไม่มี (จาก default config) ----------
+# default config ของแต่ละ strategy = "schema อ้างอิง" ของชุด key ทั้งหมด · knob ใหม่โผล่อัตโนมัติ
+_STRATEGY_DEFAULT_CONFIG = {"mai_ruay_v2": "mairuay_v2_default.yaml"}
+
+
+def _deep_fill(dst, src) -> int:
+    """เติม key ที่ขาดใน dst จาก src (recurse เฉพาะ map) — ค่าที่มีอยู่แล้วไม่แตะ · คืนจำนวน key ที่เติม"""
+    if not (isinstance(dst, dict) and isinstance(src, dict)):
+        return 0
+    added = 0
+    for k, sv in src.items():
+        if k not in dst:
+            dst[k] = sv
+            added += 1
+        elif isinstance(sv, dict) and isinstance(dst.get(k), dict):
+            added += _deep_fill(dst[k], sv)
+    return added
+
+
+def _apply_schema_defaults(data) -> int:
+    """เติม key จาก default config ของ strategy (ตาม field strategy ในไฟล์) — file values ชนะ · คืน count
+    ใช้ทั้งตอนอ่าน (โชว์ครบใน Form) และตอนเซฟ (persist key ที่ขาด)"""
+    if not isinstance(data, dict):
+        return 0
+    strat = data.get("strategy")
+    dname = _STRATEGY_DEFAULT_CONFIG.get(str(strat) if strat is not None else "")
+    if not dname:
+        return 0
+    dpath = os.path.join(_root(), "configs", dname)
+    if not os.path.isfile(dpath):
+        return 0
+    try:
+        import yaml  # default = อ้างเฉพาะชุด key/ค่า — pyyaml พอ (plain values)
+        with open(dpath, encoding="utf-8") as f:
+            ddata = yaml.safe_load(f) or {}
+    except Exception:  # noqa: BLE001 — schema เสริมเท่านั้น ห้ามทำ endpoint ล่ม
+        return 0
+    return _deep_fill(data, ddata) if isinstance(ddata, dict) else 0
+
+
 def _read_config(path: str) -> dict:
-    """อ่าน 1 ไฟล์ YAML ด้วย ruamel (round-trip) → {raw, tree} · tree merge label ภาษาคน"""
+    """อ่าน 1 ไฟล์ YAML ด้วย ruamel (round-trip) → {raw, tree} · tree merge label + schema defaults"""
     from ruamel.yaml import YAML  # lazy: serve อื่นๆ ยังทำงานได้แม้ไม่มี ruamel
     yaml = YAML()
     yaml.preserve_quotes = True
     with open(path, encoding="utf-8") as f:
         raw = f.read()
     data = yaml.load(raw)
+    if data is not None:
+        _apply_schema_defaults(data)   # เติม key ที่ขาด → Form เห็นครบ (raw ยังเป็นไฟล์เดิม)
     labels = _load_labels()
     tree = _build_tree(data, labels) if data is not None else {}
     return {"raw": raw, "tree": tree}
@@ -635,6 +677,7 @@ def api_save_config(payload: dict) -> tuple[int, dict]:
             # Form mode — โหลดไฟล์ base จาก disk แล้ว patch เฉพาะ leaf ที่ฟอร์มแก้ (โครงซ้อนคงเดิม)
             with open(bfile, encoding="utf-8") as f:
                 data = yaml.load(f)
+            _apply_schema_defaults(data)   # เติม key ที่ขาด (จาก schema) ก่อน → persist + ให้ form values patch ได้
             applied, skipped = 0, []
             for dotted, val in values.items():
                 if _set_path(data, str(dotted), val):
