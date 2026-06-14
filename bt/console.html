@@ -774,11 +774,23 @@ function build(){
     '   <span class="flag">--out</span> <span class="val">runs/'+esc(out)+'/</span> \\\n'+
     '   <span class="flag">--viewer</span>';
 }
+// TF ของชื่อไฟล์ → นาที (เรียงเล็ก→ใหญ่) · M×n=n · H×n=n×60 · D1=1440 · W1=10080 · MN=43200 · parse ไม่ได้ → Infinity (ท้ายลิสต์)
+function dataTfMinutes(name){
+  const m=String(name).match(/(?:^|[_\-. ])(MN1?|[MHDW]\d{1,3})(?:[_\-. ]|$)/i);
+  if(!m) return Infinity;
+  const t=m[1].toUpperCase();
+  if(t.startsWith('MN')) return 43200;
+  const u={M:1,H:60,D:1440,W:10080}[t[0]]; if(u==null) return Infinity;
+  const n=parseInt(t.slice(1),10);
+  return u*(isFinite(n)?n:1);
+}
 async function loadData(){
   try{
     const d=await getJSON('/api/data');
     const sel=$('#data'); sel.innerHTML='';
-    d.data.forEach(n=>{const id=n.replace(/\.csv$/,'');
+    // เรียงตาม timeframe เล็ก→ใหญ่ · TF เท่ากัน/parse ไม่ได้ → alphabetical
+    const files=(d.data||[]).slice().sort((a,b)=> (dataTfMinutes(a)-dataTfMinutes(b)) || a.localeCompare(b));
+    files.forEach(n=>{const id=n.replace(/\.csv$/,'');
       const o=document.createElement('option');o.value=id;o.textContent=n;sel.appendChild(o);});
     if(UIST.data && [...sel.options].some(o=>o.value===UIST.data)) sel.value=UIST.data;   // restore data ที่จำไว้
   }catch(e){}
