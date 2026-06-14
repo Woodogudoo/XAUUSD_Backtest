@@ -79,6 +79,15 @@ def _scalar(v):
     return "str", str(v)
 
 
+def _plain(v):
+    """ruamel CommentedMap/Seq → plain dict/list/scalar (JSON-safe) — สำหรับส่งโครงซ้อน (entries) ให้ editor"""
+    if isinstance(v, dict):
+        return {str(k): _plain(x) for k, x in v.items()}
+    if isinstance(v, list):
+        return [_plain(x) for x in v]
+    return _scalar(v)[1]
+
+
 def _load_labels() -> dict:
     """อ่าน configs/field_labels.yaml (dotted-key → label/unit/help ภาษาคน)
     — เสริมคำอธิบายในฟอร์ม · ไม่มีไฟล์/พังก็ {} (ฟอร์ม fallback raw key + comment)"""
@@ -106,9 +115,10 @@ def _build_tree(cmap, labels: dict, prefix: str = "") -> dict:
         if isinstance(v, dict):
             node = {"type": "map", "comment": cmt, "items": _build_tree(v, labels, full + ".")}
         elif isinstance(v, list):
-            if any(isinstance(x, (dict, list)) for x in v):   # list ซ้อน (entries) → read-only, แก้ผ่าน Raw
+            if any(isinstance(x, (dict, list)) for x in v):   # list ซ้อน (entries) → custom editor/Raw
                 node = {"type": "list", "comment": cmt, "nested": True,
-                        "summary": f"{len(v)} รายการ (ซ้อนหลายชั้น)", "value": []}
+                        "summary": f"{len(v)} รายการ (ซ้อนหลายชั้น)", "value": [],
+                        "data": _plain(v)}     # โครงจริง → ให้ editor ฝั่ง console สร้างการ์ด
             else:
                 node = {"type": "list", "comment": cmt, "value": [_scalar(x)[1] for x in v]}
         else:
@@ -553,11 +563,32 @@ def _set_path(root, dotted: str, raw) -> bool:
     return True
 
 
+def _check_entries(entries) -> str | None:
+    """ตรวจโครง entries จาก editor ก่อนเขียน (defense — client validate แล้วชั้นหนึ่ง) · ผิด → ข้อความ, ถูก → None"""
+    if not isinstance(entries, list) or not entries:
+        return "ต้องเป็น list ของ tier ที่ไม่ว่าง"
+    for i, t in enumerate(entries):
+        if not isinstance(t, dict) or not isinstance(t.get("when"), dict):
+            return f"tier {i + 1} ต้องมี when (dict)"
+        legs = t.get("legs")
+        if not isinstance(legs, list) or not legs:
+            return f"tier {i + 1} ต้องมี legs ≥1 ไม้"
+        for j, lg in enumerate(legs):
+            if not isinstance(lg, dict) or lg.get("mode") not in ("market", "mother_pct"):
+                return f"tier {i + 1} ไม้ {j + 1}: mode ต้องเป็น market | mother_pct"
+            if lg["mode"] == "mother_pct":
+                v = lg.get("value")
+                if isinstance(v, bool) or not isinstance(v, (int, float)) or not (-100 <= v <= 100):
+                    return f"tier {i + 1} ไม้ {j + 1}: value ต้องเป็นตัวเลข −100..100"
+    return None
+
+
 def api_save_config(payload: dict) -> tuple[int, dict]:
     base = _safe_name(payload.get("base", ""))
     name = str(payload.get("name", "")).strip()
     values = payload.get("values") or {}
     raw = payload.get("raw")     # Raw YAML mode → เขียนทั้งก้อน (แก้ entries ฯลฯ) · None = Form mode (patch base)
+    entries = payload.get("entries")   # Form mode + custom editor → เขียน nested ตรงๆ (ไม่ผ่าน coerce)
     if base is None:
         return 400, {"error": "base config ไม่ถูกต้อง"}
     if not _NAME_RE.fullmatch(name):
@@ -603,6 +634,13 @@ def api_save_config(payload: dict) -> tuple[int, dict]:
                     applied += 1
                 else:
                     skipped.append(dotted)
+            # custom editor (entries) → เขียนโครง nested ตรงๆ ทับ key เดิม (กัน bug coerce ตัด comma)
+            if entries is not None:
+                err = _check_entries(entries)
+                if err:
+                    return 400, {"error": f"entries ไม่ถูกต้อง: {err}"}
+                data["entries"] = entries
+                applied += 1
             with open(target, "w", encoding="utf-8") as f:
                 yaml.dump(data, f)
     except ModuleNotFoundError:
