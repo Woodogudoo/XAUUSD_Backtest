@@ -31,14 +31,17 @@ mother:                        # การวัดขนาดแท่งแ�
   body_max_pct: 25             # เนื้อแม่สูงสุด (% ตาม compare_mode)
 
 entries:                       # หัวใจ: เลือกได้กี่ไม้ / จุดไหน / เงื่อนไขพ่อ-แม่แบบไหน
+  # leg: { mode: market } = MARKET ที่ open ลูก · { mode: mother_pct, value: N } = LIMIT ที่ % ของแท่งแม่
+  #   value 0 = tech (close พ่อ ≈ open แม่) · +N = เข้าตัวแม่ N% (50=ครึ่งแม่, +100=ปลายแม่)
+  #   −N = เลย tech ออกไป N% (ได้เปรียบ, −100=สุด) · ทิศ mirror BUY/SELL · ช่วง −100..100
   - when: { father_min_pct: 70, mother_min_pct: 10, mother_max_pct: 15 }
     legs:
-      - { point: market }      # ไม้ 1 = เข้าราคา market เลย
-      - { point: half_mother } # ไม้ 2 = ครึ่งแท่งแม่
-      - { point: tech }        # ไม้ 3 = จุดเทคนิค
+      - { mode: market }                 # ไม้ 1 = เข้าราคา market เลย
+      - { mode: mother_pct, value: 50 }  # ไม้ 2 = ครึ่งแท่งแม่
+      - { mode: mother_pct, value: 0 }   # ไม้ 3 = จุดเทคนิค
   - when: { father_min_pct: 50, mother_min_pct: 15, mother_max_pct: 30 }
     legs:
-      - { point: tech }        # เงื่อนไขอื่น → เข้าไม้เดียว
+      - { mode: mother_pct, value: 0 }   # เงื่อนไขอื่น → เข้าไม้เดียว (จุดเทคนิค)
 
 tpsl:                          # Fixed % จากแท่งพ่อ (ยังไม่มีเงื่อนไข)
   tp_pct_father: 50

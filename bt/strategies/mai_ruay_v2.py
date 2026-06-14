@@ -144,7 +144,8 @@ def _validate_mother(bars, mother_idx, f_dir, r55, f_body, mc):
 
 # ---------- validate รูปร่าง entries (กัน config เพี้ยน → error ชัดแทน AttributeError ดิบ) ----------
 def _validate_entries(entries) -> None:
-    """entries ต้องเป็น list ของ tier · แต่ละ tier = dict {when: dict, legs: [ {point}... ]}
+    """entries ต้องเป็น list ของ tier · แต่ละ tier = dict {when: dict, legs: [ {mode,...}... ]}
+    leg = {mode: market} หรือ {mode: mother_pct, value: -100..100}
     config ที่ถูก Form-save ทับจะกลายเป็น list ของ string → จับได้ตรงนี้พร้อมบอกวิธีแก้"""
     if not isinstance(entries, list) or not entries:
         raise ValueError("config 'entries' ต้องเป็น list ของ tier ที่ไม่ว่าง "
@@ -159,8 +160,23 @@ def _validate_entries(entries) -> None:
         if not isinstance(legs, list) or not legs:
             raise ValueError(f"config 'entries[{i}].legs' ต้องเป็น list ของไม้ที่ไม่ว่าง")
         for j, leg in enumerate(legs):
-            if not isinstance(leg, dict) or 'point' not in leg:
-                raise ValueError(f"config 'entries[{i}].legs[{j}]' ต้องเป็น dict ที่มี key 'point'")
+            if not isinstance(leg, dict) or 'mode' not in leg:
+                raise ValueError(f"config 'entries[{i}].legs[{j}]' ต้องเป็น dict ที่มี key 'mode' "
+                                 f"(ใช้ได้: {{mode: market}} หรือ {{mode: mother_pct, value: N}})")
+            mode = leg['mode']
+            if mode == 'market':
+                continue
+            if mode == 'mother_pct':
+                v = leg.get('value')
+                if isinstance(v, bool) or not isinstance(v, (int, float)):
+                    raise ValueError(f"config 'entries[{i}].legs[{j}]' mode=mother_pct "
+                                     f"ต้องมี 'value' เป็นตัวเลข (เจอ {v!r})")
+                if not (-100 <= v <= 100):
+                    raise ValueError(f"config 'entries[{i}].legs[{j}]' value ต้องอยู่ในช่วง -100..100 "
+                                     f"(0=tech · +100=ปลายแม่ · −100=ได้เปรียบสุด · เจอ {v})")
+                continue
+            raise ValueError(f"config 'entries[{i}].legs[{j}]' mode ไม่รู้จัก: {mode!r} "
+                             f"(ใช้ได้: market | mother_pct)")
 
 
 # ---------- เลือก tier จาก entries ตามเงื่อนไข when ----------
@@ -210,7 +226,7 @@ def analyze_bar(bars, bar_idx, cfg, portfolio) -> Signal | None:
     m_row        = bars[mother_idx]
     mother_open  = m_row.open
     tech_point   = (father_close + mother_open) / 2
-    half_mother  = (mother_open + m_row.close) / 2
+    mother_body_len = abs(mother_open - m_row.close)   # |open แม่ − close แม่| (ราคา)
     child        = bars[bar_idx]
 
     # TP/SL = fixed % ของขนาดพ่อ จาก tech_point (ยังไม่มีเงื่อนไข)
@@ -223,15 +239,20 @@ def analyze_bar(bars, bar_idx, cfg, portfolio) -> Signal | None:
     if tp_pips < g['min_tp_pip']:
         return None
 
-    # สร้างไม้ตาม legs ของ tier (point ∈ market | half_mother | tech)
-    # leg market = เข้า market เสมอ · เงื่อนไขเข้า/เลือกไม้อยู่ที่ entries tier when{} อย่างเดียว
-    point_price = {'market': child.open, 'half_mother': half_mother, 'tech': tech_point}
+    # สร้างไม้ตาม legs ของ tier:
+    #   mode=market     → MARKET ที่ open แท่งลูก (เข้าทันที)
+    #   mode=mother_pct → LIMIT ที่ tech ± (mother_body_len × value/100) ตามทิศ BUY/SELL (mirror)
+    #     value 0 = tech · +N = เข้าตัวแม่ N% (50=ครึ่งแม่, +100=ปลายแม่) · −N = เลย tech ออกไป N% (ได้เปรียบ)
+    #     BUY: + = ขึ้น (เข้าหาแม่) / − = ลง · SELL: mirror (+ = ลง / − = ขึ้น)
+    sign = 1 if mai_dir == 'BUY' else -1
     entries = []
     for idx, leg in enumerate(tier['legs']):
-        pt = leg['point']
-        price = point_price.get(pt, tech_point)
-        is_mkt = (pt == 'market')
-        entries.append((price, f"ไม้{idx + 1}:{pt}", is_mkt))
+        if leg['mode'] == 'market':
+            entries.append((child.open, f"ไม้{idx + 1}:market", True))
+        else:   # mother_pct
+            val = leg['value']
+            price = tech_point + sign * mother_body_len * (val / 100)
+            entries.append((price, f"ไม้{idx + 1}:แม่{val:g}%", False))
 
     # lot รวมจาก SL ของไม้แรก (risk คงที่ — V2 ตัด lot scaling) แล้วหารตามจำนวนไม้
     first_price = entries[0][0]

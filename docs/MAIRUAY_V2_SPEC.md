@@ -51,12 +51,12 @@ mother:                        # การวัดขนาดแท่งแ�
 entries:                       # หัวใจ: เลือกได้กี่ไม้ / จุดไหน / เงื่อนไขพ่อ-แม่แบบไหน
   - when: { father_min_pct: 70, mother_min_pct: 10, mother_max_pct: 15 }
     legs:
-      - { point: market }       # ไม้ 1 = เข้าราคา market เลย
-      - { point: half_mother }  # ไม้ 2 = ครึ่งแท่งแม่
-      - { point: tech }         # ไม้ 3 = จุดเทคนิค
+      - { mode: market }                 # ไม้ 1 = MARKET ที่ open ลูก
+      - { mode: mother_pct, value: 50 }  # ไม้ 2 = ครึ่งแท่งแม่
+      - { mode: mother_pct, value: 0 }   # ไม้ 3 = จุดเทคนิค
   - when: { father_min_pct: 50, mother_min_pct: 15, mother_max_pct: 30 }
     legs:
-      - { point: tech }         # เงื่อนไขอื่น → เข้าไม้เดียว
+      - { mode: mother_pct, value: 0 }   # เงื่อนไขอื่น → เข้าไม้เดียว (จุดเทคนิค)
 
 tpsl:                          # Fixed % จากแท่งพ่อ (ยังไม่มีเงื่อนไข)
   tp_pct_father: 50
@@ -67,9 +67,27 @@ tpsl:                          # Fixed % จากแท่งพ่อ (ยั�
 
 - เป็น **list ของ tier** — แต่ละ tier มีเงื่อนไข `when` (พ่อใหญ่กี่ %, แม่อยู่ช่วงไหน)
 - เข้าเงื่อนไข tier ไหน → เปิดไม้ตาม `legs` ของ tier นั้น (กี่ไม้ / จุดไหน)
-- `point` ที่รองรับ: `market` · `half_mother` · `tech` (ออกแบบให้ขยายจุดอื่นได้ภายหลัง)
-- **leg `market` = เข้า market เสมอ** (ไม่ถอยไป half_mother ไม่ว่าแม่ใหญ่แค่ไหน) ·
-  เงื่อนไขเข้า/เลือกไม้อยู่ที่ `entries` tier `when{}` อย่างเดียว
+- **leg มี 2 ชนิด:**
+  - `{ mode: market }` — MARKET ที่ open แท่งลูก (เปิดทันที · เงื่อนไขเข้าอยู่ที่ tier `when{}` อย่างเดียว)
+  - `{ mode: mother_pct, value: N }` — LIMIT ที่ระดับ **% ของแท่งแม่**
+
+#### `value: N` (ช่วง `−100..100`)
+
+ราคา leg วัดจากจุดเทคนิคโดยอ้าง "ความยาวตัวแท่งแม่":
+
+```
+mother_body_len = |open แม่ − close แม่|
+leg_price       = tech_price ± (mother_body_len × value / 100)      (± ตามทิศ BUY/SELL — mirror)
+                  BUY:  tech + …   ·   SELL:  tech − …
+```
+
+- `0` = **จุดเทคนิค** (close พ่อ ≈ open แม่)
+- `+N` = เข้าไปในตัวแท่งแม่ `N%` — ทิศ **เข้าหาแม่** (BUY = ขึ้น / SELL = ลง)
+  · `50` = ครึ่งแม่ · **cap `+100`** = ปลายแม่
+- `−N` = เลย tech ออกไป `N%` (เข้า **ได้เปรียบ**) — ทิศ **ตรงข้ามแม่** (BUY = ลง / SELL = ขึ้น)
+  · **floor `−100`**
+
+> เดิม `point: tech` = `value: 0` · `point: half_mother` = `value: 50` (ยุบเข้าระบบ % แล้ว — ลบ `point` เก่าทิ้ง)
 
 ---
 
