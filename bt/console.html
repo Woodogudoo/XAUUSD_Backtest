@@ -228,7 +228,10 @@
   .cmpbar.show{opacity:1;pointer-events:auto}
   .cmpbar .cnt{color:var(--muted)} .cmpbar .cnt b{color:var(--gold)} .cmpbar .cmphint{color:var(--dim);font-size:10.5px}
   /* TF filter chips (run history) */
-  .tffilter{display:flex;flex-wrap:wrap;gap:6px;padding:10px 16px;border-bottom:1px solid var(--line);background:var(--panel2)}
+  .histfilter{padding:8px 16px;border-bottom:1px solid var(--line);background:var(--panel2);display:flex;flex-direction:column;gap:7px}
+  .filtrow{display:flex;align-items:baseline;gap:9px;flex-wrap:wrap}
+  .filtlab{font-family:var(--mono);font-size:10.5px;color:var(--dim);min-width:62px;flex-shrink:0}
+  .chips{display:flex;flex-wrap:wrap;gap:6px}
   .tfchip{border:1px solid var(--line2);background:#0e0e12;color:var(--muted);cursor:pointer;
     font-family:var(--mono);font-size:11px;padding:5px 11px;border-radius:20px}
   .tfchip:hover{border-color:var(--gold);color:var(--gold)}
@@ -312,7 +315,10 @@
         <div class="hdacts"><span class="meta" id="runMeta">—</span>
           <button class="btn-cmp" id="selToggle">เลือกเพื่อเทียบ</button>
           <button class="btn-cmp gold" id="openCompare">เทียบกลยุทธ์ →</button></div></div>
-      <div id="tfFilter" class="tffilter" style="display:none"></div>
+      <div id="histFilter" class="histfilter" style="display:none">
+        <div id="stratRow" class="filtrow" style="display:none"><span class="filtlab">กลยุทธ:</span><div id="stratFilter" class="chips"></div></div>
+        <div id="tfRow" class="filtrow" style="display:none"><span class="filtlab">Timeframe:</span><div id="tfFilter" class="chips"></div></div>
+      </div>
       <div id="runList" class="selmode-off"><div class="emptyhint" style="padding:16px">กำลังโหลด…</div></div>
     </section>
   </div>
@@ -353,7 +359,7 @@ function saveUI(){
   LS.set(UI_KEY, {
     strategy:$('#strat').value, config:curCfgId, tab:curTab(),
     mode:modeVal(), lot:lotVal(), data:$('#data').value, out:$('#out').value, outEdited:outEdited,
-    q:$('#q').value, tf:[...tfSel],
+    q:$('#q').value, tf:[...tfSel], sfilter:[...stratSel],
   });
 }
 
@@ -920,8 +926,9 @@ $('#saveInplaceBtn').addEventListener('click',()=>doSave(true));
 
 // ---------- history ----------
 function fmtUsd(n){return (n>=0?'+':'−')+Math.abs(n).toLocaleString('en-US',{maximumFractionDigits:0})+'$';}
-let RUNS_DATA=[]; const tfSel=new Set();   // filter TF (ว่าง = ทั้งหมด)
+let RUNS_DATA=[]; const tfSel=new Set(), stratSel=new Set();   // filter TF + กลยุทธ (ว่าง = ทั้งหมด)
 function runTF(r){ return r.tf || null; }   // TF จาก server (config_used._run.data / ชื่อ run) · null=ไม่ระบุ
+function runStrat(r){ return r.strategy || null; }   // กลยุทธ จาก server (config_used._run.strategy) · null=ไม่ระบุ
 function tfRank(t){ var m=String(t).match(/^([MHD])(\d+)$/i); if(!m)return 9999;
   var u={M:1,H:60,D:1440}[m[1].toUpperCase()]||1; return u*parseInt(m[2],10); }
 async function loadRuns(){
@@ -929,33 +936,43 @@ async function loadRuns(){
     const d=await getJSON('/api/runs');
     RUNS_DATA=d.runs||[];
     [...cmpSel].forEach(n=>{ if(!RUNS_DATA.some(r=>r.name===n)) cmpSel.delete(n); });  // prune ที่ถูกลบ
-    const tfs=[...new Set(RUNS_DATA.map(runTF))];
-    [...tfSel].forEach(t=>{ if(!tfs.some(x=>x===t)) tfSel.delete(t); });   // TF ที่ไม่มี run แล้ว → เอาออก
-    renderTfBar();
+    const tfs=new Set(RUNS_DATA.map(runTF)), strats=new Set(RUNS_DATA.map(runStrat));
+    [...tfSel].forEach(t=>{ if(!tfs.has(t)) tfSel.delete(t); });          // TF ที่ไม่มี run แล้ว → เอาออก
+    [...stratSel].forEach(s=>{ if(!strats.has(s)) stratSel.delete(s); }); // กลยุทธที่ไม่มี run แล้ว → เอาออก
+    renderHistFilters();
     renderRunList();
   }catch(e){ $('#runList').innerHTML='<div class="emptyhint" style="padding:16px">โหลด runs ไม่ได้: '+esc(e.message)+'</div>'; }
 }
-function renderTfBar(){
-  const bar=$('#tfFilter');
-  const tfs=[...new Set(RUNS_DATA.map(runTF))].sort((a,b)=>{ if(a===null)return 1; if(b===null)return -1; return tfRank(a)-tfRank(b); });
-  if(tfs.length<2){ bar.style.display='none'; bar.innerHTML=''; return; }   // TF เดียว → ไม่ต้อง filter
-  let h='<button class="tfchip'+(tfSel.size===0?' on':'')+'" data-tf="__all">ทั้งหมด</button>';
-  tfs.forEach(t=>{ const lab=t===null?'ไม่ระบุ':t, key=t===null?'__none':t;
-    h+='<button class="tfchip'+(tfSel.has(t)?' on':'')+'" data-tf="'+escAttr(key)+'">'+esc(lab)+'</button>'; });
-  bar.innerHTML=h; bar.style.display='flex';
-  bar.querySelectorAll('.tfchip').forEach(c=>c.onclick=()=>{
-    const k=c.getAttribute('data-tf');
-    if(k==='__all'){ tfSel.clear(); }
-    else{ const v=(k==='__none')?null:k; tfSel.has(v)?tfSel.delete(v):tfSel.add(v); }   // กดซ้ำ=เอาออก
-    renderTfBar(); renderRunList(); saveUI();
+// chip bar ทั่วไป (ใช้ทั้ง strategy + TF) · items มี ≥2 ตัวจึงโชว์ · null = "ไม่ระบุ" · คืน true ถ้าโชว์
+function renderChipBar(chipsEl, rowEl, items, sel, labelFn){
+  if(items.length<2){ rowEl.style.display='none'; chipsEl.innerHTML=''; return false; }
+  let h='<button class="tfchip'+(sel.size===0?' on':'')+'" data-v="__all">ทั้งหมด</button>';
+  items.forEach(it=>{ const key=(it===null)?'__none':String(it);
+    h+='<button class="tfchip'+(sel.has(it)?' on':'')+'" data-v="'+escAttr(key)+'">'+esc(labelFn(it))+'</button>'; });
+  chipsEl.innerHTML=h; rowEl.style.display='flex';
+  chipsEl.querySelectorAll('.tfchip').forEach(c=>c.onclick=()=>{
+    const k=c.getAttribute('data-v');
+    if(k==='__all') sel.clear();
+    else { const v=(k==='__none')?null:k; sel.has(v)?sel.delete(v):sel.add(v); }   // กดซ้ำ=เอาออก
+    renderHistFilters(); renderRunList(); saveUI();
   });
+  return true;
+}
+function tfItems(){ return [...new Set(RUNS_DATA.map(runTF))].sort((a,b)=>{ if(a===null)return 1; if(b===null)return -1; return tfRank(a)-tfRank(b); }); }
+function stratItems(){ return [...new Set(RUNS_DATA.map(runStrat))].sort((a,b)=>{ if(a===null)return 1; if(b===null)return -1; return String(a).localeCompare(String(b)); }); }
+function renderHistFilters(){   // 2 แถว: กลยุทธ / Timeframe · container โชว์ถ้ามีแถวไหนโชว์
+  const sv=renderChipBar($('#stratFilter'), $('#stratRow'), stratItems(), stratSel, x=>x===null?'ไม่ระบุ':x);
+  const tv=renderChipBar($('#tfFilter'),    $('#tfRow'),    tfItems(),    tfSel,    x=>x===null?'ไม่ระบุ':x);
+  $('#histFilter').style.display=(sv||tv)?'flex':'none';
 }
 function renderRunList(){
   const el=$('#runList');
-  const shown=RUNS_DATA.filter(r=> tfSel.size===0 || tfSel.has(runTF(r)));
-  $('#runMeta').textContent=(tfSel.size? shown.length+'/'+RUNS_DATA.length : RUNS_DATA.length)+' runs';
+  // AND: ผ่านทั้ง strategy filter และ TF filter (ว่าง = ไม่กรอง)
+  const shown=RUNS_DATA.filter(r=> (stratSel.size===0||stratSel.has(runStrat(r))) && (tfSel.size===0||tfSel.has(runTF(r))) );
+  const filtered=(tfSel.size||stratSel.size);
+  $('#runMeta').textContent=(filtered? shown.length+'/'+RUNS_DATA.length : RUNS_DATA.length)+' runs';
   if(!RUNS_DATA.length){ el.innerHTML='<div class="emptyhint" style="padding:16px">ยังไม่มี runs/</div>'; cmpRefresh(); return; }
-  if(!shown.length){ el.innerHTML='<div class="emptyhint" style="padding:16px">ไม่มี run สำหรับ TF นี้</div>'; cmpRefresh(); return; }
+  if(!shown.length){ el.innerHTML='<div class="emptyhint" style="padding:16px">ไม่มี run ตรงกับ filter</div>'; cmpRefresh(); return; }
   el.innerHTML='';
   shown.forEach(r=>{
     const s=r.summary||{};
@@ -972,7 +989,7 @@ function renderRunList(){
     const viewer=r.has_viewer
       ?'<a class="openV" href="/runs/'+encodeURIComponent(r.name)+'/viewer.html" target="_blank">เปิด viewer →</a>'
       :'<span class="openV dim">ไม่มี viewer</span>';
-    const sub='mai_ruay'+(tf?(' · '+tf):'');
+    const sub=(runStrat(r)||'ไม่ระบุ')+(tf?(' · '+tf):'');
     const item=document.createElement('div');item.className='runItem';item.dataset.run=r.name;
     if(cmpSel.has(r.name)) item.classList.add('cmpsel');
     item.innerHTML='<div class="runTop">'+
@@ -1147,7 +1164,11 @@ $('#trashToggle').addEventListener('click',()=>{ const t=$('#trashList'); t.styl
   await loadData();         // → UIST.data
   if(UIST.outEdited && UIST.out){ outEdited=true; $('#out').value=UIST.out; build(); }   // out ที่ผู้ใช้พิมพ์เอง → คงไว้ (ไม่งั้นปล่อย auto-suggest)
   await loadRuns();
-  if(Array.isArray(UIST.tf) && UIST.tf.length){ UIST.tf.forEach(v=>tfSel.add(v)); renderTfBar(); renderRunList(); }
+  // restore filter ประวัติ (กลยุทธ + TF) ที่จำไว้ → เฉพาะค่าที่ยังมี run จริง (fallback ไม่ error) → re-render
+  const _tfs=new Set(RUNS_DATA.map(runTF)), _strats=new Set(RUNS_DATA.map(runStrat));
+  if(Array.isArray(UIST.sfilter)) UIST.sfilter.forEach(v=>{ if(_strats.has(v)) stratSel.add(v); });
+  if(Array.isArray(UIST.tf)) UIST.tf.forEach(v=>{ if(_tfs.has(v)) tfSel.add(v); });
+  if(stratSel.size||tfSel.size){ renderHistFilters(); renderRunList(); }
   loadCfgMgr(); loadTrash();
   applySearch();
   RESTORING=false; saveUI();   // restore เสร็จ → persist state ที่ resolve แล้ว

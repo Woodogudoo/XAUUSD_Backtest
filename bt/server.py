@@ -417,6 +417,20 @@ def _run_tf(rdir: str, name: str):
     return _tf_of(name)
 
 
+def _run_strategy(rdir: str):
+    """strategy ของ run จาก config_used.yaml (_run.strategy) — สำหรับ filter ประวัติ · run เก่าไม่มี → None"""
+    cu = os.path.join(rdir, "config_used.yaml")
+    if os.path.isfile(cu):
+        try:
+            import yaml
+            c = yaml.safe_load(open(cu, encoding="utf-8")) or {}
+            s = (c.get("_run") or {}).get("strategy") if isinstance(c, dict) else None
+            return str(s) if s else None
+        except Exception:  # noqa: BLE001
+            pass
+    return None
+
+
 def api_runs() -> tuple[int, dict]:
     base = os.path.join(_root(), "runs")
     runs = []
@@ -439,6 +453,7 @@ def api_runs() -> tuple[int, dict]:
                 "has_viewer": os.path.isfile(os.path.join(rdir, "viewer.html")),
                 "mtime": int(os.path.getmtime(rdir)),
                 "tf": _run_tf(rdir, name),   # timeframe — สำหรับ filter ในประวัติ
+                "strategy": _run_strategy(rdir),   # กลยุทธ — สำหรับ filter ในประวัติ
             })
     runs.sort(key=lambda r: r["mtime"], reverse=True)
     return 200, {"runs": runs}
