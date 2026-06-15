@@ -11,7 +11,8 @@ general:
   r55_bars: 55                 # จำนวนแท่งย้อนหลังคำนวณ R55 (ช่วงราคาอ้างอิงของทุกเงื่อนไข)
   min_tp_pip: 200              # TP ขั้นต่ำ (pip) — ระยะ TP จาก tech_point น้อยกว่านี้ → ทิ้งสัญญาณ
   pending_max_age: 5           # อายุ pending (แท่ง) — limit ค้างเกินนี้ → ยกเลิก
-  proximity_cancel_enabled: true   # เปิดกฎยกเลิกเมื่อราคาเฉียด TP (≤10%R55)
+  proximity_cancel_enabled: true   # เปิดกฎยกเลิกเมื่อราคาเฉียด TP
+  proximity_cancel_pct_r55: 10     # ระยะเฉียด TP ที่ยก pending (%R55)
   portfolio_start: 1000        # พอร์ตเริ่มต้น (คงที่ ไม่ทบต้น) — source เดียวของ lot V2
   risk_per_plan_pct: 10        # % พอร์ตที่เสี่ยงต่อ 1 แผน (budget = พอร์ต×ค่านี้/100)
   lot_split_mode: equal_risk   # equal_risk (risk ต่อไม้เท่ากัน) | equal_lot (lot ต่อไม้เท่ากัน)
@@ -25,7 +26,7 @@ father:                        # การวัดขนาดแท่งพ�
   vol_window: 20               # ช่วงเทียบ Volume (แท่งก่อนพ่อ)
   doji_stop_pct: 2             # เกณฑ์ Doji หยุดสแกน (%R55)
   big_bar_pct: 10              # เกณฑ์แท่งใหญ่ (%R55) — ใช้ดูว่าแท่งใหญ่เป็นส่วนมากไหม
-  small_bar_allow: 2           # อนุโลมแท่งเล็กได้ (จำนวนแท่ง · เมื่อแท่งใหญ่เป็นส่วนมาก)
+  small_bar_allow: 0           # อนุโลมแท่งเล็กได้ (จำนวนแท่ง · เมื่อแท่งใหญ่เป็นส่วนมาก)
   head_trim_small_max: 2       # ตัดแท่งเล็กหัวขบวนได้สูงสุด (แท่ง)
 
 mother:                        # การวัดขนาดแท่งแม่
@@ -35,11 +36,35 @@ mother:                        # การวัดขนาดแท่งแ�
 
 entries:                       # หัวใจ: เลือกได้กี่ไม้ / จุดไหน / เงื่อนไขพ่อ-แม่แบบไหน
 - when:
-    father_min_pct: 80
+    father_min_pct: 90
     mother_min_pct: 2
-    mother_max_pct: 25
+    mother_max_pct: 8
   legs:
   - mode: market
+  - mode: mother_pct
+    value: 0
+- when:
+    father_min_pct: 90
+    mother_min_pct: 8
+    mother_max_pct: 25
+  legs:
+  - mode: mother_pct
+    value: 50
+  - mode: mother_pct
+    value: 0
+- when:
+    father_min_pct: 80
+    mother_min_pct: 2
+    mother_max_pct: 8
+  legs:
+  - mode: market
+  - mode: mother_pct
+    value: 0
+- when:
+    father_min_pct: 80
+    mother_min_pct: 8
+    mother_max_pct: 25
+  legs:
   - mode: mother_pct
     value: 50
   - mode: mother_pct
@@ -47,9 +72,20 @@ entries:                       # หัวใจ: เลือกได้กี
 - when:
     father_min_pct: 60
     mother_min_pct: 2
-    mother_max_pct: 25
+    mother_max_pct: 8
   legs:
   - mode: market
+  - mode: mother_pct
+    value: 0
+- when:
+    father_min_pct: 60
+    mother_min_pct: 8
+    mother_max_pct: 25
+  legs:
+  - mode: mother_pct
+    value: 50
+  - mode: mother_pct
+    value: 0
 tpsl:                          # Fixed % จากแท่งพ่อ (ยังไม่มีเงื่อนไข)
   tp_pct_father: 45
   sl_pct_father: 40

@@ -24,8 +24,8 @@ from bt.data import PIP
 from bt.strategies.base import Strategy
 from bt.strategies.mai_ruay import Signal   # ใช้ Signal เดิม (contract ภายใน strategy)
 
-# ค่าคงที่ภายใน (lot/risk ย้ายไป config: general.portfolio_start/risk_per_plan_pct/lot_split_mode)
-_PROXIMITY_PCT_R55 = 10.0    # ราคาเฉียด TP ≤ ค่านี้ (%R55) → ยก pending (เปิด/ปิดด้วย toggle ใน config)
+# ค่าคงที่ภายใน (lot/risk + proximity ย้ายไป config: general.*)
+_PROXIMITY_PCT_R55_DEFAULT = 10.0   # default ระยะ proximity-cancel (%R55) — fallback ถ้า config ไม่มี key
 _MIN_LOT           = 0.01    # lot ขั้นต่ำ (ปัดต่อไม้: <0.01 → 0.01 · ≥0.01 → ปัดลงทีละ 0.01)
 
 
@@ -357,7 +357,7 @@ class MaiRuayV2(Strategy):
         i, bar = ctx.bar_index, ctx.bar
         expiry = g['pending_max_age']
         prox_on = g.get('proximity_cancel_enabled', True)
-        prox = _PROXIMITY_PCT_R55 / 100
+        prox = g.get('proximity_cancel_pct_r55', _PROXIMITY_PCT_R55_DEFAULT) / 100   # ระยะเฉียด TP (%R55) จาก config
 
         pend_tags = {o.tag for o in ctx.pendings}
         self._pend = {t: m for t, m in self._pend.items() if t in pend_tags}

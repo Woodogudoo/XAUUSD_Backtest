@@ -30,6 +30,7 @@ general:
   min_tp_pip: 50               # TP ขั้นต่ำ (pip)
   pending_max_age: 30          # อายุ pending (แท่ง)
   proximity_cancel_enabled: true   # เปิดกฎยกเลิกเมื่อใกล้ TP
+  proximity_cancel_pct_r55: 10     # ระยะเฉียด TP ที่ยก pending (%R55) — ราคาเข้าใกล้ TP ≤ ค่านี้ → ยกเลิก (มีผลเมื่อเปิดกฎ)
   portfolio_start: 1000        # พอร์ตเริ่มต้น (คงที่ ไม่ทบต้น) — source เดียวของ lot V2
   risk_per_plan_pct: 10        # % พอร์ตที่เสี่ยงต่อ 1 แผน
   lot_split_mode: equal_risk   # equal_risk (B, default) | equal_lot (A)

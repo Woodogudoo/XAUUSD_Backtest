@@ -131,6 +131,7 @@ general.r55_bars:                 { label: "หน้าต่าง Range55", u
 general.min_tp_pip:               { label: "TP ขั้นต่ำ", unit: "pip", help: "ระยะ TP จาก tech point น้อยกว่าค่านี้ → ทิ้งสัญญาณ", group: "ทั่วไป", order: 5 }
 general.pending_max_age:          { label: "อายุ pending", unit: "แท่ง", help: "ออร์เดอร์ limit ค้างเกินกี่แท่ง → ยกเลิก", group: "ทั่วไป", order: 6 }
 general.proximity_cancel_enabled: { label: "เปิดกฎยกเลิกใกล้ TP", help: "false = ไม่ยก pending ตอนราคาเฉียด TP", group: "ทั่วไป", order: 7 }
+general.proximity_cancel_pct_r55: { label: "ระยะยกเลิกใกล้ TP", unit: "%R55", help: "ราคาเข้าใกล้ TP ≤ ค่านี้ (%R55) → ยก pending ที่ยังไม่ fill (มีผลเมื่อเปิดกฎด้านบน)", group: "ทั่วไป", order: 8 }
 general.portfolio_start:          { label: "พอร์ตเริ่มต้น", unit: "$", help: "เงินทุนเริ่มต้น (คงที่ ไม่ทบต้น) — source เดียวของขนาด lot ใน V2", group: "ทั่วไป", order: 2 }
 general.risk_per_plan_pct:        { label: "ความเสี่ยงต่อแผน", unit: "%พอร์ต", help: "เสี่ยงกี่ % ของพอร์ตต่อ 1 แผน (budget = พอร์ต × ค่านี้ ÷ 100)", group: "ทั่วไป", order: 3 }
 general.lot_split_mode:           { label: "โหมดแบ่ง lot ต่อไม้", help: "equal_risk = risk ต่อไม้เท่ากัน · equal_lot = lot ต่อไม้เท่ากัน", options: [ { value: equal_risk, label: "risk เท่ากัน" }, { value: equal_lot, label: "lot เท่ากัน" } ], group: "กลยุทธ entry", order: 23 }
