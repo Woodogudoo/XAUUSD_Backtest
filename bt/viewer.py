@@ -98,6 +98,32 @@ def _plans_payload(trades) -> list[dict]:
     return out
 
 
+def _esc(s: str) -> str:
+    return str(s).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+
+def _build_subhead(out_path: str) -> str:
+    """strategy + config จาก config_used.yaml (_run) ในโฟลเดอร์เดียวกับ viewer.html
+    — run เก่าไม่มีไฟล์/field → แสดงเท่าที่มี (ว่างได้ ไม่ error)"""
+    p = os.path.join(os.path.dirname(out_path), "config_used.yaml")
+    if not os.path.exists(p):
+        return ""
+    try:
+        import yaml
+        with open(p, encoding="utf-8") as f:
+            c = yaml.safe_load(f) or {}
+        rm = c.get("_run") if isinstance(c, dict) else None
+        rm = rm if isinstance(rm, dict) else {}
+    except Exception:  # noqa: BLE001 — header เสริม ห้ามทำ viewer ล่ม
+        return ""
+    parts = []
+    if rm.get("strategy"):
+        parts.append('<span class="sh-strat">' + _esc(rm["strategy"]) + '</span>')
+    if rm.get("config"):
+        parts.append('<span class="sh-cfg">' + _esc(os.path.basename(str(rm["config"]))) + '</span>')
+    return ' · '.join(parts)
+
+
 def write_viewer(bars, trades, out_path: str, title: str = "backtest",
                  unfilled=None) -> str:
     data = {
@@ -107,8 +133,10 @@ def write_viewer(bars, trades, out_path: str, title: str = "backtest",
         "unfilled": _unfilled_payload(unfilled),
         "plan_meta": _read_plan_meta(out_path),
     }
-    html = _TEMPLATE.replace("__TITLE__", title).replace(
-        "__DATA__", json.dumps(data, separators=(",", ":")))
+    html = (_TEMPLATE
+            .replace("__TITLE__", title)
+            .replace("__SUBHEAD__", _build_subhead(out_path))
+            .replace("__DATA__", json.dumps(data, separators=(",", ":"))))
     with open(out_path, "w", encoding="utf-8") as f:
         f.write(html)
     return out_path
@@ -121,6 +149,9 @@ _TEMPLATE = r"""<!DOCTYPE html>
  body{margin:0;background:#0e0e12;color:#cfd2dc;font:13px/1.4 -apple-system,Segoe UI,Roboto,sans-serif;display:flex;height:100vh;overflow:hidden}
  #side{width:290px;flex:none;background:#15161c;border-right:1px solid #23252e;display:flex;flex-direction:column}
  #side h1{font-size:14px;margin:10px 12px 2px;color:#e8eaf0}
+ #subhead{font-size:11px;margin:0 12px 6px;color:#8a90a0;font-family:ui-monospace,Menlo,monospace;line-height:1.5;word-break:break-all}
+ #subhead .sh-strat{color:#e8c07a}
+ #subhead .sh-cfg{color:#9ec1ff}
  #stat{padding:0 12px 8px;font-size:12px;color:#9aa0b0}
  #search{margin:6px 12px;padding:6px 8px;background:#0e0e12;border:1px solid #2a2d38;color:#cfd2dc;border-radius:4px}
  #list{flex:1;overflow:auto}
@@ -154,6 +185,7 @@ _TEMPLATE = r"""<!DOCTYPE html>
 <body>
 <div id="side">
  <h1>__TITLE__</h1>
+ <div id="subhead">__SUBHEAD__</div>
  <div id="stat"></div>
  <input id="search" placeholder="ค้นหาจุดเข้า (เวลา / BUY / SELL / WIN / LOSS)">
  <div id="list"></div>
