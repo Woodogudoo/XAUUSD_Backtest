@@ -584,13 +584,20 @@ function injectConfigNameRow(){
   // notes box: prefill จาก YAML key notes (ประวัติรอบก่อน) · ไม่เคยถูก auto-diff ทับ
   var box=document.getElementById('notesBox'); box.value=NOTES_VAL;
   box.addEventListener('input',onFormChange);
-  // "ใส่สรุป" = append บล็อกรอบใหม่ (เส้นคั่น+วันเวลา) ใต้ของเดิม · ไม่ลบของเก่า · รีเซ็ตจุดอ้างอิงรอบ
+  // "ใส่สรุป" = append บล็อกรอบใหม่ลงกล่อง (เหมือน auto-commit ตอน save)
   document.getElementById('notesSugBtn').addEventListener('click',function(){
-    var sug=document.getElementById('notesSug'); var d=sug._diff||''; if(!d)return;
-    box.value=box.value+(box.value.trim()?'\n\n':'')+notesBlock(d);
-    notesBaseline={values:collectValues(), entries:entriesSig()};   // รอบนี้บันทึกแล้ว → diff ถัดไปนับเฉพาะที่เปลี่ยนต่อ
-    sug.style.display='none'; onFormChange();
+    if(commitNotesRound()) onFormChange();
   });
+}
+// append diff รอบปัจจุบัน (เทียบ notesBaseline) ลงกล่อง notes เป็นบล็อกใหม่ (เส้นคั่น+วันเวลา)
+// คืน true ถ้า append จริง · กันบล็อกเปล่า (ไม่มี diff → ไม่ทำ) · กันซ้ำ (รีเซ็ต notesBaseline หลัง append)
+function commitNotesRound(){
+  var box=document.getElementById('notesBox'); if(!box) return false;
+  var d=computeDiffSummary(); if(!d) return false;
+  box.value=box.value+(box.value.trim()?'\n\n':'')+notesBlock(d);
+  notesBaseline={values:collectValues(), entries:entriesSig()};   // รอบนี้บันทึกแล้ว → diff ถัดไปนับเฉพาะที่เปลี่ยนต่อ
+  var sug=document.getElementById('notesSug'); if(sug) sug.style.display='none';
+  return true;
 }
 
 // ===== entries card editor (mai_ruay_v2) — แก้ tier/legs เป็นการ์ด · % ของแท่งแม่ =====
@@ -977,17 +984,16 @@ function ensureCfgOption(name){
 function buildSavePayload(name){
   const rawMode=!!document.querySelector('.tabs button.on[data-t="raw"]');
   if(rawMode) return {payload:{base:curCfgId,name:name,raw:$('#rawTxt').value}};
+  // validate entries ก่อน (ผิด → ไม่ commit notes/ไม่เซฟ)
+  if(ENTRIES_MODEL){ const err=validateEntries(); if(err) return {error:'entries: '+err}; }
+  commitNotesRound();   // auto-commit diff รอบปัจจุบันลง notes ก่อนเก็บค่า (ถ้ามี · กันซ้ำในตัว)
   const values=collectValues();
   // notes = free-text → ส่งเป็น field แยก (server เขียน string ดิบ ไม่ coerce/split §9.2) · ดึงออกจาก values
   let pNotes=null;
   if('notes' in values){ pNotes=String(values.notes); delete values.notes; }
   const payload={base:curCfgId,name:name,values:values};
   if(pNotes!==null) payload.notes=pNotes;
-  if(ENTRIES_MODEL){   // mai_ruay_v2 → ส่งโครง entries nested ตรงๆ (validate ก่อน · ไม่เซฟถ้าผิด)
-    const err=validateEntries();
-    if(err) return {error:'entries: '+err};
-    payload.entries=collectEntries();
-  }
+  if(ENTRIES_MODEL) payload.entries=collectEntries();
   return {payload};
 }
 async function doSave(overwrite){
