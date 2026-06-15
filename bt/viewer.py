@@ -50,6 +50,14 @@ def _unfilled_payload(unfilled) -> list[dict]:
     return out
 
 
+def _safe_int(v):
+    """int หรือ None (field ขาด/ว่าง) — กัน viewer พังกับ plan_meta run เก่า"""
+    try:
+        return int(v)
+    except (TypeError, ValueError):
+        return None
+
+
 def _read_plan_meta(out_path: str) -> list[dict]:
     """อ่าน plan_meta.csv (พ่อ/แม่/%/เหตุผล) จากโฟลเดอร์เดียวกับ viewer.html
     — Phase A เขียนไฟล์นี้ก่อนเรียก viewer แล้ว · ไม่มีไฟล์ → [] (เช่น unit test)"""
@@ -65,7 +73,7 @@ def _read_plan_meta(out_path: str) -> list[dict]:
                 "fs":   int(row["father_start_bar"]),
                 "fe":   int(row["father_end_bar"]),
                 "fp":   row["father_pct"],          # string — รักษาทศนิยม 1 ตำแหน่ง
-                "mb":   int(row["mother_bar"]),
+                "mb":   _safe_int(row.get("mother_bar")),   # None ถ้า field ขาด/ว่าง (run เก่า) → label โชว์ #N เฉยๆ
                 "mp":   row["mother_pct"],
                 "reasons": [r for r in reasons if r],
             })
@@ -161,6 +169,8 @@ _TEMPLATE = r"""<!DOCTYPE html>
 const DATA=__DATA__, O=DATA.ohlc, TR=DATA.trades, PL=DATA.plans, N=O.t.length, UF=DATA.unfilled||[];
 // plan_meta (พ่อ/แม่/%/เหตุผล) → lookup ตาม plan_id · ครบทั้ง filled + unfilled
 const PM_ARR=DATA.plan_meta||[];var PM={};for(var _pm=0;_pm<PM_ARR.length;_pm++)PM[PM_ARR[_pm].plan]=PM_ARR[_pm];
+// ป้ายเลขแผน: #N [เลขแท่งแม่] · ไม่มี mother_bar (run เก่า/ว่าง) → #N เฉยๆ
+function planLabel(id){var pm=PM[id];return '#'+id+((pm&&pm.mb!=null)?' ['+pm.mb+']':'');}
 // รวม plan filled (PL) + plan ที่ไม่มีไม้ fill เลย (สร้างจาก UF) → เรียง plan_id ต่อเนื่อง (ไม่ข้าม)
 var ufBy={};for(var _k=0;_k<UF.length;_k++){(ufBy[UF[_k].plan]=ufBy[UF[_k].plan]||[]).push(UF[_k]);}
 var _fid={};for(var _k=0;_k<PL.length;_k++)_fid[PL[_k].plan_id]=1;
@@ -376,8 +386,8 @@ window.addEventListener('mousemove',function(e){
  if(cross)reqDraw();
  var i=scale().barAt(mx);if(i<0||i>=N){tip.style.display='none';return;}
  var s='แท่ง '+i+'  '+fmtT(O.t[i])+'\nO '+O.o[i]+'  H '+O.h[i]+'  L '+O.l[i]+'  C '+O.c[i];
- for(var k=0;k<TR.length;k++){var t=TR[k];if(t.eb===i||t.xb===i){s+='\n— #'+t.plan+' '+t.dir+' '+t.tag+'\n  entry '+t.entry+'  '+t.result+'@'+t.exit+'\n  SL '+t.sl+'  TP '+t.tp+'  pnl '+t.pnl+'pip';}}
- for(var k=0;k<UF.length;k++){var u=UF[k];if(u.pb===i||u.db===i){s+='\n— #'+u.plan+' '+u.dir+' '+u.tag+' (ไม่ fill)\n  limit '+u.price+'  '+u.reason;}}
+ for(var k=0;k<TR.length;k++){var t=TR[k];if(t.eb===i||t.xb===i){s+='\n— '+planLabel(t.plan)+' '+t.dir+' '+t.tag+'\n  entry '+t.entry+'  '+t.result+'@'+t.exit+'\n  SL '+t.sl+'  TP '+t.tp+'  pnl '+t.pnl+'pip';}}
+ for(var k=0;k<UF.length;k++){var u=UF[k];if(u.pb===i||u.db===i){s+='\n— '+planLabel(u.plan)+' '+u.dir+' '+u.tag+' (ไม่ fill)\n  limit '+u.price+'  '+u.reason;}}
  tip.textContent=s;tip.style.display='block';tip.style.left=Math.min(mx+14,W-180)+'px';tip.style.top=(my+14)+'px';
 });
 cv.addEventListener('mouseleave',function(){tip.style.display='none';mx=-1;my=-1;if(cross)reqDraw();});
@@ -439,11 +449,11 @@ function renderList(q){curQ=q||'';var Q=curQ.toUpperCase();listEl.innerHTML='';
   var d=document.createElement('div');d.id='row'+p.plan_id;
   if(p.unfilled_only){
    d.className='row unf'+(p.plan_id===openId?' open':'');
-   d.innerHTML='<div>#'+p.plan_id+' '+p.direction+'  <span class="nf">ไม่ fill</span></div><div class="t">'+et+' · '+p.n_unf+' ออร์เดอร์ · —</div>';
+   d.innerHTML='<div>'+planLabel(p.plan_id)+' '+p.direction+'  <span class="nf">ไม่ fill</span></div><div class="t">'+et+' · '+p.n_unf+' ออร์เดอร์ · —</div>';
   }else{
    d.className='row '+(p.result==='WIN'?'win':'loss')+(p.plan_id===openId?' open':'');
    var col=p.result==='WIN'?'#26a69a':'#ef5350';
-   d.innerHTML='<div>#'+p.plan_id+' '+p.direction+'  <b style="color:'+col+'">'+p.net_pnl_usd.toFixed(2)+'$</b></div><div class="t">'+p.entry_time+' · '+p.n_trades+' ไม้ · '+p.result+'</div>';
+   d.innerHTML='<div>'+planLabel(p.plan_id)+' '+p.direction+'  <b style="color:'+col+'">'+p.net_pnl_usd.toFixed(2)+'$</b></div><div class="t">'+p.entry_time+' · '+p.n_trades+' ไม้ · '+p.result+'</div>';
   }
   (function(id){
    d.onclick=function(){if(openId===id){openId=null;hlTrade=-1;renderList(curQ);draw();}else setOpen(id,true);};
