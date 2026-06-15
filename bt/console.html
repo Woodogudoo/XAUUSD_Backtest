@@ -356,7 +356,7 @@ async function getJSON(u){const r=await fetch(u);if(!r.ok)throw new Error(u+' �
 
 let CONFIGS=[], CFG_ALL=[], curCfgId=null, curRaw='', outEdited=false, dirty=false, busy=false;
 let lastAutoSaveName='';   // ชื่อ save-as ที่ระบบ auto-fill ล่าสุด (เทียบกันว่าผู้ใช้แก้เองหรือยัง)
-let NOTES_VAL='', lastAutoNotes='', LABELS={};   // notes ที่โหลด · diff auto-fill ล่าสุด · map fp→label (สำหรับ diff)
+let NOTES_VAL='', notesBaseline=null, LABELS={};   // notes ที่โหลด · จุดอ้างอิง diff รอบปัจจุบัน · map fp→label
 let ENTRIES_MODEL=null;   // โครง entries (tier/legs) สำหรับ card editor ของ mai_ruay_v2 · null = config ไม่มี entries
 let BASELINE=null;        // {values, entries} = ค่าจากไฟล์ตอนโหลด (ฐานเทียบ dirty + overlay ค่าค้าง)
 let UIST={};              // UI state ที่จำไว้ (อ่านจาก localStorage ตอน init) — restore ครั้งแรก
@@ -581,12 +581,15 @@ function injectConfigNameRow(){
     lastAutoSaveName='';                          // ผู้ใช้ตั้งชื่อเอง → autofill ไม่ทับ
     suggestOut(); build();                        // out ตามชื่อ config (ถ้ายังไม่พิมพ์ out เอง)
   });
-  // notes box: prefill จาก YAML key notes · พิมพ์เอง → dirty + ไม่ถูก auto-diff ทับ
-  var box=document.getElementById('notesBox'); box.value=NOTES_VAL; lastAutoNotes='';
+  // notes box: prefill จาก YAML key notes (ประวัติรอบก่อน) · ไม่เคยถูก auto-diff ทับ
+  var box=document.getElementById('notesBox'); box.value=NOTES_VAL;
   box.addEventListener('input',onFormChange);
+  // "ใส่สรุป" = append บล็อกรอบใหม่ (เส้นคั่น+วันเวลา) ใต้ของเดิม · ไม่ลบของเก่า · รีเซ็ตจุดอ้างอิงรอบ
   document.getElementById('notesSugBtn').addEventListener('click',function(){
-    var sug=document.getElementById('notesSug'); var d=sug._diff||'';
-    if(!d)return; box.value=box.value+(box.value?'\n':'')+d; sug.style.display='none'; onFormChange();
+    var sug=document.getElementById('notesSug'); var d=sug._diff||''; if(!d)return;
+    box.value=box.value+(box.value.trim()?'\n\n':'')+notesBlock(d);
+    notesBaseline={values:collectValues(), entries:entriesSig()};   // รอบนี้บันทึกแล้ว → diff ถัดไปนับเฉพาะที่เปลี่ยนต่อ
+    sug.style.display='none'; onFormChange();
   });
 }
 
@@ -768,28 +771,27 @@ function diffEntries(oldA, newA){   // best-effort สรุป tier/leg ที�
   }
   return L;
 }
-function computeDiffSummary(){   // คืน string สรุป (หลายบรรทัด) หรือ '' ถ้าไม่ต่าง
-  if(!BASELINE) return '';
-  var cur=collectValues(), base=BASELINE.values||{}, L=[];
+function computeDiffSummary(){   // diff รอบปัจจุบัน (vs notesBaseline) — คืน string หรือ '' ถ้าไม่ต่าง
+  if(!notesBaseline) return '';
+  var cur=collectValues(), base=notesBaseline.values||{}, L=[];
   var keys={}; Object.keys(cur).forEach(k=>keys[k]=1); Object.keys(base).forEach(k=>keys[k]=1);
   Object.keys(keys).forEach(function(k){
     if(k==='notes') return;   // ไม่ diff ตัวเอง
     if(String(cur[k])!==String(base[k])) L.push((LABELS[k]||k)+': '+fmtv(base[k])+' → '+fmtv(cur[k]));
   });
-  var be=BASELINE.entries?JSON.parse(BASELINE.entries):null, ce=ENTRIES_MODEL?collectEntries():null;
+  var be=notesBaseline.entries?JSON.parse(notesBaseline.entries):null, ce=ENTRIES_MODEL?collectEntries():null;
   if(JSON.stringify(ce)!==JSON.stringify(be)) L=L.concat(diffEntries(be,ce));
   return L.join('\n');
 }
+function nowStr(){ var d=new Date(), p=n=>(n<10?'0':'')+n;
+  return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes()); }
+function notesBlock(diff){ return '─── '+nowStr()+' ───\n'+diff; }   // บล็อกรอบใหม่ (คั่น+วันเวลา)
+// แสดง diff รอบนี้เป็น "ข้อเสนอ" เสมอ (ไม่แตะกล่อง — ของเดิม/ประวัติไม่ถูกทับ) · กดปุ่มเพื่อ append
 function updateNotesDiff(){
-  var box=document.getElementById('notesBox'); if(!box) return;
-  var diff=computeDiffSummary(), sug=document.getElementById('notesSug');
-  if(box.value==='' || box.value===lastAutoNotes){   // ว่าง/ยังเป็น auto → เติม diff (รีเฟรช)
-    box.value=diff; lastAutoNotes=diff;
-    if(sug) sug.style.display='none';
-  }else if(sug){   // ผู้ใช้พิมพ์เอง → ไม่ทับ · โชว์ suggestion + ปุ่มใส่สรุป
-    sug._diff=diff; sug.querySelector('.sugtext').textContent=diff;
-    sug.style.display=diff?'flex':'none';
-  }
+  var sug=document.getElementById('notesSug'); if(!sug) return;
+  var diff=computeDiffSummary();
+  if(diff){ sug._diff=diff; sug.querySelector('.sugtext').textContent=diff; sug.style.display='flex'; }
+  else sug.style.display='none';
 }
 
 // ---------- configs ----------
@@ -843,6 +845,7 @@ async function selectConfig(id){
     renderForm(d.tree||{});
     // baseline = ค่าจากไฟล์ที่เลือก (authoritative) · persisted edits = overlay เฉพาะตอน "ออกหน้า-กลับมา" (RESTORING)
     BASELINE={values:collectValues(), entries:entriesSig()};
+    notesBaseline=BASELINE;   // จุดอ้างอิง diff รอบใหม่ = ค่าไฟล์ที่โหลด (รีเซ็ตทุกครั้งที่โหลด config)
     if(RESTORING) applyEdits(LS.get(editsKey($('#strat').value, id), null));   // dropdown switch → ไม่ overlay (โหลดสะอาดตามไฟล์)
     onFormChange();   // computeDirty + updateDirtyUI (สะอาด → ไม่ dirty/ไม่มีคำเตือน · restore → ค่าค้าง+คำเตือน)
   }catch(e){$('#formView').innerHTML='<div class="emptyhint">อ่าน config ไม่ได้: '+esc(e.message)+'</div>';}
