@@ -341,6 +341,7 @@ function escAttr(s){return esc(s).replace(/"/g,'&quot;');}
 async function getJSON(u){const r=await fetch(u);if(!r.ok)throw new Error(u+' → '+r.status);return r.json();}
 
 let CONFIGS=[], CFG_ALL=[], curCfgId=null, curRaw='', outEdited=false, dirty=false, busy=false;
+let lastAutoSaveName='';   // ชื่อ save-as ที่ระบบ auto-fill ล่าสุด (เทียบกันว่าผู้ใช้แก้เองหรือยัง)
 let ENTRIES_MODEL=null;   // โครง entries (tier/legs) สำหรับ card editor ของ mai_ruay_v2 · null = config ไม่มี entries
 let BASELINE=null;        // {values, entries} = ค่าจากไฟล์ตอนโหลด (ฐานเทียบ dirty + overlay ค่าค้าง)
 let UIST={};              // UI state ที่จำไว้ (อ่านจาก localStorage ตอน init) — restore ครั้งแรก
@@ -719,6 +720,18 @@ async function applyCfgFilter(forceReload){
   if(forceReload||keep!==prev) await selectConfig(keep);   // เปลี่ยนไฟล์ → โหลดฟอร์มใหม่
   else build();                                             // ไฟล์เดิม → แค่อัปเดต command preview
 }
+// เสนอชื่อ save-as ที่ไม่ชนของเดิม: <cfg>_copy.yaml → _copy2 → _copy3 ...
+function suggestSaveName(cfgId){
+  const exists=cid=>CFG_ALL.some(c=>c.id===cid);
+  if(!exists(cfgId+'_copy')) return cfgId+'_copy.yaml';
+  for(let i=2;i<1000;i++){ if(!exists(cfgId+'_copy'+i)) return cfgId+'_copy'+i+'.yaml'; }
+  return cfgId+'_copy.yaml';
+}
+// auto-fill ช่อง save-as — ทำเฉพาะตอนว่าง หรือยังเป็นค่า auto เดิม (ไม่ทับชื่อที่ผู้ใช้พิมพ์เอง)
+function autofillSaveName(cfgId){
+  const el=$('#saveName'), cur=el.value.trim();
+  if(cur==='' || cur===lastAutoSaveName){ const nn=suggestSaveName(cfgId); el.value=nn; lastAutoSaveName=nn; }
+}
 async function selectConfig(id){
   curCfgId=id;
   $('#formView').innerHTML='<div class="emptyhint">กำลังอ่าน '+esc(id)+'…</div>';
@@ -727,7 +740,7 @@ async function selectConfig(id){
     if(d.error){$('#formView').innerHTML='<div class="emptyhint">'+esc(d.error)+'</div>';return;}
     curRaw=d.raw||''; $('#rawTxt').value=curRaw;
     renderForm(d.tree||{});
-    if(!$('#saveName').value) $('#saveName').value=id+'_v2.yaml';
+    autofillSaveName(id);   // เสนอชื่อ <config>_copy.yaml (กันทับ) — เฉพาะตอนช่องว่าง/ยังเป็นค่า auto
     // baseline = ค่าจากไฟล์ตอนโหลด → overlay ค่าค้าง (ถ้ามี) ของ config นี้ → คำนวณ dirty + คำเตือน
     BASELINE={values:collectValues(), entries:entriesSig()};
     applyEdits(LS.get(editsKey($('#strat').value, id), null));
@@ -869,9 +882,20 @@ async function doSave(overwrite){
   // overwrite → เขียนทับไฟล์ที่โหลดอยู่ (curCfgId) · save-as → ชื่อจากช่อง #saveName
   const name = overwrite ? (curCfgId+'.yaml') : $('#saveName').value.trim();
   if(!overwrite && !name){ toast('ใส่ชื่อไฟล์ก่อน เช่น mairuay_v205.yaml','err'); return null; }
+  let serverOverwrite=overwrite;
+  if(!overwrite){   // save-as: ชื่อชนของเดิม → ยืนยันก่อนทับ (ไม่เขียนทับเงียบ)
+    const nid=name.replace(/\.(ya?ml)$/,'');
+    if(CFG_ALL.some(c=>c.id===nid)){
+      const c=await modal({title:'ชื่อไฟล์ซ้ำ',
+        body:'มีไฟล์ <b>'+esc(nid)+'.yaml</b> อยู่แล้ว — เขียนทับไหม?<br><span style="font-size:11px;color:var(--dim)">เขียนทับ = ของเดิมหาย (พึ่ง git เป็น backup)</span>',
+        buttons:[{id:'ow',label:'เขียนทับ',kind:'gold'},{id:'cancel',label:'ยกเลิก'}]});
+      if(c!=='ow') return null;
+      serverOverwrite=true;
+    }
+  }
   const built=buildSavePayload(name);
   if(built.error){ toast(built.error,'err'); return null; }   // validate ผิด → ไม่เขียน
-  const payload=built.payload; payload.overwrite=overwrite;
+  const payload=built.payload; payload.overwrite=serverOverwrite;
   busy=true; $('#saveBtn').disabled=true; $('#saveInplaceBtn').disabled=true;
   try{
     const r=await fetch('/api/configs',{method:'POST',headers:{'Content-Type':'application/json'},
