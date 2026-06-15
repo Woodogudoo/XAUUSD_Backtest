@@ -127,6 +127,7 @@
   .mgrrow .mn{flex:1;min-width:0;font-family:var(--mono);font-size:11.5px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .mgrrow .mn small{color:var(--dim);font-size:9.5px;margin-left:6px}
   .mgrrow .core{color:var(--dim);font-family:var(--mono);font-size:10px;flex-shrink:0}
+  .mgrrow .notag{color:var(--gold-dim);font-size:10px}
   .mgrbtn{flex-shrink:0;border:1px solid var(--line2);background:transparent;color:var(--dim);cursor:pointer;font-size:12px;line-height:1;width:24px;height:24px;display:grid;place-items:center;border-radius:6px;padding:0}
   .mgrbtn:hover{border-color:var(--gold);color:var(--gold)} .mgrbtn.del:hover{border-color:var(--down);color:var(--down)}
   .trashhd{margin-top:12px;padding:7px 2px;font-family:var(--mono);font-size:11px;color:var(--muted);cursor:pointer;border-top:1px dashed var(--line2)}
@@ -804,10 +805,12 @@ async function loadConfigs(){
   }catch(e){$('#formView').innerHTML='<div class="emptyhint">โหลด configs ไม่ได้: '+esc(e.message)+'</div>';}
 }
 // กรอง config list เหลือเฉพาะตัวที่ strategy ตรงกับ dropdown · config ไม่มี tag → โชว์ + mark (ไม่ซ่อนเงียบ)
+// กรอง config ตาม strategy ที่เลือก: tag ตรง หรือ untagged (โชว์+มาร์ก) · ใช้ร่วม dropdown + จัดการไฟล์
+function stratMatch(tag, sel){ return tag===sel || !tag; }
 async function applyCfgFilter(forceReload){
   const strat=$('#strat').value;
   const sel=$('#cfg'); const prev=curCfgId;
-  const vis=CFG_ALL.filter(c=>c.strat===strat||!c.strat);
+  const vis=CFG_ALL.filter(c=>stratMatch(c.strat, strat));
   sel.innerHTML='';
   vis.forEach(c=>{const o=document.createElement('option');o.value=c.id;
     o.textContent=c.strat?c.name:(c.name+'  ⚠ ไม่มี tag');sel.appendChild(o);});
@@ -925,7 +928,7 @@ async function loadStrategies(){
 }
 $('#cfg').addEventListener('change',e=>{outEdited=false;selectConfig(e.target.value);});
 $('#data').addEventListener('change',()=>{suggestOut();build();saveUI();});
-$('#strat').addEventListener('change',()=>{applyCfgFilter(false);saveUI();});
+$('#strat').addEventListener('change',()=>{applyCfgFilter(false);loadCfgMgr();saveUI();});
 $('#out').addEventListener('input',()=>{outEdited=true;build();saveUI();});
 $('#saveName').addEventListener('input',()=>{   // save-as → ชื่อ config (sync ย้อนกลับ) → out ตาม
   const ci=document.getElementById('cfgNameInput');
@@ -1232,12 +1235,16 @@ async function loadCfgMgr(){
   const el=$('#cfgMgrList'); if(!el)return;
   try{
     const d=await getJSON('/api/configs'); CFG_CORE=new Set(d.core||[]);
-    el.innerHTML=d.configs.map(name=>{
-      if(CFG_CORE.has(name)) return '<div class="mgrrow"><span class="mn">'+esc(name)+'</span><span class="core">🔒 ระบบ</span></div>';
-      return '<div class="mgrrow" data-cfg="'+escAttr(name)+'"><span class="mn">'+esc(name)+'</span>'+
-        '<button class="mgrbtn ren" title="เปลี่ยนชื่อ">✎</button>'+
-        '<button class="mgrbtn del" title="ลบ (ลงถังขยะ)">🗑</button></div>';
-    }).join('')||'<div class="mgrempty">ไม่มี config</div>';
+    const strat=$('#strat').value, smap=d.strategies||{};
+    // core (global/field_labels) ไม่โผล่ในรายการลบ · กรองตาม strategy ที่เลือก (เหมือน dropdown) · untagged โชว์+มาร์ก
+    el.innerHTML=d.configs
+      .filter(name=>!CFG_CORE.has(name) && stratMatch(smap[name]||null, strat))
+      .map(name=>{
+        const mark=(smap[name]||null)?'':'<span class="notag"> ⚠ ไม่มี tag</span>';
+        return '<div class="mgrrow" data-cfg="'+escAttr(name)+'"><span class="mn">'+esc(name)+mark+'</span>'+
+          '<button class="mgrbtn ren" title="เปลี่ยนชื่อ">✎</button>'+
+          '<button class="mgrbtn del" title="ลบ (ลงถังขยะ)">🗑</button></div>';
+      }).join('')||'<div class="mgrempty">ไม่มี config สำหรับ strategy นี้</div>';
     el.querySelectorAll('.mgrrow[data-cfg]').forEach(row=>{ const n=row.getAttribute('data-cfg');
       row.querySelector('.ren').onclick=()=>renameConfig(n);
       row.querySelector('.del').onclick=()=>deleteConfig(n); });
