@@ -827,11 +827,6 @@ async function applyCfgFilter(forceReload){
 function suggestSaveName(cfgId){
   return cfgId+'.yaml';   // ตรงๆ ตามชื่อ config (ไม่เติม _copy) · ชนของเดิม → doSave เตือนก่อนทับ
 }
-// auto-fill ช่อง save-as — ทำเฉพาะตอนว่าง หรือยังเป็นค่า auto เดิม (ไม่ทับชื่อที่ผู้ใช้พิมพ์เอง)
-function autofillSaveName(cfgId){
-  const el=$('#saveName'), cur=el.value.trim();
-  if(cur==='' || cur===lastAutoSaveName){ const nn=suggestSaveName(cfgId); el.value=nn; lastAutoSaveName=nn; }
-}
 async function selectConfig(id){
   curCfgId=id;
   $('#formView').innerHTML='<div class="emptyhint">กำลังอ่าน '+esc(id)+'…</div>';
@@ -839,12 +834,13 @@ async function selectConfig(id){
     const d=await getJSON('/api/configs/'+encodeURIComponent(id));
     if(d.error){$('#formView').innerHTML='<div class="emptyhint">'+esc(d.error)+'</div>';return;}
     curRaw=d.raw||''; $('#rawTxt').value=curRaw;
-    autofillSaveName(id);   // อัปเดต save-as ก่อน render → แถว "ชื่อ config" อ่านค่าล่าสุด
+    // เลือก config ใน dropdown = โหลดจากไฟล์เป็นหลัก → save-as = ชื่อไฟล์ที่เลือก (เคลียร์ auto-fill lock เดิม)
+    const nn=suggestSaveName(id); $('#saveName').value=nn; lastAutoSaveName=nn;
     renderForm(d.tree||{});
-    // baseline = ค่าจากไฟล์ตอนโหลด → overlay ค่าค้าง (ถ้ามี) ของ config นี้ → คำนวณ dirty + คำเตือน
+    // baseline = ค่าจากไฟล์ที่เลือก (authoritative) · persisted edits = overlay เฉพาะตอน "ออกหน้า-กลับมา" (RESTORING)
     BASELINE={values:collectValues(), entries:entriesSig()};
-    applyEdits(LS.get(editsKey($('#strat').value, id), null));
-    onFormChange();   // computeDirty + updateDirtyUI (ค่าค้าง → โชว์คำเตือนทันที · ไม่มี → เคลียร์)
+    if(RESTORING) applyEdits(LS.get(editsKey($('#strat').value, id), null));   // dropdown switch → ไม่ overlay (โหลดสะอาดตามไฟล์)
+    onFormChange();   // computeDirty + updateDirtyUI (สะอาด → ไม่ dirty/ไม่มีคำเตือน · restore → ค่าค้าง+คำเตือน)
   }catch(e){$('#formView').innerHTML='<div class="emptyhint">อ่าน config ไม่ได้: '+esc(e.message)+'</div>';}
   suggestOut(); build(); saveUI();
 }
