@@ -722,10 +722,7 @@ async function applyCfgFilter(forceReload){
 }
 // เสนอชื่อ save-as ที่ไม่ชนของเดิม: <cfg>_copy.yaml → _copy2 → _copy3 ...
 function suggestSaveName(cfgId){
-  const exists=cid=>CFG_ALL.some(c=>c.id===cid);
-  if(!exists(cfgId+'_copy')) return cfgId+'_copy.yaml';
-  for(let i=2;i<1000;i++){ if(!exists(cfgId+'_copy'+i)) return cfgId+'_copy'+i+'.yaml'; }
-  return cfgId+'_copy.yaml';
+  return cfgId+'.yaml';   // ตรงๆ ตามชื่อ config (ไม่เติม _copy) · ชนของเดิม → doSave เตือนก่อนทับ
 }
 // auto-fill ช่อง save-as — ทำเฉพาะตอนว่าง หรือยังเป็นค่า auto เดิม (ไม่ทับชื่อที่ผู้ใช้พิมพ์เอง)
 function autofillSaveName(cfgId){
@@ -777,7 +774,7 @@ function lotVal(){return $('#lot .on').dataset.v;}
 function suggestOut(){
   if(outEdited)return;
   const id=curCfgId||'run', tf=tfOf($('#data').value||'');
-  $('#out').value=id+'_'+tf+'_'+modeVal();
+  $('#out').value=id+'_'+tf;   // <ฐาน>_<TF> · ไม่เติม correct/compat (mode = metadata บนการ์ด)
 }
 function build(){
   const strat=$('#strat').value, cfg=$('#cfg').value, data=$('#data').value, out=$('#out').value||'run';
