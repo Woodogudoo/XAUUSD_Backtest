@@ -578,6 +578,7 @@ function injectConfigNameRow(){
   inp.addEventListener('input',function(){ var v=inp.value.trim();
     $('#saveName').value = v? (v+'.yaml') : '';   // ชื่อ config → save-as
     lastAutoSaveName='';                          // ผู้ใช้ตั้งชื่อเอง → autofill ไม่ทับ
+    suggestOut(); build();                        // out ตามชื่อ config (ถ้ายังไม่พิมพ์ out เอง)
   });
   // notes box: prefill จาก YAML key notes · พิมพ์เอง → dirty + ไม่ถูก auto-diff ทับ
   var box=document.getElementById('notesBox'); box.value=NOTES_VAL; lastAutoNotes='';
@@ -870,10 +871,11 @@ $$('.tabs button').forEach(b=>b.addEventListener('click',()=>{
 function tfOf(dataVal){const m=String(dataVal).match(/_M(\d+)_/i);return m?('m'+m[1]):'tf';}
 function modeVal(){return $('#mode .on').dataset.v;}
 function lotVal(){return $('#lot .on').dataset.v;}
+function cfgNameVal(){ const el=document.getElementById('cfgNameInput'); return el?el.value.trim():''; }
 function suggestOut(){
-  if(outEdited)return;
-  const id=curCfgId||'run', tf=tfOf($('#data').value||'');
-  $('#out').value=id+'_'+tf;   // <ฐาน>_<TF> · ไม่เติม correct/compat (mode = metadata บนการ์ด)
+  if(outEdited)return;   // ผู้ใช้พิมพ์ out เอง → ไม่ทับ (don't-clobber)
+  const base=cfgNameVal()||curCfgId||'run', tf=tfOf($('#data').value||'');
+  $('#out').value=base+'_'+tf;   // <ชื่อ config>_<TF> · ไม่เติม correct/compat (mode = metadata บนการ์ด)
 }
 function build(){
   const strat=$('#strat').value, cfg=$('#cfg').value, data=$('#data').value, out=$('#out').value||'run';
@@ -925,9 +927,10 @@ $('#cfg').addEventListener('change',e=>{outEdited=false;selectConfig(e.target.va
 $('#data').addEventListener('change',()=>{suggestOut();build();saveUI();});
 $('#strat').addEventListener('change',()=>{applyCfgFilter(false);saveUI();});
 $('#out').addEventListener('input',()=>{outEdited=true;build();saveUI();});
-$('#saveName').addEventListener('input',()=>{   // save-as → ชื่อ config (sync ย้อนกลับ)
+$('#saveName').addEventListener('input',()=>{   // save-as → ชื่อ config (sync ย้อนกลับ) → out ตาม
   const ci=document.getElementById('cfgNameInput');
   if(ci) ci.value=($('#saveName').value||'').replace(/\.(ya?ml)$/,'');
+  suggestOut(); build();
 });
 $$('#mode button,#lot button').forEach(b=>b.addEventListener('click',()=>{
   const seg=b.parentElement; seg.querySelectorAll('button').forEach(x=>x.classList.remove('on'));
