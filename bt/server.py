@@ -170,7 +170,12 @@ def _apply_schema_defaults(data) -> int:
             ddata = yaml.safe_load(f) or {}
     except Exception:  # noqa: BLE001 — schema เสริมเท่านั้น ห้ามทำ endpoint ล่ม
         return 0
-    return _deep_fill(data, ddata) if isinstance(ddata, dict) else 0
+    if not isinstance(ddata, dict):
+        return 0
+    # notes = free-text ต่อไฟล์ (per-config) ไม่ใช่ schema knob → ไม่สืบทอดจาก default
+    # ยกเว้นเฉพาะ top-level: config ที่ไม่มี notes ของตัวเอง = notes ว่าง ไม่ยืมของ template
+    ddata.pop("notes", None)
+    return _deep_fill(data, ddata)
 
 
 def _read_config(path: str) -> dict:
