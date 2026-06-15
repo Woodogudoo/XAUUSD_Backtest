@@ -152,6 +152,8 @@ _TEMPLATE = r"""<!DOCTYPE html>
  #subhead{font-size:11px;margin:0 12px 6px;color:#8a90a0;font-family:ui-monospace,Menlo,monospace;line-height:1.5;word-break:break-all}
  #subhead .sh-strat{color:#e8c07a}
  #subhead .sh-cfg{color:#9ec1ff}
+ #ulegend{font-size:10.5px;color:#8a90a0;margin:0 12px 6px;line-height:1.7;font-family:ui-monospace,Menlo,monospace}
+ #ulegend span{margin-right:10px;white-space:nowrap}
  #stat{padding:0 12px 8px;font-size:12px;color:#9aa0b0}
  #search{margin:6px 12px;padding:6px 8px;background:#0e0e12;border:1px solid #2a2d38;color:#cfd2dc;border-radius:4px}
  #list{flex:1;overflow:auto}
@@ -187,6 +189,7 @@ _TEMPLATE = r"""<!DOCTYPE html>
  <h1>__TITLE__</h1>
  <div id="subhead">__SUBHEAD__</div>
  <div id="stat"></div>
+ <div id="ulegend" style="display:none"></div>
  <input id="search" placeholder="ค้นหาจุดเข้า (เวลา / BUY / SELL / WIN / LOSS)">
  <div id="list"></div>
 </div>
@@ -203,6 +206,21 @@ const DATA=__DATA__, O=DATA.ohlc, TR=DATA.trades, PL=DATA.plans, N=O.t.length, U
 const PM_ARR=DATA.plan_meta||[];var PM={};for(var _pm=0;_pm<PM_ARR.length;_pm++)PM[PM_ARR[_pm].plan]=PM_ARR[_pm];
 // ป้ายเลขแผน: #N [เลขแท่งแม่] · ไม่มี mother_bar (run เก่า/ว่าง) → #N เฉยๆ
 function planLabel(id){var pm=PM[id];return '#'+id+((pm&&pm.mb!=null)?' ['+pm.mb+']':'');}
+// เหตุผลไม่ fill: code → ข้อความไทย + สี/ไอคอน · code ไม่รู้จัก → โชว์ดิบ (fallback)
+var REASON={
+ proximity:  {th:'เฉียด TP → ยกเลิก', short:'เฉียด TP',  c:'#e8c07a', ic:'◆'},
+ expiry:     {th:'หมดอายุ pending',    short:'หมดอายุ',   c:'#9ec1ff', ic:'⏱'},
+ end_of_data:{th:'จบข้อมูล (ยังค้าง)',  short:'จบข้อมูล',  c:'#9aa0b0', ic:'■'}};
+function reasonInfo(code){return REASON[code]||{th:String(code),short:String(code),c:'#cfd2dc',ic:'•'};}
+function reasonTH(code){return reasonInfo(code).th;}
+function reasonChip(code,useShort){var r=reasonInfo(code);
+ return '<span style="color:'+r.c+'">'+r.ic+' '+esc(useShort?r.short:r.th)+'</span>';}
+// สรุปเหตุผลของแผน (นับตามประเภท · หลายแบบ → ต่อด้วย ·)
+function reasonSummary(planId){var arr=ufBy[planId]||[];if(!arr.length)return '';
+ var cnt={},order=[];for(var j=0;j<arr.length;j++){var rc=arr[j].reason||'?';if(cnt[rc]==null){cnt[rc]=0;order.push(rc);}cnt[rc]++;}
+ var out=[];for(var j=0;j<order.length;j++){var rc=order[j],r=reasonInfo(rc);
+  out.push('<span style="color:'+r.c+'">'+r.ic+' '+esc(r.short)+(cnt[rc]>1?'×'+cnt[rc]:'')+'</span>');}
+ return out.join(' · ');}
 // รวม plan filled (PL) + plan ที่ไม่มีไม้ fill เลย (สร้างจาก UF) → เรียง plan_id ต่อเนื่อง (ไม่ข้าม)
 var ufBy={};for(var _k=0;_k<UF.length;_k++){(ufBy[UF[_k].plan]=ufBy[UF[_k].plan]||[]).push(UF[_k]);}
 var _fid={};for(var _k=0;_k<PL.length;_k++)_fid[PL[_k].plan_id]=1;
@@ -419,7 +437,7 @@ window.addEventListener('mousemove',function(e){
  var i=scale().barAt(mx);if(i<0||i>=N){tip.style.display='none';return;}
  var s='แท่ง '+i+'  '+fmtT(O.t[i])+'\nO '+O.o[i]+'  H '+O.h[i]+'  L '+O.l[i]+'  C '+O.c[i];
  for(var k=0;k<TR.length;k++){var t=TR[k];if(t.eb===i||t.xb===i){s+='\n— '+planLabel(t.plan)+' '+t.dir+' '+t.tag+'\n  entry '+t.entry+'  '+t.result+'@'+t.exit+'\n  SL '+t.sl+'  TP '+t.tp+'  pnl '+t.pnl+'pip';}}
- for(var k=0;k<UF.length;k++){var u=UF[k];if(u.pb===i||u.db===i){s+='\n— '+planLabel(u.plan)+' '+u.dir+' '+u.tag+' (ไม่ fill)\n  limit '+u.price+'  '+u.reason;}}
+ for(var k=0;k<UF.length;k++){var u=UF[k];if(u.pb===i||u.db===i){s+='\n— '+planLabel(u.plan)+' '+u.dir+' '+u.tag+' (ไม่ fill)\n  limit '+u.price+'  '+reasonTH(u.reason);}}
  tip.textContent=s;tip.style.display='block';tip.style.left=Math.min(mx+14,W-180)+'px';tip.style.top=(my+14)+'px';
 });
 cv.addEventListener('mouseleave',function(){tip.style.display='none';mx=-1;my=-1;if(cross)reqDraw();});
@@ -453,7 +471,7 @@ function detailHTML(id){
      '<div class="mut">entry '+t.entry+' · SL '+t.sl+' · TP '+t.tp+' · lot '+t.lot+' · exit '+t.result+' @'+hm(O.t[t.xb])+'</div></div>';}
  if(uf.length){h+='<div class="dsub">ไม้ไม่ fill ('+uf.length+')</div>';
   for(var k=0;k<uf.length;k++){var u=uf[k];
-   h+='<div class="du"><b>'+esc(u.tag)+'</b> · limit '+u.price+' · SL '+u.sl+' · TP '+u.tp+' · '+u.reason+' @'+hm(O.t[u.db])+'</div>';}}
+   h+='<div class="du"><b>'+esc(u.tag)+'</b> · limit '+u.price+' · SL '+u.sl+' · TP '+u.tp+' · '+reasonChip(u.reason)+' @'+hm(O.t[u.db])+'</div>';}}
  return h;
 }
 function setOpen(id,doJump){
@@ -481,7 +499,7 @@ function renderList(q){curQ=q||'';var Q=curQ.toUpperCase();listEl.innerHTML='';
   var d=document.createElement('div');d.id='row'+p.plan_id;
   if(p.unfilled_only){
    d.className='row unf'+(p.plan_id===openId?' open':'');
-   d.innerHTML='<div>'+planLabel(p.plan_id)+' '+p.direction+'  <span class="nf">ไม่ fill</span></div><div class="t">'+et+' · '+p.n_unf+' ออร์เดอร์ · —</div>';
+   d.innerHTML='<div>'+planLabel(p.plan_id)+' '+p.direction+'  <span class="nf">ไม่ fill</span></div><div class="t">'+et+' · '+p.n_unf+' ออร์เดอร์ · '+(reasonSummary(p.plan_id)||'—')+'</div>';
   }else{
    d.className='row '+(p.result==='WIN'?'win':'loss')+(p.plan_id===openId?' open':'');
    var col=p.result==='WIN'?'#26a69a':'#ef5350';
@@ -500,6 +518,10 @@ function renderList(q){curQ=q||'';var Q=curQ.toUpperCase();listEl.innerHTML='';
 document.getElementById('search').addEventListener('input',function(e){renderList(e.target.value);});
 var wins=TR.filter(function(t){return t.result==='TP';}).length;
 document.getElementById('stat').textContent=TR.length+' ไม้ · WR '+(TR.length?(100*wins/TR.length).toFixed(1):0)+'% · '+PL.length+' จุดเข้า · '+UF.length+' ไม่ fill';
+// legend เหตุผลไม่ fill (เฉพาะประเภทที่มีจริง) — กวาดตา 1 บรรทัด
+(function(){var present={},order=[];for(var k=0;k<UF.length;k++){var rc=UF[k].reason||'?';if(present[rc]==null){present[rc]=1;order.push(rc);}}
+ if(!order.length)return;var parts=[];for(var j=0;j<order.length;j++)parts.push(reasonChip(order[j]));
+ var el=document.getElementById('ulegend');el.innerHTML='ไม่ fill: '+parts.join('');el.style.display='block';})();
 renderList('');resize();
 </script></body></html>
 """
