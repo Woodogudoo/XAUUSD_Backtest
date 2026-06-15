@@ -78,7 +78,10 @@
   .fval{padding-top:1px}
   .fval input{padding:7px 9px}
   .fval input.ro{opacity:.62;cursor:not-allowed;background:#0a0b0e;color:var(--muted)}
-  .fval input#cfgNameInput{color:var(--gold)}
+  .cfgname-row{display:block}
+  .cfgname-row .fkey{margin-bottom:6px}
+  #cfgNameInput{width:100%;color:var(--gold);background:var(--ink);border:1px solid var(--line2);border-radius:8px;padding:7px 9px;font-family:var(--mono);font-size:12.5px;outline:none}
+  #cfgNameInput:focus{border-color:var(--gold)}
   .notes-row{display:block}
   .notes-row .fkey{margin-bottom:6px}
   #notesBox{width:100%;min-height:54px;resize:vertical;background:var(--ink);border:1px solid var(--line2);color:var(--text);border-radius:8px;padding:7px 9px;font-family:var(--mono);font-size:12px;line-height:1.55;outline:none}
@@ -552,7 +555,7 @@ function injectConfigNameRow(){
   for(var i=0;i<groups.length;i++){ var gn=groups[i].querySelector('.gname');
     if(gn && (gn.textContent||'').trim().indexOf('ทั่วไป')===0){ target=groups[i].querySelector('.ginner'); break; } }
   if(!target) return;
-  // notes textarea (วางใต้ชื่อ config) — insert ก่อน แล้วค่อย insert ชื่อ config ทับด้านบน
+  // notes textarea
   var nrow=document.createElement('div'); nrow.className='frow notes-row';
   nrow.setAttribute('data-key','บันทึกการเปลี่ยนแปลง notes diff สรุป');
   nrow.innerHTML='<div class="fkey"><span class="klab">บันทึกการเปลี่ยนแปลง</span> <code class="kraw">notes</code>'+
@@ -560,14 +563,16 @@ function injectConfigNameRow(){
     '<textarea id="notesBox" data-path="notes" data-type="str" rows="3" placeholder="สรุปการเปลี่ยนแปลง (auto-diff หรือพิมพ์เอง)…"></textarea>'+
     '<div id="notesSug" class="notes-sug" style="display:none"><span class="sugtext"></span>'+
     '<button type="button" id="notesSugBtn" class="notes-sugbtn">＋ ใส่สรุป</button></div>';
-  target.insertBefore(nrow, target.firstChild);
-  // ชื่อ config
-  var crow=document.createElement('div'); crow.className='frow';
+  // ชื่อ config (ช่องกว้างเต็มคอลัมน์)
+  var crow=document.createElement('div'); crow.className='frow cfgname-row';
   crow.setAttribute('data-key','ชื่อ config configname ชื่อไฟล์ save');
   crow.innerHTML='<div class="fkey"><span class="klab">ชื่อ config</span><code class="kraw">ชื่อไฟล์</code>'+
     '<small>ชื่อไฟล์ที่จะบันทึก (sync กับ “บันทึกเป็นไฟล์ใหม่”)</small></div>'+
-    '<div class="fval"><div class="ifield"><input id="cfgNameInput" type="text" placeholder="ชื่อ config"></div></div>';
-  target.insertBefore(crow, target.firstChild);
+    '<input id="cfgNameInput" type="text" placeholder="ชื่อ config">';
+  // แทรก "หลัง" strategy (engine บนสุด) → ชื่อ config → notes · ไม่เจอ strategy → บนสุด (fallback)
+  var sEl=target.querySelector('[data-path="strategy"]'), sRow=sEl?sEl.closest('.frow'):null;
+  target.insertBefore(crow, sRow?sRow.nextSibling:target.firstChild);
+  target.insertBefore(nrow, crow.nextSibling);
   var inp=document.getElementById('cfgNameInput');
   inp.value=($('#saveName').value||'').replace(/\.(ya?ml)$/,'');
   inp.addEventListener('input',function(){ var v=inp.value.trim();
