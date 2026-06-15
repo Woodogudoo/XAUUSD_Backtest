@@ -186,7 +186,6 @@ _TEMPLATE = r"""<!DOCTYPE html>
 </style></head>
 <body>
 <div id="side">
- <h1>__TITLE__</h1>
  <div id="subhead">__SUBHEAD__</div>
  <div id="stat"></div>
  <div id="ulegend" style="display:none"></div>
