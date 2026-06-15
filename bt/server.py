@@ -646,6 +646,7 @@ def api_save_config(payload: dict) -> tuple[int, dict]:
     values = payload.get("values") or {}
     raw = payload.get("raw")     # Raw YAML mode → เขียนทั้งก้อน (แก้ entries ฯลฯ) · None = Form mode (patch base)
     entries = payload.get("entries")   # Form mode + custom editor → เขียน nested ตรงๆ (ไม่ผ่าน coerce)
+    notes = payload.get("notes")       # free-text → เขียนเป็น string ดิบ top-level (ไม่ coerce/split · §9.2)
     overwrite = bool(payload.get("overwrite", False))   # True = บันทึกทับไฟล์เดิม in-place · False = สร้างไฟล์ใหม่
     if base is None:
         return 400, {"error": "base config ไม่ถูกต้อง"}
@@ -705,6 +706,13 @@ def api_save_config(payload: dict) -> tuple[int, dict]:
                 if err:
                     return 400, {"error": f"entries ไม่ถูกต้อง: {err}"}
                 data["entries"] = entries
+                applied += 1
+            # notes = free-text → เขียน string ดิบ top-level (multiline/comma ปลอดภัย · ไม่ผ่าน _coerce)
+            if isinstance(notes, str):
+                if notes.strip() == "":
+                    data.pop("notes", None)   # ว่าง → ไม่เก็บ key เปล่า
+                else:
+                    data["notes"] = notes
                 applied += 1
             with open(target, "w", encoding="utf-8") as f:
                 yaml.dump(data, f)

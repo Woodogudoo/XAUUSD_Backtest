@@ -12,6 +12,7 @@
 
 # ── ทั่วไป ──
 strategy:      { label: "กลยุทธ์ที่ใช้รัน (engine)", help: "ล็อกไว้ — retag ข้าม strategy ทำผ่าน Raw YAML เท่านั้น", group: "ทั่วไป", order: 1 }
+notes:         { label: "บันทึกการเปลี่ยนแปลง", help: "free-text (หลายบรรทัด/comma ได้) · เก็บเป็น YAML key notes · strategy เมิน", group: "ทั่วไป", order: 1 }
 range_window:  { label: "หน้าต่าง Range55", unit: "แท่ง", help: "จำนวนแท่งย้อนหลังที่ใช้คำนวณ R55 (ช่วงราคาอ้างอิงของทุกเงื่อนไข)" }
 
 # ── แท่งพ่อ รอบ 1 ──

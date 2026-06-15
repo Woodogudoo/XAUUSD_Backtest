@@ -79,6 +79,14 @@
   .fval input{padding:7px 9px}
   .fval input.ro{opacity:.62;cursor:not-allowed;background:#0a0b0e;color:var(--muted)}
   .fval input#cfgNameInput{color:var(--gold)}
+  .notes-row{display:block}
+  .notes-row .fkey{margin-bottom:6px}
+  #notesBox{width:100%;min-height:54px;resize:vertical;background:var(--ink);border:1px solid var(--line2);color:var(--text);border-radius:8px;padding:7px 9px;font-family:var(--mono);font-size:12px;line-height:1.55;outline:none}
+  #notesBox:focus{border-color:var(--gold)}
+  .notes-sug{display:flex;gap:8px;align-items:flex-start;margin-top:6px;background:var(--panel2);border:1px dashed var(--line2);border-radius:8px;padding:6px 9px}
+  .notes-sug .sugtext{flex:1;white-space:pre-wrap;font-family:var(--mono);font-size:11px;color:var(--muted)}
+  .notes-sugbtn{flex-shrink:0;background:transparent;border:1px solid var(--gold-dim);color:var(--gold);border-radius:7px;padding:4px 9px;font-size:11.5px;cursor:pointer}
+  .notes-sugbtn:hover{border-color:var(--gold)}
   .ifield{display:flex;align-items:center;gap:7px}
   .ifield input{flex:1;min-width:0}
   .usuffix{font-family:var(--mono);font-size:10px;color:var(--dim);white-space:nowrap}
@@ -344,6 +352,7 @@ async function getJSON(u){const r=await fetch(u);if(!r.ok)throw new Error(u+' �
 
 let CONFIGS=[], CFG_ALL=[], curCfgId=null, curRaw='', outEdited=false, dirty=false, busy=false;
 let lastAutoSaveName='';   // ชื่อ save-as ที่ระบบ auto-fill ล่าสุด (เทียบกันว่าผู้ใช้แก้เองหรือยัง)
+let NOTES_VAL='', lastAutoNotes='', LABELS={};   // notes ที่โหลด · diff auto-fill ล่าสุด · map fp→label (สำหรับ diff)
 let ENTRIES_MODEL=null;   // โครง entries (tier/legs) สำหรับ card editor ของ mai_ruay_v2 · null = config ไม่มี entries
 let BASELINE=null;        // {values, entries} = ค่าจากไฟล์ตอนโหลด (ฐานเทียบ dirty + overlay ค่าค้าง)
 let UIST={};              // UI state ที่จำไว้ (อ่านจาก localStorage ตอน init) — restore ครั้งแรก
@@ -437,6 +446,7 @@ function renderRows(items, disp, data){
   for(const k in items){
     const n=items[k];
     const dp=disp?disp+'.'+k:k, fp=data?data+'.'+k:k;
+    if(fp==='notes') continue;   // notes = textarea ที่ inject แยก (ใต้ชื่อ config) ไม่ render เป็น field ปกติ
     if(n.type==='map'){ h+=renderRows(n.items||{}, dp, fp); continue; }
     // entries (mai_ruay_v2) = custom card editor แทน read-only nested · เก็บโครงไว้ใน ENTRIES_MODEL
     if(dp==='entries'&&n.nested&&Array.isArray(n.data)){
@@ -454,6 +464,8 @@ function renderForm(tree){
   ENTRIES_MODEL=null;   // reset · render path จะตั้งใหม่ถ้าเจอ entries (mai_ruay_v2)
   // mai_ruay_v2 + มี group metadata → จัดกลุ่ม/เรียงตาม field_labels · อื่นๆ (V1) → ตามโครง YAML เดิม
   const leaves=flattenLeaves(tree);
+  NOTES_VAL=(tree.notes&&tree.notes.value!=null)?String(tree.notes.value):'';   // prefill notes textarea
+  LABELS={};leaves.forEach(l=>{LABELS[l.fp]=l.node.label||l.fp;});               // fp→label (ใช้ใน diff)
   const useMeta = tree.strategy && String(tree.strategy.value)==='mai_ruay_v2' && leaves.some(l=>l.node.group);
   if(useMeta) renderFormGrouped(leaves, tree); else renderFormByYaml(tree);
   finishForm();
@@ -517,6 +529,7 @@ function renderFormByYaml(tree){
 }
 // render 1 leaf เป็นแถว (รวม entries card editor) — data-path = fp เต็ม (เซฟกลับ key เดิมถูกที่)
 function leafRowHTML(n, fp){
+  if(fp==='notes') return '';   // notes = textarea ที่ inject แยก (ไม่ render เป็น field ปกติ)
   if(fp==='entries'&&n.nested&&Array.isArray(n.data)){
     ENTRIES_MODEL=JSON.parse(JSON.stringify(n.data));
     return '<div class="frow entries-row" data-key="entries จุดเข้า tier ไม้"><div class="ee-seclabel" style="margin-bottom:9px">จุดเข้า (entries) — แก้เป็นการ์ดต่อ tier · % ของแท่งแม่</div><div id="entriesHost"></div></div>';
@@ -532,24 +545,41 @@ function finishForm(){   // post-render ร่วม (ทั้ง 2 path)
   injectConfigNameRow();   // แถว "ชื่อ config" บนสุดกลุ่มทั่วไป (หลัง bind onFormChange → ไม่นับเป็นค่า config)
   applySearch();
 }
-// "ชื่อ config" = ชื่อไฟล์ (ไม่ใช่ key ใน YAML) · บนสุดกลุ่ม "ทั่วไป" (ก่อน strategy) · sync 2 ทางกับ save-as
+// identity rows (บนสุดกลุ่ม "ทั่วไป"): "ชื่อ config" + "บันทึกการเปลี่ยนแปลง" (notes) · ไม่ใช่ key ปกติ
 function injectConfigNameRow(){
   if(document.getElementById('cfgNameInput')) return;
   var groups=$$('#formView .group'), target=null;
   for(var i=0;i<groups.length;i++){ var gn=groups[i].querySelector('.gname');
     if(gn && (gn.textContent||'').trim().indexOf('ทั่วไป')===0){ target=groups[i].querySelector('.ginner'); break; } }
   if(!target) return;
-  var row=document.createElement('div'); row.className='frow';
-  row.setAttribute('data-key','ชื่อ config configname ชื่อไฟล์ save');
-  row.innerHTML='<div class="fkey"><span class="klab">ชื่อ config</span><code class="kraw">ชื่อไฟล์</code>'+
+  // notes textarea (วางใต้ชื่อ config) — insert ก่อน แล้วค่อย insert ชื่อ config ทับด้านบน
+  var nrow=document.createElement('div'); nrow.className='frow notes-row';
+  nrow.setAttribute('data-key','บันทึกการเปลี่ยนแปลง notes diff สรุป');
+  nrow.innerHTML='<div class="fkey"><span class="klab">บันทึกการเปลี่ยนแปลง</span> <code class="kraw">notes</code>'+
+    '<small>auto-diff หรือพิมพ์เอง · เก็บใน YAML key notes</small></div>'+
+    '<textarea id="notesBox" data-path="notes" data-type="str" rows="3" placeholder="สรุปการเปลี่ยนแปลง (auto-diff หรือพิมพ์เอง)…"></textarea>'+
+    '<div id="notesSug" class="notes-sug" style="display:none"><span class="sugtext"></span>'+
+    '<button type="button" id="notesSugBtn" class="notes-sugbtn">＋ ใส่สรุป</button></div>';
+  target.insertBefore(nrow, target.firstChild);
+  // ชื่อ config
+  var crow=document.createElement('div'); crow.className='frow';
+  crow.setAttribute('data-key','ชื่อ config configname ชื่อไฟล์ save');
+  crow.innerHTML='<div class="fkey"><span class="klab">ชื่อ config</span><code class="kraw">ชื่อไฟล์</code>'+
     '<small>ชื่อไฟล์ที่จะบันทึก (sync กับ “บันทึกเป็นไฟล์ใหม่”)</small></div>'+
     '<div class="fval"><div class="ifield"><input id="cfgNameInput" type="text" placeholder="ชื่อ config"></div></div>';
-  target.insertBefore(row, target.firstChild);
+  target.insertBefore(crow, target.firstChild);
   var inp=document.getElementById('cfgNameInput');
   inp.value=($('#saveName').value||'').replace(/\.(ya?ml)$/,'');
   inp.addEventListener('input',function(){ var v=inp.value.trim();
     $('#saveName').value = v? (v+'.yaml') : '';   // ชื่อ config → save-as
     lastAutoSaveName='';                          // ผู้ใช้ตั้งชื่อเอง → autofill ไม่ทับ
+  });
+  // notes box: prefill จาก YAML key notes · พิมพ์เอง → dirty + ไม่ถูก auto-diff ทับ
+  var box=document.getElementById('notesBox'); box.value=NOTES_VAL; lastAutoNotes='';
+  box.addEventListener('input',onFormChange);
+  document.getElementById('notesSugBtn').addEventListener('click',function(){
+    var sug=document.getElementById('notesSug'); var d=sug._diff||'';
+    if(!d)return; box.value=box.value+(box.value?'\n':'')+d; sug.style.display='none'; onFormChange();
   });
 }
 
@@ -712,6 +742,47 @@ function onFormChange(){   // เรียกทุกครั้งที่�
   const k=editsKey($('#strat').value, curCfgId);
   if(dirty) LS.set(k, collectEdits()); else LS.del(k);
   updateDirtyUI();
+  updateNotesDiff();   // auto-diff สรุปการเปลี่ยนแปลง → กล่อง notes
+}
+// ---------- auto-diff สรุปการเปลี่ยนแปลง (baseline → ปัจจุบัน) → กล่อง notes ----------
+function fmtv(v){ return (v===''||v==null)?'∅':String(v); }
+function diffEntries(oldA, newA){   // best-effort สรุป tier/leg ที่เปลี่ยน
+  oldA=oldA||[]; newA=newA||[]; var L=[];
+  if(oldA.length!==newA.length) L.push('tier: '+oldA.length+' → '+newA.length);
+  for(var i=0;i<Math.min(oldA.length,newA.length);i++){
+    var o=oldA[i]||{},c=newA[i]||{},ow=o.when||{},cw=c.when||{};
+    ['father_min_pct','mother_min_pct','mother_max_pct'].forEach(function(kk){
+      if(ow[kk]!==cw[kk]) L.push('tier '+(i+1)+' '+kk+': '+fmtv(ow[kk])+' → '+fmtv(cw[kk])); });
+    var ol=o.legs||[],cl=c.legs||[];
+    if(ol.length!==cl.length) L.push('tier '+(i+1)+' ไม้: '+ol.length+' → '+cl.length);
+    for(var j=0;j<Math.min(ol.length,cl.length);j++){ var lo=ol[j]||{},lc=cl[j]||{};
+      if(lo.mode!==lc.mode) L.push('tier '+(i+1)+' ไม้ '+(j+1)+': '+fmtv(lo.mode)+' → '+fmtv(lc.mode));
+      else if(lo.mode==='mother_pct'&&lo.value!==lc.value) L.push('tier '+(i+1)+' ไม้ '+(j+1)+' %: '+fmtv(lo.value)+' → '+fmtv(lc.value)); }
+  }
+  return L;
+}
+function computeDiffSummary(){   // คืน string สรุป (หลายบรรทัด) หรือ '' ถ้าไม่ต่าง
+  if(!BASELINE) return '';
+  var cur=collectValues(), base=BASELINE.values||{}, L=[];
+  var keys={}; Object.keys(cur).forEach(k=>keys[k]=1); Object.keys(base).forEach(k=>keys[k]=1);
+  Object.keys(keys).forEach(function(k){
+    if(k==='notes') return;   // ไม่ diff ตัวเอง
+    if(String(cur[k])!==String(base[k])) L.push((LABELS[k]||k)+': '+fmtv(base[k])+' → '+fmtv(cur[k]));
+  });
+  var be=BASELINE.entries?JSON.parse(BASELINE.entries):null, ce=ENTRIES_MODEL?collectEntries():null;
+  if(JSON.stringify(ce)!==JSON.stringify(be)) L=L.concat(diffEntries(be,ce));
+  return L.join('\n');
+}
+function updateNotesDiff(){
+  var box=document.getElementById('notesBox'); if(!box) return;
+  var diff=computeDiffSummary(), sug=document.getElementById('notesSug');
+  if(box.value==='' || box.value===lastAutoNotes){   // ว่าง/ยังเป็น auto → เติม diff (รีเฟรช)
+    box.value=diff; lastAutoNotes=diff;
+    if(sug) sug.style.display='none';
+  }else if(sug){   // ผู้ใช้พิมพ์เอง → ไม่ทับ · โชว์ suggestion + ปุ่มใส่สรุป
+    sug._diff=diff; sug.querySelector('.sugtext').textContent=diff;
+    sug.style.display=diff?'flex':'none';
+  }
 }
 
 // ---------- configs ----------
@@ -896,7 +967,12 @@ function ensureCfgOption(name){
 function buildSavePayload(name){
   const rawMode=!!document.querySelector('.tabs button.on[data-t="raw"]');
   if(rawMode) return {payload:{base:curCfgId,name:name,raw:$('#rawTxt').value}};
-  const payload={base:curCfgId,name:name,values:collectValues()};
+  const values=collectValues();
+  // notes = free-text → ส่งเป็น field แยก (server เขียน string ดิบ ไม่ coerce/split §9.2) · ดึงออกจาก values
+  let pNotes=null;
+  if('notes' in values){ pNotes=String(values.notes); delete values.notes; }
+  const payload={base:curCfgId,name:name,values:values};
+  if(pNotes!==null) payload.notes=pNotes;
   if(ENTRIES_MODEL){   // mai_ruay_v2 → ส่งโครง entries nested ตรงๆ (validate ก่อน · ไม่เซฟถ้าผิด)
     const err=validateEntries();
     if(err) return {error:'entries: '+err};
