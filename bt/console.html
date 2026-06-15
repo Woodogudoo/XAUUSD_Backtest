@@ -77,6 +77,8 @@
   .fkey small{display:block;color:var(--muted);font-size:10.5px;margin-top:3px;font-family:var(--sans);line-height:1.4}
   .fval{padding-top:1px}
   .fval input{padding:7px 9px}
+  .fval input.ro{opacity:.62;cursor:not-allowed;background:#0a0b0e;color:var(--muted)}
+  .fval input#cfgNameInput{color:var(--gold)}
   .ifield{display:flex;align-items:center;gap:7px}
   .ifield input{flex:1;min-width:0}
   .usuffix{font-family:var(--mono);font-size:10px;color:var(--dim);white-space:nowrap}
@@ -372,6 +374,10 @@ function saveUI(){
 // ===== YAML EDITOR — generate form จากโครงสร้างที่ server ส่งมา (ไม่ hardcode field) =====
 function fieldInput(node, dpath){
   const t=node.type;
+  // strategy = ล็อก (read-only) · ค่ายังถูก save · retag ข้าม strategy ผ่าน Raw YAML เท่านั้น
+  if(dpath==='strategy'){
+    return '<input type="text" value="'+escAttr(node.value==null?'':node.value)+'" data-path="strategy" data-type="'+(t||'str')+'" readonly class="ro" title="ล็อกไว้ — แก้ผ่าน Raw YAML">';
+  }
   // enum (มี options ใน field_labels) → toggle 2 สถานะ · >2 = select · ค่าเซฟยังเป็น string ดิบ
   if(Array.isArray(node.options)&&node.options.length){
     const cur=node.value==null?'':String(node.value);
@@ -523,7 +529,28 @@ function finishForm(){   // post-render ร่วม (ทั้ง 2 path)
   $$('#formView input').forEach(i=>i.addEventListener('input',onFormChange));
   $$('#formView select').forEach(s=>s.addEventListener('change',onFormChange));
   if($('#entriesHost')&&ENTRIES_MODEL){ buildEntriesEditor(); bindEntriesEvents(); }   // card editor (mai_ruay_v2)
+  injectConfigNameRow();   // แถว "ชื่อ config" บนสุดกลุ่มทั่วไป (หลัง bind onFormChange → ไม่นับเป็นค่า config)
   applySearch();
+}
+// "ชื่อ config" = ชื่อไฟล์ (ไม่ใช่ key ใน YAML) · บนสุดกลุ่ม "ทั่วไป" (ก่อน strategy) · sync 2 ทางกับ save-as
+function injectConfigNameRow(){
+  if(document.getElementById('cfgNameInput')) return;
+  var groups=$$('#formView .group'), target=null;
+  for(var i=0;i<groups.length;i++){ var gn=groups[i].querySelector('.gname');
+    if(gn && (gn.textContent||'').trim().indexOf('ทั่วไป')===0){ target=groups[i].querySelector('.ginner'); break; } }
+  if(!target) return;
+  var row=document.createElement('div'); row.className='frow';
+  row.setAttribute('data-key','ชื่อ config configname ชื่อไฟล์ save');
+  row.innerHTML='<div class="fkey"><span class="klab">ชื่อ config</span><code class="kraw">ชื่อไฟล์</code>'+
+    '<small>ชื่อไฟล์ที่จะบันทึก (sync กับ “บันทึกเป็นไฟล์ใหม่”)</small></div>'+
+    '<div class="fval"><div class="ifield"><input id="cfgNameInput" type="text" placeholder="ชื่อ config"></div></div>';
+  target.insertBefore(row, target.firstChild);
+  var inp=document.getElementById('cfgNameInput');
+  inp.value=($('#saveName').value||'').replace(/\.(ya?ml)$/,'');
+  inp.addEventListener('input',function(){ var v=inp.value.trim();
+    $('#saveName').value = v? (v+'.yaml') : '';   // ชื่อ config → save-as
+    lastAutoSaveName='';                          // ผู้ใช้ตั้งชื่อเอง → autofill ไม่ทับ
+  });
 }
 
 // ===== entries card editor (mai_ruay_v2) — แก้ tier/legs เป็นการ์ด · % ของแท่งแม่ =====
@@ -736,8 +763,8 @@ async function selectConfig(id){
     const d=await getJSON('/api/configs/'+encodeURIComponent(id));
     if(d.error){$('#formView').innerHTML='<div class="emptyhint">'+esc(d.error)+'</div>';return;}
     curRaw=d.raw||''; $('#rawTxt').value=curRaw;
+    autofillSaveName(id);   // อัปเดต save-as ก่อน render → แถว "ชื่อ config" อ่านค่าล่าสุด
     renderForm(d.tree||{});
-    autofillSaveName(id);   // เสนอชื่อ <config>_copy.yaml (กันทับ) — เฉพาะตอนช่องว่าง/ยังเป็นค่า auto
     // baseline = ค่าจากไฟล์ตอนโหลด → overlay ค่าค้าง (ถ้ามี) ของ config นี้ → คำนวณ dirty + คำเตือน
     BASELINE={values:collectValues(), entries:entriesSig()};
     applyEdits(LS.get(editsKey($('#strat').value, id), null));
@@ -826,6 +853,10 @@ $('#cfg').addEventListener('change',e=>{outEdited=false;selectConfig(e.target.va
 $('#data').addEventListener('change',()=>{suggestOut();build();saveUI();});
 $('#strat').addEventListener('change',()=>{applyCfgFilter(false);saveUI();});
 $('#out').addEventListener('input',()=>{outEdited=true;build();saveUI();});
+$('#saveName').addEventListener('input',()=>{   // save-as → ชื่อ config (sync ย้อนกลับ)
+  const ci=document.getElementById('cfgNameInput');
+  if(ci) ci.value=($('#saveName').value||'').replace(/\.(ya?ml)$/,'');
+});
 $$('#mode button,#lot button').forEach(b=>b.addEventListener('click',()=>{
   const seg=b.parentElement; seg.querySelectorAll('button').forEach(x=>x.classList.remove('on'));
   b.classList.add('on'); suggestOut(); build(); saveUI();
