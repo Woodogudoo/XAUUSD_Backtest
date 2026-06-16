@@ -141,7 +141,7 @@
 <div class="wrap">
   <header>
     <div class="brand"><div class="mark">VS</div>
-      <div><h1>Strategy Compare</h1><div class="sub">เปรียบเทียบกลยุทธ์ · สูงสุด 10 run</div></div></div>
+      <div><h1>Strategy Compare</h1><div class="sub">เปรียบเทียบกลยุทธ์ · สูงสุด 100 run</div></div></div>
     <a class="back" href="/">← กลับ console</a>
   </header>
 
@@ -166,12 +166,15 @@ function escAttr(s){return esc(s).replace(/"/g,'&quot;');}
 async function getJSON(u){const r=await fetch(u);if(!r.ok){let e;try{e=(await r.json()).error}catch(_){}; throw new Error(e||(u+' → '+r.status));}return r.json();}
 
 const PALETTE=['#E8B14C','#2DB39A','#7FA7D6','#C78CE0','#E0995C','#E08CB4','#8CD98F','#5CC8E0','#D6C84C','#B0B6C2'];
-const MAX_RUNS=10;
+const MAX_RUNS=100;
+function clr(i){ return PALETTE[((i%PALETTE.length)+PALETTE.length)%PALETTE.length]; }   // วนสีถ้าเกิน palette (กันสีหาย)
 
+let urlOverflow=0;   // จำนวน run ที่เกิน MAX_RUNS (ตัดทิ้ง) — ใช้เตือนสุภาพ
 function urlRuns(){
   const q=new URLSearchParams(location.search).get('runs')||'';
   const seen={}, out=[];
   q.split(',').map(s=>s.trim()).filter(Boolean).forEach(n=>{ if(!seen[n]){seen[n]=1;out.push(n);} });
+  urlOverflow=Math.max(0, out.length-MAX_RUNS);
   return out.slice(0,MAX_RUNS);
 }
 function navTo(runs){ location.search = runs.length? ('?runs='+runs.map(encodeURIComponent).join(',')) : ''; }
@@ -214,7 +217,7 @@ function cellOf(key, def, m){
 // หัวคอลัมน์ run = ลิงก์เปิด viewer (แท็บใหม่) · ไม่มี viewer.html → คลิกได้แต่บอกวิธีสร้าง (ไม่ 404 เงียบ)
 function hasViewer(name){ var r=ALL_RUNS.find(function(x){return x.name===name;}); return !!(r&&r.has_viewer); }
 function runHeadTH(name,i){
-  var col=PALETTE[i];
+  var col=clr(i);
   if(hasViewer(name))
     return '<th class="rhead"><a class="rlink" href="/runs/'+encodeURIComponent(name)+'/viewer.html" target="_blank" rel="noopener"'+
       ' style="color:'+col+'" title="เปิด viewer ของ '+escAttr(name)+'">'+esc(name)+' <span class="ext">↗</span></a></th>';
@@ -275,7 +278,7 @@ function buildChart(runs, metricsList, mode, view){
     const pts=(m.equity_by_trade||[]).map(p=>({t:Date.parse(p.exit_time), v:p[vKey]}))
               .filter(p=>!isNaN(p.t));
     pts.forEach(p=>{ if(p.t<dMin)dMin=p.t; if(p.t>dMax)dMax=p.t; });
-    return {pts:pts, color:PALETTE[i], name:runs[i]};
+    return {pts:pts, color:clr(i), name:runs[i]};
   });
   if(!isFinite(dMin)) return '<div class="note">ไม่มีข้อมูลไม้</div>';
   if(dMax<=dMin) dMax=dMin+1;
@@ -417,7 +420,7 @@ function renderChips(runs, netList){
   runs.forEach((r,i)=>{
     const net = netList ? netList[i] : null;
     const netHtml = net!=null ? ' <span class="netp '+(net<0?'neg':'pos')+'">'+nfPct(net)+'</span>' : '';
-    h+='<div class="chip" data-run="'+escAttr(r)+'"><span class="dot" style="background:'+PALETTE[i]+'"></span>'+
+    h+='<div class="chip" data-run="'+escAttr(r)+'"><span class="dot" style="background:'+clr(i)+'"></span>'+
        '<span class="x" data-rm="'+escAttr(r)+'">✕</span>'+
        '<span class="nm">'+esc(r)+netHtml+'</span></div>';
   });
@@ -432,7 +435,9 @@ function renderChips(runs, netList){
   const avail=ALL_RUNS.map(r=>r.name).filter(n=>runs.indexOf(n)<0);
   $('#picker').innerHTML = avail.length? avail.map(n=>'<div class="pk" data-add="'+escAttr(n)+'">+ '+esc(n)+'</div>').join('')
     : '<div class="note">ไม่มี run อื่นให้เพิ่ม</div>';
-  $$('#picker .pk').forEach(pk=>pk.onclick=()=>{ if(runs.length>=MAX_RUNS)return; navTo(runs.concat([pk.getAttribute('data-add')])); });
+  $$('#picker .pk').forEach(pk=>pk.onclick=()=>{
+    if(runs.length>=MAX_RUNS){ ctoast('เปรียบเทียบได้สูงสุด '+MAX_RUNS+' run — ลบบางตัวก่อนเพิ่ม'); return; }
+    navTo(runs.concat([pk.getAttribute('data-add')])); });
 }
 
 // ---------- main ----------
@@ -450,6 +455,7 @@ function ctoast(msg){
   const skipped=requested.filter(r=>!known.has(r));   // run ใน ?runs ที่ไม่มีจริง → ข้าม
   let runs=requested.filter(r=>known.has(r));
   let warn = skipped.length? ('ข้าม run ที่ไม่มี: '+skipped.join(', ')) : '';
+  if(urlOverflow) warn=(warn?warn+' · ':'')+('เลือกได้สูงสุด '+MAX_RUNS+' run — แสดง '+MAX_RUNS+' แรก (ตัด '+urlOverflow+')');
   renderChips(runs);
 
   if(runs.length<1){
@@ -583,7 +589,7 @@ function ctoast(msg){
         '<div class="note">scroll = zoom · drag = pan · ✛ crosshair · ⟲ รีเซ็ตซูม · ⛶ เต็มจอ · แกน X เวลาจริง · Y ปรับตามช่วงที่ซูม</div></div></section>'+
 
       '<section class="card"><div class="hd"><div><div class="eyebrow">Metrics</div>'+
-        '<h2>'+(single?'เมตริก':'เมตริกเทียบ')+'<span class="info" data-calc="ทุกค่าคิดจากทุนตั้งต้นคงที่ $1000 ไม่ทบต้น. แต่ละคอลัมน์ = 1 run (สูงสุด 10 · ตารางเลื่อนแนวนอนได้). กด ⓘ ท้ายแต่ละแถวเพื่อดูวิธีคิด. ★ = ดีที่สุดในแถว (เฉพาะเมื่อมี ≥2 run).">i</span></h2></div></div>'+
+        '<h2>'+(single?'เมตริก':'เมตริกเทียบ')+'<span class="info" data-calc="ทุกค่าคิดจากทุนตั้งต้นคงที่ $1000 ไม่ทบต้น. แต่ละคอลัมน์ = 1 run (สูงสุด 100 · ตารางเลื่อนแนวนอนได้). กด ⓘ ท้ายแต่ละแถวเพื่อดูวิธีคิด. ★ = ดีที่สุดในแถว (เฉพาะเมื่อมี ≥2 run).">i</span></h2></div></div>'+
         buildTable(defs,runs,metricsList)+'</section>'+
 
       '<section class="card"><div class="hd"><div><div class="eyebrow">Config'+(single?'':' diff')+'</div>'+
