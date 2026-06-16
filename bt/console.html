@@ -984,9 +984,9 @@ function ensureCfgOption(name){
 function buildSavePayload(name){
   const rawMode=!!document.querySelector('.tabs button.on[data-t="raw"]');
   if(rawMode) return {payload:{base:curCfgId,name:name,raw:$('#rawTxt').value}};
-  // validate entries ก่อน (ผิด → ไม่ commit notes/ไม่เซฟ)
+  // validate entries ก่อน (ผิด → ไม่เซฟ)
   if(ENTRIES_MODEL){ const err=validateEntries(); if(err) return {error:'entries: '+err}; }
-  commitNotesRound();   // auto-commit diff รอบปัจจุบันลง notes ก่อนเก็บค่า (ถ้ามี · กันซ้ำในตัว)
+  // notes = บันทึกเฉพาะเนื้อหาในกล่องตอนนั้นเป๊ะ · ไม่ auto-commit diff รอบปัจจุบัน (ใส่เองผ่านปุ่ม "+ใส่สรุป")
   const values=collectValues();
   // notes = free-text → ส่งเป็น field แยก (server เขียน string ดิบ ไม่ coerce/split §9.2) · ดึงออกจาก values
   let pNotes=null;
