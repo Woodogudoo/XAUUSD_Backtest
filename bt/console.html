@@ -1292,7 +1292,19 @@ async function deleteConfig(name){
   if(c!=='del')return;
   try{ const r=await fetch('/api/configs/'+encodeURIComponent(name),{method:'DELETE'});
     const d=await r.json(); if(!r.ok){ toast(d.error||'ลบไม่ได้','err'); return; }
-    toast('ลบ '+name+' ลงถังขยะ','ok'); refreshCfgAll();
+    toast('ลบ '+name+' ลงถังขยะ','ok');
+    // เอา "เฉพาะแถวที่ลบ" ออกตรงๆ แทน re-render รายการทั้งก้อน → window ไม่ reset scroll (ไม่เด้งขึ้นบน)
+    const id=name.replace(/\.(ya?ml)$/,'');
+    const escSel=s=>(window.CSS&&CSS.escape)?CSS.escape(s):s;
+    const mgr=$('#cfgMgrList');
+    const row=mgr&&mgr.querySelector('.mgrrow[data-cfg="'+escSel(name)+'"]'); if(row) row.remove();
+    if(mgr&&!mgr.querySelector('.mgrrow')) mgr.innerHTML='<div class="mgrempty">ไม่มี config สำหรับ strategy นี้</div>';
+    const opt=$('#cfg').querySelector('option[value="'+escSel(id)+'"]'); if(opt) opt.remove();
+    CFG_ALL=CFG_ALL.filter(c=>c.id!==id); CONFIGS=CFG_ALL.map(c=>c.name);   // sync state (ไม่ refetch ฟอร์มไม่ reload)
+    loadTrash();   // อัปเดตถังขยะ (list ซ่อนอยู่ → ไม่ดันความสูง/ไม่เด้ง)
+    if(id===curCfgId){   // ลบ config ที่เปิดอยู่ → จำเป็นต้องโหลดตัวอื่นแทน · เก็บ scroll เดิมแล้ว restore
+      const sy=window.scrollY; await loadConfigs(); window.scrollTo(0,sy);
+    }
   }catch(e){ toast('ลบ error: '+e.message,'err'); }
 }
 async function restoreConfig(name){
