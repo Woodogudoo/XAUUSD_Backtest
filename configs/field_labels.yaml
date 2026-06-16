@@ -129,7 +129,7 @@ guards.gap.wait_bars:             { label: "เว้นหลัง Gap", unit:
 # ── ทั่วไป (v2) ──
 general:                          { label: "ทั่วไป (v2)" }
 general.r55_bars:                 { label: "หน้าต่าง Range55", unit: "แท่ง", help: "จำนวนแท่งย้อนหลังที่ใช้คำนวณ R55 (ช่วงราคาอ้างอิงของทุกเงื่อนไข)", group: "ทั่วไป", order: 4 }
-general.min_tp_pip:               { label: "TP ขั้นต่ำ", unit: "pip", help: "ระยะ TP จาก tech point น้อยกว่าค่านี้ → ทิ้งสัญญาณ", group: "ทั่วไป", order: 5 }
+general.min_tp_pip:               { label: "TP ขั้นต่ำ", unit: "pip", help: "ระยะ TP จาก entry ของแต่ละไม้ (ทิศกำไร) น้อยกว่าค่านี้ → ดรอปไม้นั้น (TP ใกล้/ผิดฝั่ง)", group: "ทั่วไป", order: 5 }
 general.pending_max_age:          { label: "อายุ pending", unit: "แท่ง", help: "ออร์เดอร์ limit ค้างเกินกี่แท่ง → ยกเลิก", group: "ทั่วไป", order: 6 }
 general.proximity_cancel_enabled: { label: "เปิดกฎยกเลิกใกล้ TP", help: "false = ไม่ยก pending ตอนราคาเฉียด TP", group: "ทั่วไป", order: 7 }
 general.proximity_cancel_pct_r55: { label: "ระยะยกเลิกใกล้ TP", unit: "%R55", help: "ราคาเข้าใกล้ TP ≤ ค่านี้ (%R55) → ยก pending ที่ยังไม่ fill (มีผลเมื่อเปิดกฎด้านบน)", group: "ทั่วไป", order: 8 }

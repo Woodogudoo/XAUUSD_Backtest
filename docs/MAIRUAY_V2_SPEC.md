@@ -27,7 +27,7 @@ strategy: mai_ruay_v2          # tag สำหรับจับคู่ strate
 
 general:
   r55_bars: 55                 # จำนวนแท่งย้อนหลังคำนวณ R55 (ช่วงราคาอ้างอิงของทุกเงื่อนไข)
-  min_tp_pip: 50               # TP ขั้นต่ำ (pip)
+  min_tp_pip: 50               # TP ขั้นต่ำต่อไม้ (pip) — ระยะ TP จาก "entry ของไม้นั้น" ทิศกำไร < ค่านี้ → ดรอปไม้นั้น
   pending_max_age: 30          # อายุ pending (แท่ง)
   proximity_cancel_enabled: true   # เปิดกฎยกเลิกเมื่อใกล้ TP
   proximity_cancel_pct_r55: 10     # ระยะเฉียด TP ที่ยก pending (%R55) — ราคาเข้าใกล้ TP ≤ ค่านี้ → ยกเลิก (มีผลเมื่อเปิดกฎ)
@@ -66,6 +66,22 @@ tpsl:                          # Fixed % จากแท่งพ่อ (ยั�
   tp_pct_father: 50
   sl_pct_father: 30
 ```
+
+### `min_tp_pip` — กรอง TP สั้น/ผิดฝั่ง **ต่อไม้** (วัดจาก entry)
+
+`tp_sel` เป็น TP ราคาเดียวของแผน (วัดจาก `tech_point`) แต่แต่ละไม้ entry ต่างกัน →
+บางไม้ entry เลย tech ไปไกลจน TP อยู่ใกล้/ผิดฝั่ง entry. เช็คแยกราย leg/order ด้วยระยะ **มีทิศ** (ไม่ใช่ค่าสัมบูรณ์):
+
+```
+BUY :  dist = (tp_sel − entry) / PIP        (TP ต้องอยู่เหนือ entry)
+SELL:  dist = (entry − tp_sel) / PIP        (TP ต้องอยู่ใต้ entry)
+dist < min_tp_pip  → ดรอปไม้นั้น (ไม่วาง order)
+```
+
+- ครอบทั้ง **TP ใกล้เกิน** (`dist` บวกน้อย) และ **TP ผิดฝั่ง entry** (`dist` ติดลบ) — ดรอปทั้งคู่
+- เช็คต่อไม้: leg ตก → ไม่วาง · leg ผ่าน → วางปกติ · **ทุก leg ตก → แผนไม่มี order (ทิ้งสัญญาณ)**
+- `min_tp_pip = 0` → ไม่กรองไม้ที่ระยะพอ (dist ≥ 0) · ยังดรอปเฉพาะไม้ผิดฝั่ง (dist < 0) · ค่าสูง → ดรอปมากขึ้น
+- เลิกใช้ "ระยะ TP จาก tech point" เป็นตัวกรอง (ย้ายมาวัดจาก entry ต่อ order) → แก้บั๊กไม้ `result=TP` แต่ `pnl<0`
 
 ### นิยาม `entries`
 

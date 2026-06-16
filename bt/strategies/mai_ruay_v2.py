@@ -269,24 +269,32 @@ def analyze_bar(bars, bar_idx, cfg) -> Signal | None:
     sl     = tech_point - sl_off if mai_dir == 'BUY' else tech_point + sl_off
     tp_sel = tech_point + tp_off if mai_dir == 'BUY' else tech_point - tp_off
 
-    tp_pips = abs(tp_sel - tech_point) / PIP
-    if tp_pips < g['min_tp_pip']:
-        return None
+    tp_pips = abs(tp_sel - tech_point) / PIP   # analytic: ระยะ TP จาก tech (รายงานเท่านั้น — ไม่ใช่ตัวกรองแล้ว)
 
     # สร้างไม้ตาม legs ของ tier:
     #   mode=market     → MARKET ที่ open แท่งลูก (เข้าทันที)
     #   mode=mother_pct → LIMIT ที่ tech ± (mother_body_len × value/100) ตามทิศ BUY/SELL (mirror)
     #     value 0 = tech · +N = เข้าตัวแม่ N% (50=ครึ่งแม่, +100=ปลายแม่) · −N = เลย tech ออกไป N% (ได้เปรียบ)
     #     BUY: + = ขึ้น (เข้าหาแม่) / − = ลง · SELL: mirror (+ = ลง / − = ขึ้น)
+    # min_tp_pip: เช็ค "ต่อไม้" — ระยะ TP จาก entry ของไม้นั้น ในทิศกำไร (มีเครื่องหมาย):
+    #   BUY  dist = (tp_sel − entry)/PIP   ·   SELL dist = (entry − tp_sel)/PIP
+    #   dist < min_tp_pip → ดรอปไม้นั้น (ครอบทั้ง TP ใกล้เกิน [บวกน้อย] + TP ผิดฝั่ง entry [ติดลบ])
     sign = 1 if mai_dir == 'BUY' else -1
+    min_tp = g['min_tp_pip']
     entries = []
     for idx, leg in enumerate(tier['legs']):
         if leg['mode'] == 'market':
-            entries.append((child.open, f"ไม้{idx + 1}:market", True))
+            ep, label, mkt = child.open, f"ไม้{idx + 1}:market", True
         else:   # mother_pct
             val = leg['value']
-            price = tech_point + sign * mother_body_len * (val / 100)
-            entries.append((price, f"ไม้{idx + 1}:แม่{val:g}%", False))
+            ep, label, mkt = tech_point + sign * mother_body_len * (val / 100), f"ไม้{idx + 1}:แม่{val:g}%", False
+        tp_dist = ((tp_sel - ep) if mai_dir == 'BUY' else (ep - tp_sel)) / PIP
+        if tp_dist < min_tp:
+            continue   # ไม้นี้ TP ใกล้เกิน/ผิดฝั่ง entry → ไม่วาง
+        entries.append((ep, label, mkt))
+
+    if not entries:        # ทุกไม้ถูกดรอป → แผนนี้ไม่มี order = ทิ้งสัญญาณ
+        return None
 
     # lot ต่อไม้: risk ต่อแผน = portfolio_start × risk_per_plan_pct/100 · แบ่งตาม lot_split_mode
     #   (config = source เดียวของ V2 · ระยะ SL ต่อไม้ต่างกัน — SL ร่วม, entry ต่างกัน)
@@ -307,12 +315,14 @@ def analyze_bar(bars, bar_idx, cfg) -> Signal | None:
     lot = _r(sum(lots), 2)                            # lot รวมของแผน (analytics)
 
     _cut = len(entries) - len(kept)
+    _tpdrop = len(tier['legs']) - len(entries)   # ไม้ที่ถูกดรอปด้วย min_tp_pip (TP ใกล้/ผิดฝั่ง)
     reasons = [
         f"พ่อ {f_pct:.1f}%R55 ({f_end - f_start + 1} แท่ง) · vol {vol_ratio:.2f}",
         f"แม่ {m_pct:.1f}% (compare={mc.get('compare_mode')})",
         f"เข้า tier: พ่อ≥{tier['when'].get('father_min_pct')}%, "
         f"แม่ {tier['when'].get('mother_min_pct')}–{tier['when'].get('mother_max_pct')}% "
-        f"→ {len(kept)} ไม้" + (f" (ตัดท้าย {_cut} ไม้ — เกิน budget)" if _cut else ""),
+        f"→ {len(kept)} ไม้" + (f" (ตัดท้าย {_cut} ไม้ — เกิน budget)" if _cut else "")
+        + (f" (ดรอป {_tpdrop} ไม้ — TP < min_tp_pip)" if _tpdrop else ""),
         f"TP/SL = {cfg['tpsl']['tp_pct_father']}% / {cfg['tpsl']['sl_pct_father']}% ของพ่อ",
         f"lot: {split_mode} · budget {budget:.0f} (พอร์ต {portfolio_start:.0f}×{risk_pct}%)",
     ]
