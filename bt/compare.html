@@ -48,6 +48,24 @@
   .pk:hover{border-color:var(--gold);color:var(--gold)}
   .pk[disabled]{opacity:.35;cursor:not-allowed}
 
+  /* layout: sidebar ซ้าย (เลือก run · scroll ได้) + เนื้อหาขวา (chart/metrics) */
+  .layout{display:flex;gap:16px;align-items:flex-start}
+  .sidebar{flex:0 0 264px;position:sticky;top:22px;max-height:calc(100vh - 44px);overflow-y:auto;overflow-x:hidden}
+  .sidebar .card{margin-bottom:0}
+  .sidettl{font-family:var(--mono);font-size:10.5px;letter-spacing:1.4px;text-transform:uppercase;color:var(--gold);margin-bottom:10px}
+  .sidebar .chips{flex-direction:column}
+  .sidebar .chip,.sidebar .chip.add{min-width:0;width:100%}
+  .sidebar .picker{flex-direction:column}
+  .sidebar .pk{width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #content{flex:1 1 auto;min-width:0}
+  @media(max-width:860px){
+    .layout{flex-direction:column}
+    .sidebar{position:static;max-height:none;flex-basis:auto;width:100%;overflow:visible}
+    .sidebar .chips,.sidebar .picker{flex-direction:row;flex-wrap:wrap}
+    .sidebar .chip,.sidebar .chip.add{width:auto;min-width:200px}
+    .sidebar .pk{width:auto}
+  }
+
   .needmore{padding:28px 16px;text-align:center;color:var(--muted);font-family:var(--mono);font-size:13px}
   .needmore b{color:var(--gold)}
   .singlehint{font-family:var(--mono);font-size:12px;color:var(--gold);background:rgba(232,177,76,.07);border:1px solid #6f5a2e;border-radius:8px;padding:8px 13px;margin-bottom:14px}
@@ -110,12 +128,16 @@
     <a class="back" href="/">← กลับ console</a>
   </header>
 
-  <section class="card"><div class="body">
-    <div class="chips" id="chips"></div>
-    <div class="picker" id="picker"></div>
-  </div></section>
-
-  <div id="content"></div>
+  <div class="layout">
+    <aside class="sidebar">
+      <section class="card"><div class="body">
+        <div class="sidettl">Runs ที่เลือก</div>
+        <div class="chips" id="chips"></div>
+        <div class="picker" id="picker"></div>
+      </div></section>
+    </aside>
+    <div id="content"></div>
+  </div>
 </div>
 
 <div id="calcpop"><span class="eb">วิธีคิด</span><span id="calcbody"></span></div>
@@ -391,7 +413,7 @@ function ctoast(msg){
 
   if(runs.length<1){
     $('#content').innerHTML='<section class="card"><div class="needmore">'+warnBox(warn)+
-      'เลือกอย่างน้อย <b>1 run</b><br><span style="font-size:11px">กด “+ เพิ่ม run” ด้านบน หรือเลือกจาก console</span></div></section>';
+      'เลือกอย่างน้อย <b>1 run</b><br><span style="font-size:11px">กด “+ เพิ่ม run” ด้านซ้าย หรือเลือกจาก console</span></div></section>';
     return;
   }
 
