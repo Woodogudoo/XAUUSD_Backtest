@@ -74,6 +74,10 @@
   .sidebar .chip[data-run]{cursor:default}
   .sidebar .chip[data-run]:hover{border-color:var(--line2);background:rgba(232,177,76,.04)}
   .chip .netp{font-family:var(--mono);font-size:11px;margin-left:2px}
+  .eqwrap{cursor:grab;user-select:none}
+  .eqwrap:active{cursor:grabbing}
+  .zbtn{background:var(--panel2);border:1px solid var(--line2);color:var(--muted);cursor:pointer;font-family:var(--mono);font-size:11px;padding:5px 10px;border-radius:7px}
+  .zbtn:hover{border-color:var(--gold);color:var(--gold)}
   .toggle{display:flex;background:var(--panel2);border:1px solid var(--line2);border-radius:8px;padding:2px;gap:2px}
   .toggle button{border:0;background:transparent;color:var(--muted);cursor:pointer;font-family:var(--mono);font-size:11px;padding:5px 11px;border-radius:6px}
   .toggle button.on{background:var(--raise);color:var(--gold)}
@@ -247,24 +251,44 @@ function niceRange(lo,hi){
   const gLo=Math.floor(lo/step)*step, gHi=Math.ceil(hi/step)*step;
   return [gLo,gHi,step];
 }
-function buildChart(runs, metricsList, mode){
+// zoom state (mirror viewer: X time-window + Y autofit · center ที่ cursor · drag = pan)
+let CHART_FULL=null,   // {tMin,tMax} ขอบเขตข้อมูลเต็ม (ทุก run) — ใช้ clamp/reset
+    CHART_MAP=null,    // {tMin,tMax,W,padL,plotW} ของหน้าต่างปัจจุบัน — ใช้ map cursor→เวลา
+    hoveredRun=null;   // run ที่ hover อยู่ (re-apply highlight หลัง redraw)
+function buildChart(runs, metricsList, mode, view){
   const vKey = mode==='pct'?'equity_pct':'equity_usd';
-  let tMin=Infinity,tMax=-Infinity;
+  let dMin=Infinity,dMax=-Infinity;
   const series=metricsList.map((m,i)=>{
     const pts=(m.equity_by_trade||[]).map(p=>({t:Date.parse(p.exit_time), v:p[vKey]}))
               .filter(p=>!isNaN(p.t));
-    pts.forEach(p=>{ if(p.t<tMin)tMin=p.t; if(p.t>tMax)tMax=p.t; });
+    pts.forEach(p=>{ if(p.t<dMin)dMin=p.t; if(p.t>dMax)dMax=p.t; });
     return {pts:pts, color:PALETTE[i], name:runs[i]};
   });
-  if(!isFinite(tMin)) return '<div class="note">ไม่มีข้อมูลไม้</div>';
-  if(tMax<=tMin) tMax=tMin+1;
+  if(!isFinite(dMin)) return '<div class="note">ไม่มีข้อมูลไม้</div>';
+  if(dMax<=dMin) dMax=dMin+1;
+  CHART_FULL={tMin:dMin,tMax:dMax};
+  // หน้าต่างที่มองเห็น (X) — clamp ใน [dMin,dMax] · ไม่มี view = เต็ม
+  let tMin = view? Math.max(dMin, view.tMin) : dMin;
+  let tMax = view? Math.min(dMax, view.tMax) : dMax;
+  if(!(tMax>tMin)){ tMin=dMin; tMax=dMax; }
   const base = mode==='pct'?0:1000;
+  // step vertices (value space) ต่อ run · carry ค่า ณ tMin (ไม้ก่อนหน้าต่าง) · ตัดที่ tMax
+  const drawn=series.map(s=>{
+    let prev=base;
+    s.pts.forEach(p=>{ if(p.t<=tMin) prev=p.v; });
+    const verts=[[tMin,prev]];
+    s.pts.forEach(p=>{ if(p.t<=tMin||p.t>tMax) return; verts.push([p.t,prev]); verts.push([p.t,p.v]); prev=p.v; });
+    verts.push([tMax,prev]);
+    return {color:s.color, name:s.name, verts:verts};
+  });
+  // Y autofit ตามช่วงที่เห็น (เหมือน viewer scale())
   let vMin=base, vMax=base;
-  series.forEach(s=>s.pts.forEach(p=>{ if(p.v<vMin)vMin=p.v; if(p.v>vMax)vMax=p.v; }));
+  drawn.forEach(d=>d.verts.forEach(pt=>{ if(pt[1]<vMin)vMin=pt[1]; if(pt[1]>vMax)vMax=pt[1]; }));
   const [gLo,gHi,step]=niceRange(vMin,vMax);
 
   const W=1080,H=330,padL=64,padR=16,padT=16,padB=60;
   const plotW=W-padL-padR, plotH=H-padT-padB;
+  CHART_MAP={tMin:tMin,tMax:tMax,W:W,padL:padL,plotW:plotW};
   const x=t=>padL+(t-tMin)/(tMax-tMin)*plotW;
   const y=v=>padT+(gHi-v)/(gHi-gLo)*plotH;
   const yBase=padT+plotH;
@@ -295,13 +319,10 @@ function buildChart(runs, metricsList, mode){
   svg+='<text x="14" y="'+(padT+plotH/2)+'" fill="var(--muted)" font-size="10.5" text-anchor="middle" transform="rotate(-90 14 '+(padT+plotH/2)+')">'+ytitle+'</text>';
   svg+='<text x="'+(W-padR)+'" y="'+(padT+plotH/2)+'" fill="var(--muted)" font-size="10.5" text-anchor="middle" transform="rotate(90 '+(W-padR)+' '+(padT+plotH/2)+')">'+ytitle+'</text>';
   svg+='<text x="'+(padL+plotW/2)+'" y="'+(H-8)+'" fill="var(--muted)" font-size="10.5" text-anchor="middle">'+(dateMode?'วันที่':'เวลา')+' · แกนเวลาจริง · grid ห่างเท่ากัน · ทุก run แกนเวลาเดียวกัน</text>';
-  // curves (step)
-  series.forEach(s=>{
-    let pts=[[x(tMin),y(base)]]; let prev=base;
-    s.pts.forEach(p=>{ pts.push([x(p.t),y(prev)]); pts.push([x(p.t),y(p.v)]); prev=p.v; });
-    pts.push([x(tMax),y(prev)]);
-    const ptsStr=pts.map(p=>p[0].toFixed(1)+','+p[1].toFixed(1)).join(' ');
-    svg+='<polyline class="eqline" data-run="'+escAttr(s.name)+'" fill="none" stroke="'+s.color+'" stroke-width="2" points="'+ptsStr+'"/>';
+  // curves (step) — จาก verts ที่ตัด/ต่อตามหน้าต่างแล้ว
+  drawn.forEach(d=>{
+    const ptsStr=d.verts.map(pt=>x(pt[0]).toFixed(1)+','+y(pt[1]).toFixed(1)).join(' ');
+    svg+='<polyline class="eqline" data-run="'+escAttr(d.name)+'" fill="none" stroke="'+d.color+'" stroke-width="2" points="'+ptsStr+'"/>';
   });
   svg+='</svg>';
 
@@ -389,8 +410,8 @@ function renderChips(runs, netList){
   if(runs.length<MAX_RUNS) h+='<div class="chip add" id="addChip">+ เพิ่ม run</div>';
   $('#chips').innerHTML=h;
   $$('#chips .chip[data-run]').forEach(c=>{ const n=c.getAttribute('data-run');
-    c.addEventListener('mouseenter',()=>highlightRun(n));
-    c.addEventListener('mouseleave',()=>highlightRun(null)); });
+    c.addEventListener('mouseenter',()=>{ hoveredRun=n; highlightRun(n); });
+    c.addEventListener('mouseleave',()=>{ hoveredRun=null; highlightRun(null); }); });
   $$('#chips .x').forEach(x=>x.onclick=()=>navTo(runs.filter(n=>n!==x.getAttribute('data-rm'))));
   const add=$('#addChip'); if(add) add.onclick=()=>$('#picker').classList.toggle('show');
   // picker
@@ -445,18 +466,63 @@ function ctoast(msg){
     return;
   }
 
-  let chartMode='pct', showAllCfg=false;
+  let chartMode='pct', showAllCfg=false, chartView=null, drag=null;
   const single = runs.length===1;   // run เดียว = "รายละเอียด run เดียว" (ไม่มี ★/diff)
+  // วาดเฉพาะกราฟใหม่ (ไม่ rebuild ทั้งหน้า) + คง hover highlight
+  function redrawChart(){
+    const el=document.getElementById('eqchart'); if(!el) return;
+    el.innerHTML=buildChart(runs,metricsList,chartMode,chartView);
+    if(hoveredRun) highlightRun(hoveredRun);
+  }
+  function timeAtClientX(cx){   // cursor px → เวลา (ในหน้าต่างปัจจุบัน)
+    const el=document.getElementById('eqchart'); if(!el||!CHART_MAP) return null;
+    const r=el.getBoundingClientRect();
+    let f=((cx-r.left)/r.width*CHART_MAP.W-CHART_MAP.padL)/CHART_MAP.plotW;
+    f=Math.max(0,Math.min(1,f));
+    return CHART_MAP.tMin + f*(CHART_MAP.tMax-CHART_MAP.tMin);
+  }
+  function attachChartZoom(){   // bind ใหม่ทุก render (el ถูกสร้างใหม่)
+    const el=document.getElementById('eqchart'); if(!el) return;
+    el.addEventListener('wheel',e=>{
+      if(!CHART_FULL) return; e.preventDefault();
+      const ct=timeAtClientX(e.clientX); if(ct==null) return;
+      const cur=chartView||{tMin:CHART_FULL.tMin,tMax:CHART_FULL.tMax};
+      const f=e.deltaY>0?1.18:0.85;   // scroll ขึ้น = zoom in (×0.85) · ลง = zoom out (×1.18) — เหมือน viewer
+      let a=ct-(ct-cur.tMin)*f, b=ct+(cur.tMax-ct)*f;
+      const fullSpan=CHART_FULL.tMax-CHART_FULL.tMin;
+      if(b-a>=fullSpan){ chartView=null; }                 // zoom out จนเต็ม → reset
+      else { a=Math.max(CHART_FULL.tMin,a); b=Math.min(CHART_FULL.tMax,b);
+        if(b-a<fullSpan*0.0015) return;                    // กัน zoom ลึกเกิน
+        chartView={tMin:a,tMax:b}; }
+      redrawChart();
+    },{passive:false});
+    el.addEventListener('mousedown',e=>{ if(!chartView) return;   // เต็มจอ = ไม่มีที่ pan
+      drag={x:e.clientX, view:{tMin:chartView.tMin,tMax:chartView.tMax}}; e.preventDefault(); });
+  }
+  // pan: bind ที่ window ครั้งเดียว (อ้าง drag/chartView ใน scope)
+  window.addEventListener('mousemove',e=>{
+    if(!drag||!CHART_MAP||!CHART_FULL) return;
+    const el=document.getElementById('eqchart'); if(!el) return;
+    const r=el.getBoundingClientRect(), span=drag.view.tMax-drag.view.tMin;
+    const dt=(e.clientX-drag.x)/r.width*CHART_MAP.W/CHART_MAP.plotW*span;
+    let a=drag.view.tMin-dt, b=drag.view.tMax-dt;
+    if(a<CHART_FULL.tMin){ a=CHART_FULL.tMin; b=a+span; }
+    if(b>CHART_FULL.tMax){ b=CHART_FULL.tMax; a=b-span; }
+    chartView={tMin:a,tMax:b}; redrawChart();
+  });
+  window.addEventListener('mouseup',()=>{ drag=null; });
   function render(){
     $('#content').innerHTML=
       warnBox(warn)+
       (single?'<div class="singlehint">รายละเอียด run เดียว — '+esc(runs[0])+'</div>':'')+
       '<section class="card"><div class="hd"><div><div class="eyebrow">Equity curve</div>'+
         '<h2>เส้นทุน<span class="info" data-calc="เรียงตามเวลาปิดไม้ (exit time) · เริ่มทุน $1000 · บวก pnl สะสมทีละไม้. %profit = (ทุน − 1000) ÷ 1000 × 100. แกน X เป็นเวลาจริง map เชิงเส้น — grid ห่างเท่ากันคงที่ ไม่ยืด/หดตามจำนวนไม้ · ทุก run วางบนแกนเวลาเดียวกัน (จุดเวลาเดียวกันตรงกัน) · ช่วงไม่มีไม้ เส้นจะแบน. สลับ %/USD ที่ปุ่มขวา.">i</span></h2></div>'+
+        '<div style="display:flex;gap:8px;align-items:center">'+
+        '<button id="zoomReset" class="zbtn" title="กลับมุมมองเต็ม">⤢ เต็ม</button>'+
         '<div class="toggle" id="modeTg"><button class="'+(chartMode==='pct'?'on':'')+'" data-m="pct">%</button>'+
-        '<button class="'+(chartMode==='usd'?'on':'')+'" data-m="usd">USD</button></div></div>'+
-        '<div class="body">'+buildChart(runs,metricsList,chartMode)+
-        '<div class="note">แกน X = เวลาจริง · grid แนวตั้งห่างเท่ากัน · ทุก run แกนเวลาเดียวกัน — ช่วงไม่มีไม้ = เส้นแบน · สลับ %/USD มุมขวา</div></div></section>'+
+        '<button class="'+(chartMode==='usd'?'on':'')+'" data-m="usd">USD</button></div></div></div>'+
+        '<div class="body"><div id="eqchart" class="eqwrap">'+buildChart(runs,metricsList,chartMode,chartView)+'</div>'+
+        '<div class="note">scroll = zoom · drag = pan · ปุ่ม “เต็ม” = reset · แกน X เวลาจริง · Y ปรับตามช่วงที่ซูม · ทุก run แกนเวลาเดียวกัน</div></div></section>'+
 
       '<section class="card"><div class="hd"><div><div class="eyebrow">Metrics</div>'+
         '<h2>'+(single?'เมตริก':'เมตริกเทียบ')+'<span class="info" data-calc="ทุกค่าคิดจากทุนตั้งต้นคงที่ $1000 ไม่ทบต้น. แต่ละคอลัมน์ = 1 run (สูงสุด 10 · ตารางเลื่อนแนวนอนได้). กด ⓘ ท้ายแต่ละแถวเพื่อดูวิธีคิด. ★ = ดีที่สุดในแถว (เฉพาะเมื่อมี ≥2 run).">i</span></h2></div></div>'+
@@ -467,7 +533,9 @@ function ctoast(msg){
         (single?'':'<button class="toggle" style="padding:0"><span id="cfgTg" style="font-family:var(--mono);font-size:11px;color:var(--gold);padding:6px 11px;cursor:pointer">'+(showAllCfg?'โชว์ทั้งหมด':'โชว์เฉพาะที่ต่าง')+'</span></button>')+'</div>'+
         '<div class="body" style="padding-top:6px">'+buildConfig(runs,configs,showAllCfg)+'</div></section>';
 
-    $$('#modeTg button').forEach(b=>b.onclick=()=>{ chartMode=b.getAttribute('data-m'); render(); });
+    $$('#modeTg button').forEach(b=>b.onclick=()=>{ chartMode=b.getAttribute('data-m'); render(); });   // คง chartView ข้าม %/USD
+    const zr=$('#zoomReset'); if(zr) zr.onclick=()=>{ chartView=null; redrawChart(); };
+    attachChartZoom();
     const ct=$('#cfgTg'); if(ct) ct.onclick=()=>{ showAllCfg=!showAllCfg; render(); };
     // หัว run ที่ไม่มี viewer → คลิกแล้วบอกวิธีสร้าง (ไม่ใช่ลิงก์ตาย)
     $$('.rlink.noviewer').forEach(el=>el.onclick=()=>{
