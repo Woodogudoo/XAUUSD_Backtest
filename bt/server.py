@@ -79,6 +79,15 @@ def _scalar(v):
     return "str", str(v)
 
 
+def _plain(v):
+    """ruamel CommentedMap/Seq → plain dict/list/scalar (JSON-safe) — สำหรับส่งโครงซ้อน (entries) ให้ editor"""
+    if isinstance(v, dict):
+        return {str(k): _plain(x) for k, x in v.items()}
+    if isinstance(v, list):
+        return [_plain(x) for x in v]
+    return _scalar(v)[1]
+
+
 def _load_labels() -> dict:
     """อ่าน configs/field_labels.yaml (dotted-key → label/unit/help ภาษาคน)
     — เสริมคำอธิบายในฟอร์ม · ไม่มีไฟล์/พังก็ {} (ฟอร์ม fallback raw key + comment)"""
@@ -106,40 +115,116 @@ def _build_tree(cmap, labels: dict, prefix: str = "") -> dict:
         if isinstance(v, dict):
             node = {"type": "map", "comment": cmt, "items": _build_tree(v, labels, full + ".")}
         elif isinstance(v, list):
-            node = {"type": "list", "comment": cmt, "value": [_scalar(x)[1] for x in v]}
+            if any(isinstance(x, (dict, list)) for x in v):   # list ซ้อน (entries) → custom editor/Raw
+                node = {"type": "list", "comment": cmt, "nested": True,
+                        "summary": f"{len(v)} รายการ (ซ้อนหลายชั้น)", "value": [],
+                        "data": _plain(v)}     # โครงจริง → ให้ editor ฝั่ง console สร้างการ์ด
+            else:
+                node = {"type": "list", "comment": cmt, "value": [_scalar(x)[1] for x in v]}
         else:
             t, val = _scalar(v)
             node = {"type": t, "comment": cmt, "value": val}
         lab = labels.get(full)
         if isinstance(lab, dict):
-            for f in ("label", "unit", "help"):
-                if lab.get(f):
+            for f in ("label", "unit", "help", "options", "group", "order"):
+                if lab.get(f) is not None:
                     node[f] = lab[f]
         out[ks] = node
     return out
 
 
+# ---------- schema defaults: เติม key ที่ strategy รู้จักแต่ไฟล์ยังไม่มี (จาก default config) ----------
+# default config ของแต่ละ strategy = "schema อ้างอิง" ของชุด key ทั้งหมด · knob ใหม่โผล่อัตโนมัติ
+_STRATEGY_DEFAULT_CONFIG = {"mai_ruay_v2": "mairuay_v2_default.yaml"}
+
+
+def _deep_fill(dst, src) -> int:
+    """เติม key ที่ขาดใน dst จาก src (recurse เฉพาะ map) — ค่าที่มีอยู่แล้วไม่แตะ · คืนจำนวน key ที่เติม"""
+    if not (isinstance(dst, dict) and isinstance(src, dict)):
+        return 0
+    added = 0
+    for k, sv in src.items():
+        if k not in dst:
+            dst[k] = sv
+            added += 1
+        elif isinstance(sv, dict) and isinstance(dst.get(k), dict):
+            added += _deep_fill(dst[k], sv)
+    return added
+
+
+def _apply_schema_defaults(data) -> int:
+    """เติม key จาก default config ของ strategy (ตาม field strategy ในไฟล์) — file values ชนะ · คืน count
+    ใช้ทั้งตอนอ่าน (โชว์ครบใน Form) และตอนเซฟ (persist key ที่ขาด)"""
+    if not isinstance(data, dict):
+        return 0
+    strat = data.get("strategy")
+    dname = _STRATEGY_DEFAULT_CONFIG.get(str(strat) if strat is not None else "")
+    if not dname:
+        return 0
+    dpath = os.path.join(_root(), "configs", dname)
+    if not os.path.isfile(dpath):
+        return 0
+    try:
+        import yaml  # default = อ้างเฉพาะชุด key/ค่า — pyyaml พอ (plain values)
+        with open(dpath, encoding="utf-8") as f:
+            ddata = yaml.safe_load(f) or {}
+    except Exception:  # noqa: BLE001 — schema เสริมเท่านั้น ห้ามทำ endpoint ล่ม
+        return 0
+    if not isinstance(ddata, dict):
+        return 0
+    # notes = free-text ต่อไฟล์ (per-config) ไม่ใช่ schema knob → ไม่สืบทอดจาก default
+    # ยกเว้นเฉพาะ top-level: config ที่ไม่มี notes ของตัวเอง = notes ว่าง ไม่ยืมของ template
+    ddata.pop("notes", None)
+    return _deep_fill(data, ddata)
+
+
 def _read_config(path: str) -> dict:
-    """อ่าน 1 ไฟล์ YAML ด้วย ruamel (round-trip) → {raw, tree} · tree merge label ภาษาคน"""
+    """อ่าน 1 ไฟล์ YAML ด้วย ruamel (round-trip) → {raw, tree} · tree merge label + schema defaults"""
     from ruamel.yaml import YAML  # lazy: serve อื่นๆ ยังทำงานได้แม้ไม่มี ruamel
     yaml = YAML()
     yaml.preserve_quotes = True
     with open(path, encoding="utf-8") as f:
         raw = f.read()
     data = yaml.load(raw)
+    if data is not None:
+        _apply_schema_defaults(data)   # เติม key ที่ขาด → Form เห็นครบ (raw ยังเป็นไฟล์เดิม)
     labels = _load_labels()
     tree = _build_tree(data, labels) if data is not None else {}
     return {"raw": raw, "tree": tree}
 
 
 # ---------- endpoint handlers (คืน (status, payload)) ----------
+def api_strategies() -> tuple[int, dict]:
+    """list strategy id ที่ลงทะเบียน (registry) — สำหรับ dropdown เลือกกลยุทธ์ในคอนโซล"""
+    try:
+        from bt.strategies.registry import strategy_ids   # lazy: เลี่ยง pull deps ตอน import server
+        return 200, {"strategies": strategy_ids()}
+    except Exception as e:  # noqa: BLE001 — endpoint เสริม ห้ามทำ server ล่ม
+        return 500, {"error": f"โหลด registry ไม่ได้: {e}"}
+
+
+def _config_strategy(path: str) -> str | None:
+    """อ่าน field strategy (top-level) ของ config — ไม่มี/พัง → None (console โชว์แต่ mark 'ไม่มี tag')"""
+    try:
+        import yaml  # config = data ล้วน ไม่ต้อง round-trip
+        with open(path, encoding="utf-8") as f:
+            d = yaml.safe_load(f) or {}
+        s = d.get("strategy") if isinstance(d, dict) else None
+        return str(s) if s else None
+    except Exception:  # noqa: BLE001 — กรอง config เสริมเท่านั้น ห้ามทำ endpoint ล่ม
+        return None
+
+
 def api_configs() -> tuple[int, dict]:
     d = os.path.join(_root(), "configs")
     # exclude hidden (.xxx) และ .trash/ — ไม่ให้ trashed โผล่เป็น config ที่เลือกได้
     files = sorted(f for f in os.listdir(d)
                    if not f.startswith(".") and f.endswith((".yaml", ".yml"))) \
         if os.path.isdir(d) else []
-    return 200, {"configs": files, "core": sorted(_CORE_CONFIGS)}
+    # strategy tag ต่อไฟล์ (สำหรับกรอง config ตาม strategy ในคอนโซล) — core configs ข้าม
+    strategies = {f: _config_strategy(os.path.join(d, f))
+                  for f in files if f not in _CORE_CONFIGS}
+    return 200, {"configs": files, "core": sorted(_CORE_CONFIGS), "strategies": strategies}
 
 
 # ---------- config management: rename · soft-delete (trash) · restore · hard-delete ----------
@@ -311,6 +396,46 @@ def api_data() -> tuple[int, dict]:
     return 200, {"data": files}
 
 
+_TF_RE = re.compile(r"(?:^|[_\-./ ])([MHDmhd]\d{1,3})(?:[_\-./ ]|$)")
+
+
+def _tf_of(s: str):
+    """หา timeframe token (M1/M5/M15/H1/D1…) จากชื่อ data/ชื่อ run · ไม่เจอ → None"""
+    m = _TF_RE.search(s or "")
+    return m.group(1).upper() if m else None
+
+
+def _run_tf(rdir: str, name: str):
+    """TF ของ run: จาก config_used.yaml (_run.data) ก่อน · ไม่มี → derive จากชื่อ run"""
+    cu = os.path.join(rdir, "config_used.yaml")
+    if os.path.isfile(cu):
+        try:
+            import yaml
+            c = yaml.safe_load(open(cu, encoding="utf-8")) or {}
+            data = (c.get("_run") or {}).get("data") if isinstance(c, dict) else None
+            if data:
+                tf = _tf_of(os.path.basename(str(data)))
+                if tf:
+                    return tf
+        except Exception:  # noqa: BLE001
+            pass
+    return _tf_of(name)
+
+
+def _run_strategy(rdir: str):
+    """strategy ของ run จาก config_used.yaml (_run.strategy) — สำหรับ filter ประวัติ · run เก่าไม่มี → None"""
+    cu = os.path.join(rdir, "config_used.yaml")
+    if os.path.isfile(cu):
+        try:
+            import yaml
+            c = yaml.safe_load(open(cu, encoding="utf-8")) or {}
+            s = (c.get("_run") or {}).get("strategy") if isinstance(c, dict) else None
+            return str(s) if s else None
+        except Exception:  # noqa: BLE001
+            pass
+    return None
+
+
 def api_runs() -> tuple[int, dict]:
     base = os.path.join(_root(), "runs")
     runs = []
@@ -332,6 +457,8 @@ def api_runs() -> tuple[int, dict]:
                 "summary": summary,
                 "has_viewer": os.path.isfile(os.path.join(rdir, "viewer.html")),
                 "mtime": int(os.path.getmtime(rdir)),
+                "tf": _run_tf(rdir, name),   # timeframe — สำหรับ filter ในประวัติ
+                "strategy": _run_strategy(rdir),   # กลยุทธ — สำหรับ filter ในประวัติ
             })
     runs.sort(key=lambda r: r["mtime"], reverse=True)
     return 200, {"runs": runs}
@@ -470,9 +597,19 @@ def _coerce(cur, raw):
     return str(raw)
 
 
+def _is_structural(v) -> bool:
+    """โครงซ้อน (map / list-of-map-or-list เช่น entries) ที่ฟอร์มแบนแก้ไม่ได้ — ห้ามทับด้วยค่าแบน"""
+    if isinstance(v, dict):
+        return True
+    if isinstance(v, list):
+        return any(isinstance(x, (dict, list)) for x in v)
+    return False
+
+
 def _set_path(root, dotted: str, raw) -> bool:
     """เซ็ตค่า leaf ตาม dotted path บน CommentedMap เดิม (key ต้องมีอยู่แล้ว — ไม่สร้างใหม่)
-    → comment/ลำดับ/โครงสร้างเดิมอยู่ครบ (อัปเดตเฉพาะค่า)"""
+    → comment/ลำดับ/โครงสร้างเดิมอยู่ครบ (อัปเดตเฉพาะค่า)
+    *** ข้าม node ที่เป็นโครงซ้อน (entries ฯลฯ) — กันฟอร์มแบนทับโครงหาย ***"""
     node = root
     parts = dotted.split(".")
     for seg in parts[:-1]:
@@ -482,14 +619,40 @@ def _set_path(root, dotted: str, raw) -> bool:
     last = parts[-1]
     if not isinstance(node, dict) or last not in node:
         return False
+    if _is_structural(node[last]):
+        return False   # leaf-only patch — โครงซ้อนแก้ผ่าน Raw YAML เท่านั้น
     node[last] = _coerce(node[last], raw)
     return True
+
+
+def _check_entries(entries) -> str | None:
+    """ตรวจโครง entries จาก editor ก่อนเขียน (defense — client validate แล้วชั้นหนึ่ง) · ผิด → ข้อความ, ถูก → None"""
+    if not isinstance(entries, list) or not entries:
+        return "ต้องเป็น list ของ tier ที่ไม่ว่าง"
+    for i, t in enumerate(entries):
+        if not isinstance(t, dict) or not isinstance(t.get("when"), dict):
+            return f"tier {i + 1} ต้องมี when (dict)"
+        legs = t.get("legs")
+        if not isinstance(legs, list) or not legs:
+            return f"tier {i + 1} ต้องมี legs ≥1 ไม้"
+        for j, lg in enumerate(legs):
+            if not isinstance(lg, dict) or lg.get("mode") not in ("market", "mother_pct"):
+                return f"tier {i + 1} ไม้ {j + 1}: mode ต้องเป็น market | mother_pct"
+            if lg["mode"] == "mother_pct":
+                v = lg.get("value")
+                if isinstance(v, bool) or not isinstance(v, (int, float)) or not (-100 <= v <= 100):
+                    return f"tier {i + 1} ไม้ {j + 1}: value ต้องเป็นตัวเลข −100..100"
+    return None
 
 
 def api_save_config(payload: dict) -> tuple[int, dict]:
     base = _safe_name(payload.get("base", ""))
     name = str(payload.get("name", "")).strip()
     values = payload.get("values") or {}
+    raw = payload.get("raw")     # Raw YAML mode → เขียนทั้งก้อน (แก้ entries ฯลฯ) · None = Form mode (patch base)
+    entries = payload.get("entries")   # Form mode + custom editor → เขียน nested ตรงๆ (ไม่ผ่าน coerce)
+    notes = payload.get("notes")       # free-text → เขียนเป็น string ดิบ top-level (ไม่ coerce/split · §9.2)
+    overwrite = bool(payload.get("overwrite", False))   # True = บันทึกทับไฟล์เดิม in-place · False = สร้างไฟล์ใหม่
     if base is None:
         return 400, {"error": "base config ไม่ถูกต้อง"}
     if not _NAME_RE.fullmatch(name):
@@ -498,8 +661,14 @@ def api_save_config(payload: dict) -> tuple[int, dict]:
     target = os.path.join(cdir, name)
     if os.path.dirname(os.path.abspath(target)) != os.path.abspath(cdir):
         return 400, {"error": "ชื่อไฟล์ไม่ถูกต้อง"}
-    if os.path.exists(target):
-        return 409, {"error": f"มีไฟล์ {name} อยู่แล้ว — เปลี่ยนชื่อใหม่ (เก็บทุกเวอร์ชัน ไม่ทับของเดิม)"}
+    if overwrite:
+        # บันทึกทับไฟล์เดิม — บล็อก core (global/field_labels) · ไฟล์ต้องมีอยู่จริง
+        if name in _CORE_CONFIGS:
+            return 403, {"error": f"{name} เป็นไฟล์ระบบ — บันทึกทับไม่ได้ (ใช้ บันทึกเป็น… ตั้งชื่อใหม่)"}
+        if not os.path.isfile(target):
+            return 404, {"error": f"ไม่พบไฟล์ {name} ที่จะบันทึกทับ — ใช้ บันทึกเป็น… แทน"}
+    elif os.path.exists(target):
+        return 409, {"error": f"มีไฟล์ {name} อยู่แล้ว — เปลี่ยนชื่อใหม่ หรือใช้ บันทึก (ทับไฟล์เดิม)"}
     # resolve base file
     bbase = base[:-5] if base.endswith((".yaml", ".yml")) else base
     bfile = None
@@ -514,22 +683,51 @@ def api_save_config(payload: dict) -> tuple[int, dict]:
         from ruamel.yaml import YAML
         yaml = YAML()
         yaml.preserve_quotes = True
-        with open(bfile, encoding="utf-8") as f:
-            data = yaml.load(f)
-        applied, skipped = 0, []
-        for dotted, val in values.items():
-            if _set_path(data, str(dotted), val):
+        if isinstance(raw, str):
+            # Raw YAML mode — validate ก่อนเขียนทั้งก้อน (รักษาข้อความ/คอมเมนต์ของผู้ใช้เป๊ะ)
+            try:
+                parsed = yaml.load(raw)
+            except Exception as e:  # noqa: BLE001
+                return 400, {"error": f"YAML ไม่ถูกต้อง — แก้ก่อนบันทึก: {e}"}
+            if not isinstance(parsed, dict):
+                return 400, {"error": "YAML ราก ต้องเป็น mapping (key: value)"}
+            with open(target, "w", encoding="utf-8") as f:
+                f.write(raw if raw.endswith("\n") else raw + "\n")
+            applied, skipped = len(parsed), []
+        else:
+            # Form mode — โหลดไฟล์ base จาก disk แล้ว patch เฉพาะ leaf ที่ฟอร์มแก้ (โครงซ้อนคงเดิม)
+            with open(bfile, encoding="utf-8") as f:
+                data = yaml.load(f)
+            _apply_schema_defaults(data)   # เติม key ที่ขาด (จาก schema) ก่อน → persist + ให้ form values patch ได้
+            applied, skipped = 0, []
+            for dotted, val in values.items():
+                if _set_path(data, str(dotted), val):
+                    applied += 1
+                else:
+                    skipped.append(dotted)
+            # custom editor (entries) → เขียนโครง nested ตรงๆ ทับ key เดิม (กัน bug coerce ตัด comma)
+            if entries is not None:
+                err = _check_entries(entries)
+                if err:
+                    return 400, {"error": f"entries ไม่ถูกต้อง: {err}"}
+                data["entries"] = entries
                 applied += 1
-            else:
-                skipped.append(dotted)
-        with open(target, "w", encoding="utf-8") as f:
-            yaml.dump(data, f)
+            # notes = free-text → เขียน string ดิบ top-level (multiline/comma ปลอดภัย · ไม่ผ่าน _coerce)
+            if isinstance(notes, str):
+                if notes.strip() == "":
+                    data.pop("notes", None)   # ว่าง → ไม่เก็บ key เปล่า
+                else:
+                    data["notes"] = notes
+                applied += 1
+            with open(target, "w", encoding="utf-8") as f:
+                yaml.dump(data, f)
     except ModuleNotFoundError:
         return 501, {"error": "ต้องติดตั้ง ruamel.yaml ก่อน: pip install ruamel.yaml"}
     except Exception as e:  # noqa: BLE001
         return 500, {"error": f"เขียน YAML ไม่ได้: {e}"}
     return 200, {"ok": True, "name": name, "id": name[:-5] if name.endswith((".yaml", ".yml")) else name,
-                 "file": os.path.relpath(target, _root()), "applied": applied, "skipped": skipped}
+                 "file": os.path.relpath(target, _root()), "applied": applied, "skipped": skipped,
+                 "overwrite": overwrite}
 
 
 # ---------- POST: run backtest (subprocess arg-list, shell=False) ----------
@@ -672,6 +870,9 @@ class _Handler(BaseHTTPRequestHandler):
             return self._send(200, b"<h1>btconsole</h1><p>console.html missing</p>",
                               "text/html; charset=utf-8")
 
+        if path == "/api/strategies":
+            return self._json(*api_strategies())
+
         if path == "/api/configs":
             return self._json(*api_configs())
 
@@ -772,7 +973,7 @@ def serve(host: str = "127.0.0.1", port: int = 8000) -> int:
     print(f"{'='*52}")
     print(f"  เปิดที่   : {url}")
     print(f"  root      : {_root()}")
-    print("  GET       : /api/configs · /api/configs/<id> · /api/data · /api/runs")
+    print("  GET       : /api/strategies · /api/configs · /api/configs/<id> · /api/data · /api/runs")
     print("              /api/runs/<name>/metrics · /api/metric-defs")
     print("  POST      : /api/configs (save as new) · /api/run (รัน backtest)")
     print("  DELETE    : /api/runs/<name> (ลบ folder ใต้ runs/ เท่านั้น)")

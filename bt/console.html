@@ -77,9 +77,23 @@
   .fkey small{display:block;color:var(--muted);font-size:10.5px;margin-top:3px;font-family:var(--sans);line-height:1.4}
   .fval{padding-top:1px}
   .fval input{padding:7px 9px}
+  .fval input.ro{opacity:.62;cursor:not-allowed;background:#0a0b0e;color:var(--muted)}
+  .cfgname-row{display:block}
+  .cfgname-row .fkey{margin-bottom:6px}
+  #cfgNameInput{width:100%;color:var(--gold);background:var(--ink);border:1px solid var(--line2);border-radius:8px;padding:7px 9px;font-family:var(--mono);font-size:12.5px;outline:none}
+  #cfgNameInput:focus{border-color:var(--gold)}
+  .notes-row{display:block}
+  .notes-row .fkey{margin-bottom:6px}
+  #notesBox{width:100%;min-height:54px;resize:vertical;background:var(--ink);border:1px solid var(--line2);color:var(--text);border-radius:8px;padding:7px 9px;font-family:var(--mono);font-size:12px;line-height:1.55;outline:none}
+  #notesBox:focus{border-color:var(--gold)}
+  .notes-sug{display:flex;gap:8px;align-items:flex-start;margin-top:6px;background:var(--panel2);border:1px dashed var(--line2);border-radius:8px;padding:6px 9px}
+  .notes-sug .sugtext{flex:1;white-space:pre-wrap;font-family:var(--mono);font-size:11px;color:var(--muted)}
+  .notes-sugbtn{flex-shrink:0;background:transparent;border:1px solid var(--gold-dim);color:var(--gold);border-radius:7px;padding:4px 9px;font-size:11.5px;cursor:pointer}
+  .notes-sugbtn:hover{border-color:var(--gold)}
   .ifield{display:flex;align-items:center;gap:7px}
   .ifield input{flex:1;min-width:0}
   .usuffix{font-family:var(--mono);font-size:10px;color:var(--dim);white-space:nowrap}
+  .nestedhint{font-family:var(--mono);font-size:11px;color:var(--dim);font-style:italic}
   .group>summary .gname .glabel{font-family:var(--sans);color:var(--text)}
   .group>summary .gname .kraw{font-family:var(--mono);font-size:10px;color:var(--dim);margin-left:7px}
   .toggle{display:flex;background:#0a0b0e;border:1px solid var(--line2);border-radius:8px;padding:2px}
@@ -94,6 +108,12 @@
   .saveas .f{flex:1}
   .btn-ghost{border:1px solid var(--gold-dim);background:transparent;color:var(--gold);cursor:pointer;font-family:var(--mono);font-size:12px;padding:9px 14px;border-radius:9px;white-space:nowrap}
   .btn-ghost:disabled,.run:disabled{opacity:.55;cursor:not-allowed}
+  .btn-ghost.gold{background:linear-gradient(150deg,#2a2410,#1a1c24);border-color:#6f5a2e;color:var(--gold)}
+  .btn-ghost.gold:hover{border-color:var(--gold)}
+  /* unsaved-edits warning (amber) + dot บนปุ่ม Save */
+  .dirtywarn{color:#f0ad22;font-family:var(--mono);font-size:12.5px;margin:10px 0 -2px;font-weight:600;letter-spacing:.2px}
+  #saveInplaceBtn.dirty{border-color:#f0ad22;color:#f7c54f;box-shadow:0 0 0 2px rgba(240,173,34,.18)}
+  #saveInplaceBtn.dirty::after{content:"●";margin-left:6px;color:#f0ad22;font-size:10px;vertical-align:middle}
   /* config management */
   .cfgmgr{border:1px solid var(--line);border-radius:11px;margin-top:14px;overflow:hidden;background:var(--panel2)}
   .cfgmgr>summary{cursor:pointer;list-style:none;padding:10px 13px;display:flex;align-items:center;justify-content:space-between;font-family:var(--mono);font-size:12px}
@@ -107,6 +127,7 @@
   .mgrrow .mn{flex:1;min-width:0;font-family:var(--mono);font-size:11.5px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .mgrrow .mn small{color:var(--dim);font-size:9.5px;margin-left:6px}
   .mgrrow .core{color:var(--dim);font-family:var(--mono);font-size:10px;flex-shrink:0}
+  .mgrrow .notag{color:var(--gold-dim);font-size:10px}
   .mgrbtn{flex-shrink:0;border:1px solid var(--line2);background:transparent;color:var(--dim);cursor:pointer;font-size:12px;line-height:1;width:24px;height:24px;display:grid;place-items:center;border-radius:6px;padding:0}
   .mgrbtn:hover{border-color:var(--gold);color:var(--gold)} .mgrbtn.del:hover{border-color:var(--down);color:var(--down)}
   .trashhd{margin-top:12px;padding:7px 2px;font-family:var(--mono);font-size:11px;color:var(--muted);cursor:pointer;border-top:1px dashed var(--line2)}
@@ -116,6 +137,37 @@
   .seg{display:flex;background:#0a0b0e;border:1px solid var(--line2);border-radius:9px;padding:3px;gap:3px}
   .seg button{flex:1;border:0;background:transparent;color:var(--dim);cursor:pointer;font-family:var(--mono);font-size:11.5px;padding:7px;border-radius:6px}
   .seg button.on{background:var(--raise);color:var(--gold);box-shadow:inset 0 0 0 1px var(--line2)}
+  /* ── entries card editor (mai_ruay_v2) — namespaced ee- ── */
+  .entries-row{display:block !important}
+  #entriesHost{width:100%}
+  .ee-tcard{background:var(--panel2);border:1px solid var(--line);border-radius:11px;margin-bottom:13px;overflow:hidden}
+  .ee-tcard-h{display:flex;align-items:center;gap:9px;padding:10px 13px;background:#191c24;border-bottom:1px solid var(--line)}
+  .ee-tno{font-family:var(--mono);font-size:10.5px;color:var(--gold);border:1px solid var(--gold-dim);border-radius:6px;padding:2px 8px;font-weight:700}
+  .ee-tsum{color:var(--muted);font-size:12px;font-family:var(--mono)} .ee-tsum b{color:var(--up)}
+  .ee-sp{margin-left:auto;display:flex;gap:5px}
+  .ee-tcard-b{padding:14px 13px}
+  .ee-cond{display:flex;gap:14px;flex-wrap:wrap;padding-bottom:12px;margin-bottom:12px;border-bottom:1px dashed var(--line)}
+  .ee-fl{display:block;color:var(--muted);font-size:10.5px;font-family:var(--mono);margin-bottom:5px}
+  .ee-num{background:var(--ink);border:1px solid var(--line2);color:var(--text);border-radius:8px;padding:7px 9px;width:72px;text-align:center;font-family:var(--mono);font-size:13px;outline:none}
+  .ee-num:focus{border-color:var(--gold);box-shadow:0 0 0 2px var(--gold-glow)}
+  .ee-seclabel{color:var(--muted);font-size:10.5px;font-family:var(--mono);margin-bottom:10px;letter-spacing:.3px}
+  .ee-legrow{display:flex;align-items:center;gap:10px;margin-bottom:9px;flex-wrap:wrap}
+  .ee-lno{font-family:var(--mono);font-size:10.5px;color:var(--dim);width:38px}
+  .ee-seg{display:inline-flex;border:1px solid var(--line2);border-radius:8px;overflow:hidden}
+  .ee-seg button{background:transparent;border:none;color:var(--muted);padding:6px 12px;font-size:12px;cursor:pointer;font-family:var(--sans);transition:.12s}
+  .ee-seg button.on{background:var(--gold);color:var(--ink);font-weight:600}
+  .ee-seg button:not(.on):hover{background:var(--raise);color:var(--text)}
+  .ee-pctwrap{display:inline-flex;align-items:center;gap:6px} .ee-pctwrap .ee-num{width:62px}
+  .ee-unit{color:var(--muted);font-size:12px;font-family:var(--mono)}
+  .ee-pmean{font-size:11.5px;color:var(--up);font-family:var(--mono);opacity:.85}
+  .ee-pmean.adv{color:#42c98a;opacity:1} .ee-pmean.tech{color:var(--gold-dim)}
+  .ee-btn{background:transparent;border:1px dashed var(--line2);color:var(--muted);border-radius:8px;padding:6px 11px;font-family:var(--sans);font-size:12.5px;cursor:pointer;transition:.15s}
+  .ee-btn:hover{border-color:var(--gold-dim);color:var(--gold)}
+  .ee-btn.solid{border-style:solid;border-color:var(--gold-dim);color:var(--gold)}
+  .ee-ico{background:transparent;border:1px solid var(--line2);color:var(--muted);border-radius:7px;width:29px;height:29px;cursor:pointer;font-size:13px;display:grid;place-items:center;transition:.15s}
+  .ee-ico:hover{border-color:var(--down);color:var(--down)} .ee-ico.ee-mv:hover{border-color:var(--up);color:var(--up)}
+  .ee-legrow .ee-ico{margin-left:auto}
+  .ee-hint{color:var(--dim);font-size:11.5px;margin-top:10px;display:flex;gap:7px;align-items:center} .ee-hint::before{content:"▸";color:var(--gold-dim)}
 
   .run{margin-top:16px;width:100%;border:0;cursor:pointer;background:linear-gradient(180deg,#f0c065,#dca23c);color:#23190a;font-weight:700;font-size:14px;padding:13px;border-radius:11px;box-shadow:0 6px 18px -8px rgba(232,177,76,.5)}
   .run:active{transform:translateY(1px)}
@@ -128,7 +180,8 @@
   .runItem:last-child{border-bottom:0}
   .runTop{display:flex;align-items:center;gap:8px}
   .runNameWrap{flex:1 1 auto;min-width:0;display:flex;align-items:center;gap:7px;overflow:hidden}
-  .runName{font-family:var(--mono);font-size:12.5px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .runName{font-family:var(--mono);font-size:12.5px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer}
+  .runName:hover{color:var(--gold);text-decoration:underline}
   .runWhen{flex-shrink:0;font-family:var(--mono);font-size:10.5px;color:var(--dim);white-space:nowrap}
   .runSub{font-family:var(--mono);font-size:10.5px;color:var(--muted)}
   .stats{display:flex;gap:14px;align-items:center;flex-wrap:wrap}
@@ -189,6 +242,15 @@
     opacity:0;pointer-events:none;transition:opacity .15s}
   .cmpbar.show{opacity:1;pointer-events:auto}
   .cmpbar .cnt{color:var(--muted)} .cmpbar .cnt b{color:var(--gold)} .cmpbar .cmphint{color:var(--dim);font-size:10.5px}
+  /* TF filter chips (run history) */
+  .histfilter{padding:8px 16px;border-bottom:1px solid var(--line);background:var(--panel2);display:flex;flex-direction:column;gap:7px}
+  .filtrow{display:flex;align-items:baseline;gap:9px;flex-wrap:wrap}
+  .filtlab{font-family:var(--mono);font-size:10.5px;color:var(--dim);min-width:62px;flex-shrink:0}
+  .chips{display:flex;flex-wrap:wrap;gap:6px}
+  .tfchip{border:1px solid var(--line2);background:#0e0e12;color:var(--muted);cursor:pointer;
+    font-family:var(--mono);font-size:11px;padding:5px 11px;border-radius:20px}
+  .tfchip:hover{border-color:var(--gold);color:var(--gold)}
+  .tfchip.on{background:var(--raise);border-color:#6f5a2e;color:var(--gold)}
 </style>
 </head>
 <body>
@@ -223,10 +285,12 @@
         <div id="formView"><div class="emptyhint">กำลังโหลด config…</div></div>
         <div id="rawView" style="display:none"><textarea id="rawTxt" class="raw" spellcheck="false"></textarea></div>
 
+        <div id="dirtyWarn" class="dirtywarn" style="display:none">● ค่าที่แก้ไขยังไม่ได้บันทึก</div>
         <div class="saveas">
-          <div class="f"><label class="lab">บันทึกเป็นเวอร์ชันใหม่ <span class="hint">configs/</span></label>
+          <button id="saveInplaceBtn" class="btn-ghost gold" title="บันทึกตามชื่อ config (เตือนก่อนสร้าง/ทับไฟล์อื่น)">💾 บันทึก</button>
+          <div class="f"><label class="lab">บันทึกเป็นไฟล์ใหม่ <span class="hint">configs/</span></label>
             <input id="saveName" type="text" placeholder="เช่น mairuay_v205.yaml"></div>
-          <button id="saveBtn" class="btn-ghost">💾 Save as new</button>
+          <button id="saveBtn" class="btn-ghost">บันทึกเป็น…</button>
         </div>
 
         <!-- ░ จัดการไฟล์ config (rename / trash / restore) ░ -->
@@ -266,6 +330,10 @@
         <div class="hdacts"><span class="meta" id="runMeta">—</span>
           <button class="btn-cmp" id="selToggle">เลือกเพื่อเทียบ</button>
           <button class="btn-cmp gold" id="openCompare">เทียบกลยุทธ์ →</button></div></div>
+      <div id="histFilter" class="histfilter" style="display:none">
+        <div id="stratRow" class="filtrow" style="display:none"><span class="filtlab">กลยุทธ:</span><div id="stratFilter" class="chips"></div></div>
+        <div id="tfRow" class="filtrow" style="display:none"><span class="filtlab">Timeframe:</span><div id="tfFilter" class="chips"></div></div>
+      </div>
       <div id="runList" class="selmode-off"><div class="emptyhint" style="padding:16px">กำลังโหลด…</div></div>
     </section>
   </div>
@@ -275,7 +343,7 @@
 
 <div class="cmpbar" id="cmpbar">
   <span class="cnt">เลือกแล้ว <b id="cmpcnt">0</b> run</span>
-  <span class="cmphint">(เลือก 2 อันขึ้นไป · สูงสุด 10)</span>
+  <span class="cmphint">(เลือก 1 อันขึ้นไป · สูงสุด 10)</span>
   <button class="btn-cmp" id="cmpClear">ล้าง</button>
   <button class="btn-cmp gold" id="cmpGo">เทียบ →</button>
 </div>
@@ -286,7 +354,31 @@ function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').repl
 function escAttr(s){return esc(s).replace(/"/g,'&quot;');}
 async function getJSON(u){const r=await fetch(u);if(!r.ok)throw new Error(u+' → '+r.status);return r.json();}
 
-let CONFIGS=[], curCfgId=null, curRaw='', outEdited=false, dirty=false, busy=false;
+let CONFIGS=[], CFG_ALL=[], curCfgId=null, curRaw='', outEdited=false, dirty=false, busy=false;
+let lastAutoSaveName='';   // ชื่อ save-as ที่ระบบ auto-fill ล่าสุด (เทียบกันว่าผู้ใช้แก้เองหรือยัง)
+let NOTES_VAL='', notesBaseline=null, LABELS={};   // notes ที่โหลด · จุดอ้างอิง diff รอบปัจจุบัน · map fp→label
+let ENTRIES_MODEL=null;   // โครง entries (tier/legs) สำหรับ card editor ของ mai_ruay_v2 · null = config ไม่มี entries
+let BASELINE=null;        // {values, entries} = ค่าจากไฟล์ตอนโหลด (ฐานเทียบ dirty + overlay ค่าค้าง)
+let UIST={};              // UI state ที่จำไว้ (อ่านจาก localStorage ตอน init) — restore ครั้งแรก
+let RESTORING=false;      // true ระหว่าง init/restore → กัน saveUI เขียนทับ state ก่อน restore เสร็จ
+
+// ---------- persistence (localStorage · กันพังด้วย try/catch) ----------
+const LS={
+  get(k,d){ try{const v=localStorage.getItem(k); return v==null?d:JSON.parse(v);}catch(e){return d;} },
+  set(k,v){ try{localStorage.setItem(k,JSON.stringify(v));}catch(e){} },
+  del(k){ try{localStorage.removeItem(k);}catch(e){} },
+};
+const UI_KEY='btc.ui.v1';
+const editsKey=(strat,cfg)=>'btc.edits.'+(strat||'?')+'.'+(cfg||'?');   // แยกค่าค้างต่อ strategy+config
+function curTab(){ return document.querySelector('.tabs button.on[data-t="raw"]')?'raw':'form'; }
+function saveUI(){
+  if(RESTORING) return;   // ระหว่าง restore ยังเก็บ state ไม่ครบ → อย่าเพิ่งเขียนทับ
+  LS.set(UI_KEY, {
+    strategy:$('#strat').value, config:curCfgId, tab:curTab(),
+    mode:modeVal(), lot:lotVal(), data:$('#data').value, out:$('#out').value, outEdited:outEdited,
+    q:$('#q').value, tf:[...tfSel], sfilter:[...stratSel],
+  });
+}
 
 // ---------- server status ----------
 (async()=>{try{await getJSON('/api/configs');$('#dot').classList.add('ok');$('#srv').textContent='server: '+location.host;}
@@ -295,6 +387,28 @@ let CONFIGS=[], curCfgId=null, curRaw='', outEdited=false, dirty=false, busy=fal
 // ===== YAML EDITOR — generate form จากโครงสร้างที่ server ส่งมา (ไม่ hardcode field) =====
 function fieldInput(node, dpath){
   const t=node.type;
+  // strategy = ล็อก (read-only) · ค่ายังถูก save · retag ข้าม strategy ผ่าน Raw YAML เท่านั้น
+  if(dpath==='strategy'){
+    return '<input type="text" value="'+escAttr(node.value==null?'':node.value)+'" data-path="strategy" data-type="'+(t||'str')+'" readonly class="ro" title="ล็อกไว้ — แก้ผ่าน Raw YAML">';
+  }
+  // enum (มี options ใน field_labels) → toggle 2 สถานะ · >2 = select · ค่าเซฟยังเป็น string ดิบ
+  if(Array.isArray(node.options)&&node.options.length){
+    const cur=node.value==null?'':String(node.value);
+    const inList=node.options.some(o=>String(o.value)===cur);
+    if(node.options.length<=2){
+      let btns='';
+      node.options.forEach(o=>{const val=String(o.value);
+        btns+='<button class="'+(val===cur?'on':'')+'" data-v="'+escAttr(val)+'">'+esc(o.label||val)+'</button>';});
+      if(!inList&&cur!=='')   // กันพัง: ค่าปัจจุบันไม่อยู่ใน options → ยังโชว์ ไม่ทิ้ง
+        btns+='<button class="on" data-v="'+escAttr(cur)+'">'+esc(cur)+' (?)</button>';
+      return '<div class="toggle" data-path="'+escAttr(dpath)+'" data-type="enum">'+btns+'</div>';
+    }
+    let opts='';
+    if(!inList&&cur!=='') opts+='<option value="'+escAttr(cur)+'" selected>'+esc(cur)+' (?)</option>';
+    node.options.forEach(o=>{const val=String(o.value);
+      opts+='<option value="'+escAttr(val)+'"'+(val===cur?' selected':'')+'>'+esc(o.label||val)+'</option>';});
+    return '<select data-path="'+escAttr(dpath)+'" data-type="enum">'+opts+'</select>';
+  }
   if(t==='bool'){
     const tv=node.value===true;
     return '<div class="toggle" data-path="'+escAttr(dpath)+'" data-type="bool">'+
@@ -303,6 +417,9 @@ function fieldInput(node, dpath){
   }
   if(t==='int'||t==='float'){
     return '<input type="number" step="any" value="'+escAttr(node.value)+'" data-path="'+escAttr(dpath)+'" data-type="'+t+'">';
+  }
+  if(t==='list'&&node.nested){   // โครงซ้อน (entries) → read-only · ไม่มี data-path = ไม่ถูกเก็บตอน save
+    return '<span class="nestedhint">'+esc(node.summary||'ซ้อนหลายชั้น')+' — แก้ผ่าน Raw YAML</span>';
   }
   if(t==='list'){
     return '<input type="text" value="'+escAttr((node.value||[]).join(', '))+'" data-path="'+escAttr(dpath)+'" data-type="list">';
@@ -321,7 +438,9 @@ function keyCell(n, dp){
 }
 // ช่อง input + หน่วย (suffix) · bool=toggle ไม่มีหน่วย
 function valueCell(n, fp){
-  if(n.type==='bool') return '<div class="fval">'+fieldInput(n,fp)+'</div>';
+  // bool + enum toggle (≤2 options) = ช่องเลือกล้วน ไม่มีหน่วยต่อท้าย
+  if(n.type==='bool'||(Array.isArray(n.options)&&n.options.length&&n.options.length<=2))
+    return '<div class="fval">'+fieldInput(n,fp)+'</div>';
   const unit=n.unit?'<span class="usuffix">'+esc(n.unit)+'</span>':'';
   return '<div class="fval"><div class="ifield">'+fieldInput(n,fp)+unit+'</div></div>';
 }
@@ -331,7 +450,14 @@ function renderRows(items, disp, data){
   for(const k in items){
     const n=items[k];
     const dp=disp?disp+'.'+k:k, fp=data?data+'.'+k:k;
+    if(fp==='notes') continue;   // notes = textarea ที่ inject แยก (ใต้ชื่อ config) ไม่ render เป็น field ปกติ
     if(n.type==='map'){ h+=renderRows(n.items||{}, dp, fp); continue; }
+    // entries (mai_ruay_v2) = custom card editor แทน read-only nested · เก็บโครงไว้ใน ENTRIES_MODEL
+    if(dp==='entries'&&n.nested&&Array.isArray(n.data)){
+      ENTRIES_MODEL=JSON.parse(JSON.stringify(n.data));
+      h+='<div class="frow entries-row" data-key="entries จุดเข้า tier ไม้"><div class="ee-seclabel" style="margin-bottom:9px">จุดเข้า (entries) — แก้เป็นการ์ดต่อ tier · % ของแท่งแม่</div><div id="entriesHost"></div></div>';
+      continue;
+    }
     const sk=((n.label||'')+' '+dp+' '+(n.help||n.comment||'')).toLowerCase();   // ค้นได้ทั้งไทย+raw key
     h+='<div class="frow" data-key="'+escAttr(sk)+'">'+keyCell(n,dp)+valueCell(n,fp)+'</div>';
   }
@@ -339,6 +465,55 @@ function renderRows(items, disp, data){
 }
 function countLeaves(items){let c=0;for(const k in items){const n=items[k];c+=(n.type==='map')?countLeaves(n.items||{}):1;}return c;}
 function renderForm(tree){
+  ENTRIES_MODEL=null;   // reset · render path จะตั้งใหม่ถ้าเจอ entries (mai_ruay_v2)
+  // mai_ruay_v2 + มี group metadata → จัดกลุ่ม/เรียงตาม field_labels · อื่นๆ (V1) → ตามโครง YAML เดิม
+  const leaves=flattenLeaves(tree);
+  NOTES_VAL=(tree.notes&&tree.notes.value!=null)?String(tree.notes.value):'';   // prefill notes textarea
+  LABELS={};leaves.forEach(l=>{LABELS[l.fp]=l.node.label||l.fp;});               // fp→label (ใช้ใน diff)
+  const useMeta = tree.strategy && String(tree.strategy.value)==='mai_ruay_v2' && leaves.some(l=>l.node.group);
+  if(useMeta) renderFormGrouped(leaves, tree); else renderFormByYaml(tree);
+  finishForm();
+}
+// flatten ทุก leaf (ข้าม map) → {fp เต็ม, node, idx ลำดับใน YAML} · ใช้จัดกลุ่ม/เรียง
+function flattenLeaves(tree){
+  const out=[]; let i=0;
+  (function walk(items, prefix){
+    for(const k in items){
+      const node=items[k], fp=prefix?prefix+'.'+k:k;
+      if(node.type==='map') walk(node.items||{}, fp);
+      else out.push({fp, node, idx:i++});
+    }
+  })(tree, '');
+  return out;
+}
+function sectionLabelFor(fp, tree){   // fallback group = label ของ section บนสุด (top scalar → "ทั่วไป")
+  if(fp.indexOf('.')<0) return 'ทั่วไป';
+  const sec=tree[fp.split('.')[0]];
+  return (sec&&sec.label)||fp.split('.')[0];
+}
+// ── render ตาม metadata (group + order) ──
+function renderFormGrouped(leaves, tree){
+  leaves.forEach(l=>{
+    l.g = l.node.group || sectionLabelFor(l.fp, tree);
+    l.o = (l.node.order!=null && l.node.order!=='') ? Number(l.node.order) : (10000+l.idx);  // explicit ชนะ · ที่เหลือคงลำดับ YAML ต่อท้าย
+  });
+  const map=new Map();
+  leaves.forEach(l=>{ if(!map.has(l.g)) map.set(l.g, []); map.get(l.g).push(l); });
+  const groups=[...map.entries()].map(([name,arr])=>{
+    arr.sort((a,b)=>(a.o-b.o)||(a.idx-b.idx));
+    return {name, arr, min:Math.min.apply(null, arr.map(x=>x.o))};
+  });
+  groups.sort((a,b)=>(a.min-b.min)||0);   // ลำดับกลุ่ม = order ต่ำสุดในกลุ่ม
+  let h='';
+  groups.forEach((grp,gi)=>{
+    h+='<details class="group"'+(gi===0?' open':'')+'><summary><span class="gname">'+esc(grp.name)+'</span>'+
+       '<span class="cnt">'+grp.arr.length+' ค่า</span></summary>'+
+       '<div class="ginner">'+grp.arr.map(l=>leafRowHTML(l.node, l.fp)).join('')+'</div></details>';
+  });
+  $('#formView').innerHTML=h||'<div class="emptyhint">ไฟล์นี้ไม่มีค่า</div>';
+}
+// ── render ตามโครง YAML (เดิม — V1/ไม่มี metadata) ──
+function renderFormByYaml(tree){
   const scalars={}, sections=[];
   for(const k in tree){ (tree[k].type==='map')?sections.push(k):scalars[k]=tree[k]; }
   let h='';
@@ -355,15 +530,179 @@ function renderForm(tree){
        '<div class="ginner">'+renderRows(sec.items||{}, '', k)+'</div></details>';
   });
   $('#formView').innerHTML=h||'<div class="emptyhint">ไฟล์นี้ไม่มีค่า</div>';
+}
+// render 1 leaf เป็นแถว (รวม entries card editor) — data-path = fp เต็ม (เซฟกลับ key เดิมถูกที่)
+function leafRowHTML(n, fp){
+  if(fp==='notes') return '';   // notes = textarea ที่ inject แยก (ไม่ render เป็น field ปกติ)
+  if(fp==='entries'&&n.nested&&Array.isArray(n.data)){
+    ENTRIES_MODEL=JSON.parse(JSON.stringify(n.data));
+    return '<div class="frow entries-row" data-key="entries จุดเข้า tier ไม้"><div class="ee-seclabel" style="margin-bottom:9px">จุดเข้า (entries) — แก้เป็นการ์ดต่อ tier · % ของแท่งแม่</div><div id="entriesHost"></div></div>';
+  }
+  const sk=((n.label||'')+' '+fp+' '+(n.help||n.comment||'')).toLowerCase();
+  return '<div class="frow" data-key="'+escAttr(sk)+'">'+keyCell(n,fp)+valueCell(n,fp)+'</div>';
+}
+function finishForm(){   // post-render ร่วม (ทั้ง 2 path)
   bindToggles();
-  $$('#formView input').forEach(i=>i.addEventListener('input',()=>{dirty=true;}));  // แก้ค่า → dirty
+  $$('#formView input').forEach(i=>i.addEventListener('input',onFormChange));
+  $$('#formView select').forEach(s=>s.addEventListener('change',onFormChange));
+  if($('#entriesHost')&&ENTRIES_MODEL){ buildEntriesEditor(); bindEntriesEvents(); }   // card editor (mai_ruay_v2)
+  injectConfigNameRow();   // แถว "ชื่อ config" บนสุดกลุ่มทั่วไป (หลัง bind onFormChange → ไม่นับเป็นค่า config)
   applySearch();
+}
+// identity rows (บนสุดกลุ่ม "ทั่วไป"): "ชื่อ config" + "บันทึกการเปลี่ยนแปลง" (notes) · ไม่ใช่ key ปกติ
+function injectConfigNameRow(){
+  if(document.getElementById('cfgNameInput')) return;
+  var groups=$$('#formView .group'), target=null;
+  for(var i=0;i<groups.length;i++){ var gn=groups[i].querySelector('.gname');
+    if(gn && (gn.textContent||'').trim().indexOf('ทั่วไป')===0){ target=groups[i].querySelector('.ginner'); break; } }
+  if(!target) return;
+  // notes textarea
+  var nrow=document.createElement('div'); nrow.className='frow notes-row';
+  nrow.setAttribute('data-key','บันทึกการเปลี่ยนแปลง notes diff สรุป');
+  nrow.innerHTML='<div class="fkey"><span class="klab">บันทึกการเปลี่ยนแปลง</span> <code class="kraw">notes</code>'+
+    '<small>auto-diff หรือพิมพ์เอง · เก็บใน YAML key notes</small></div>'+
+    '<textarea id="notesBox" data-path="notes" data-type="str" rows="3" placeholder="สรุปการเปลี่ยนแปลง (auto-diff หรือพิมพ์เอง)…"></textarea>'+
+    '<div id="notesSug" class="notes-sug" style="display:none"><span class="sugtext"></span>'+
+    '<button type="button" id="notesSugBtn" class="notes-sugbtn">＋ ใส่สรุป</button></div>';
+  // ชื่อ config (ช่องกว้างเต็มคอลัมน์)
+  var crow=document.createElement('div'); crow.className='frow cfgname-row';
+  crow.setAttribute('data-key','ชื่อ config configname ชื่อไฟล์ save');
+  crow.innerHTML='<div class="fkey"><span class="klab">ชื่อ config</span><code class="kraw">ชื่อไฟล์</code>'+
+    '<small>ชื่อไฟล์ที่จะบันทึก (sync กับ “บันทึกเป็นไฟล์ใหม่”)</small></div>'+
+    '<input id="cfgNameInput" type="text" placeholder="ชื่อ config">';
+  // แทรก "หลัง" strategy (engine บนสุด) → ชื่อ config → notes · ไม่เจอ strategy → บนสุด (fallback)
+  var sEl=target.querySelector('[data-path="strategy"]'), sRow=sEl?sEl.closest('.frow'):null;
+  target.insertBefore(crow, sRow?sRow.nextSibling:target.firstChild);
+  target.insertBefore(nrow, crow.nextSibling);
+  var inp=document.getElementById('cfgNameInput');
+  inp.value=($('#saveName').value||'').replace(/\.(ya?ml)$/,'');
+  inp.addEventListener('input',function(){ var v=inp.value.trim();
+    $('#saveName').value = v? (v+'.yaml') : '';   // ชื่อ config → save-as
+    lastAutoSaveName='';                          // ผู้ใช้ตั้งชื่อเอง → autofill ไม่ทับ
+    suggestOut(); build();                        // out ตามชื่อ config (ถ้ายังไม่พิมพ์ out เอง)
+  });
+  // notes box: prefill จาก YAML key notes (ประวัติรอบก่อน) · ไม่เคยถูก auto-diff ทับ
+  var box=document.getElementById('notesBox'); box.value=NOTES_VAL;
+  box.addEventListener('input',onFormChange);
+  // "ใส่สรุป" = append บล็อกรอบใหม่ลงกล่อง (เหมือน auto-commit ตอน save)
+  document.getElementById('notesSugBtn').addEventListener('click',function(){
+    if(commitNotesRound()) onFormChange();
+  });
+}
+// append diff รอบปัจจุบัน (เทียบ notesBaseline) ลงกล่อง notes เป็นบล็อกใหม่ (เส้นคั่น+วันเวลา)
+// คืน true ถ้า append จริง · กันบล็อกเปล่า (ไม่มี diff → ไม่ทำ) · กันซ้ำ (รีเซ็ต notesBaseline หลัง append)
+function commitNotesRound(){
+  var box=document.getElementById('notesBox'); if(!box) return false;
+  var d=computeDiffSummary(); if(!d) return false;
+  box.value=box.value+(box.value.trim()?'\n\n':'')+notesBlock(d);
+  notesBaseline={values:collectValues(), entries:entriesSig()};   // รอบนี้บันทึกแล้ว → diff ถัดไปนับเฉพาะที่เปลี่ยนต่อ
+  var sug=document.getElementById('notesSug'); if(sug) sug.style.display='none';
+  return true;
+}
+
+// ===== entries card editor (mai_ruay_v2) — แก้ tier/legs เป็นการ์ด · % ของแท่งแม่ =====
+function entriesMeaning(v){   // คืน [class, ข้อความ] อธิบายความหมาย % leg
+  const n=Number(v);
+  if(v===''||v==='-'||!isFinite(n)) return ['','= ?'];
+  if(n===0)  return ['tech','= จุดเทคนิค'];
+  if(n>0)    return ['', n===50?'= ครึ่งแท่งแม่':('= เข้าแม่ '+n+'%')];
+  return ['adv','= ได้เปรียบ เลย tech ออกไป '+Math.abs(n)+'%'];
+}
+function eeLegRow(leg,ti,li){
+  const mkt=leg.mode==='market';
+  let pct='';
+  if(!mkt){ const [mc,mt]=entriesMeaning(leg.value);
+    pct='<span class="ee-pctwrap"><input class="ee-num" data-ti="'+ti+'" data-li="'+li+'" data-field="value" value="'+escAttr(leg.value)+'"><span class="ee-unit">%</span></span>'+
+        '<span class="ee-pmean '+mc+'" data-meanfor="'+ti+'-'+li+'">'+esc(mt)+'</span>'; }
+  return '<div class="ee-legrow"><span class="ee-lno">ไม้ '+(li+1)+'</span>'+
+    '<div class="ee-seg"><button class="'+(mkt?'on':'')+'" data-act="mode" data-mode="market" data-ti="'+ti+'" data-li="'+li+'">Market</button>'+
+    '<button class="'+(!mkt?'on':'')+'" data-act="mode" data-mode="mother_pct" data-ti="'+ti+'" data-li="'+li+'">% ของแม่</button></div>'+
+    pct+'<button class="ee-ico" data-act="delleg" data-ti="'+ti+'" data-li="'+li+'" title="ลบไม้">✕</button></div>';
+}
+function eeCond(label,ti,field,val){
+  return '<div><label class="ee-fl">'+label+'</label><input class="ee-num" data-ti="'+ti+'" data-field="'+field+'" value="'+escAttr(val==null?'':val)+'"></div>';
+}
+function eeTierCard(tier,ti){
+  const w=tier.when||{}, legs=tier.legs||[];
+  return '<div class="ee-tcard"><div class="ee-tcard-h">'+
+    '<span class="ee-tno">Tier '+(ti+1)+'</span>'+
+    '<span class="ee-tsum">พ่อ <b>≥'+esc(w.father_min_pct)+'%</b> · แม่ <b>'+esc(w.mother_min_pct)+'–'+esc(w.mother_max_pct)+'%</b> · <b>'+legs.length+' ไม้</b></span>'+
+    '<span class="ee-sp">'+
+      '<button class="ee-ico ee-mv" data-act="up" data-ti="'+ti+'" title="เลื่อนขึ้น">↑</button>'+
+      '<button class="ee-ico ee-mv" data-act="down" data-ti="'+ti+'" title="เลื่อนลง">↓</button>'+
+      '<button class="ee-ico" data-act="deltier" data-ti="'+ti+'" title="ลบ tier">✕</button></span></div>'+
+    '<div class="ee-tcard-b"><div class="ee-cond">'+
+      eeCond('พ่อ ≥ (%R55)',ti,'father_min_pct',w.father_min_pct)+
+      eeCond('แม่ ตั้งแต่ (%)',ti,'mother_min_pct',w.mother_min_pct)+
+      eeCond('แม่ ถึง (%)',ti,'mother_max_pct',w.mother_max_pct)+
+    '</div><div class="ee-seclabel">ไม้ที่เข้า (เรียงตามลำดับเปิด)</div>'+
+    legs.map((l,li)=>eeLegRow(l,ti,li)).join('')+
+    '<button class="ee-btn" data-act="addleg" data-ti="'+ti+'" style="margin-top:4px">＋ เพิ่มไม้</button>'+
+    '</div></div>';
+}
+function buildEntriesEditor(){
+  const host=$('#entriesHost'); if(!host||!ENTRIES_MODEL)return;
+  host.innerHTML=ENTRIES_MODEL.map((t,i)=>eeTierCard(t,i)).join('')+
+    '<button class="ee-btn solid" data-act="addtier">＋ เพิ่ม tier</button>'+
+    '<div class="ee-hint">เรียงบนลงล่าง = ลำดับตรวจ · tier แรกที่ตรงเงื่อนไขถูกใช้</div>';
+}
+function bindEntriesEvents(){
+  const host=$('#entriesHost'); if(!host)return;
+  host.addEventListener('click',e=>{
+    const b=e.target.closest('button[data-act]'); if(!b)return;
+    const act=b.dataset.act, ti=+b.dataset.ti, li=+b.dataset.li, M=ENTRIES_MODEL;
+    if(act==='addtier') M.push({when:{father_min_pct:50,mother_min_pct:0,mother_max_pct:25},legs:[{mode:'mother_pct',value:0}]});
+    else if(act==='deltier') M.splice(ti,1);
+    else if(act==='up'){ if(ti>0)[M[ti-1],M[ti]]=[M[ti],M[ti-1]]; }
+    else if(act==='down'){ if(ti<M.length-1)[M[ti+1],M[ti]]=[M[ti],M[ti+1]]; }
+    else if(act==='addleg') M[ti].legs.push({mode:'mother_pct',value:0});
+    else if(act==='delleg') M[ti].legs.splice(li,1);
+    else if(act==='mode') M[ti].legs[li]=(b.dataset.mode==='market')?{mode:'market'}:{mode:'mother_pct',value:0};
+    else return;
+    buildEntriesEditor(); onFormChange();
+  });
+  host.addEventListener('input',e=>{
+    const inp=e.target.closest('input.ee-num'); if(!inp)return;
+    const ti=+inp.dataset.ti, field=inp.dataset.field, raw=inp.value.trim();
+    if(field==='value'){ const li=+inp.dataset.li; ENTRIES_MODEL[ti].legs[li].value=raw;
+      const span=host.querySelector('[data-meanfor="'+ti+'-'+li+'"]');
+      if(span){ const [mc,mt]=entriesMeaning(raw); span.textContent=mt; span.className='ee-pmean '+mc; }
+    } else ENTRIES_MODEL[ti].when[field]=raw;
+    onFormChange();
+  });
+  host.addEventListener('change',e=>{ if(e.target.closest('input.ee-num')){ buildEntriesEditor(); onFormChange(); } });  // blur → refresh
+}
+function eeNum(v){ const n=Number(v); return isFinite(n)?n:null; }   // '' '-' NaN → null
+function collectEntries(){   // โครงสะอาด → ส่งให้ server เขียน nested (market ไม่มี value)
+  if(!ENTRIES_MODEL)return null;
+  return ENTRIES_MODEL.map(t=>({
+    when:{father_min_pct:eeNum(t.when.father_min_pct), mother_min_pct:eeNum(t.when.mother_min_pct), mother_max_pct:eeNum(t.when.mother_max_pct)},
+    legs:(t.legs||[]).map(l=> l.mode==='market'?{mode:'market'}:{mode:'mother_pct',value:eeNum(l.value)})
+  }));
+}
+function validateEntries(){   // คืนข้อความ error (เตือน) หรือ null ถ้าผ่าน
+  const M=ENTRIES_MODEL;
+  if(!Array.isArray(M)||!M.length) return 'ต้องมีอย่างน้อย 1 tier';
+  for(let i=0;i<M.length;i++){
+    const w=M[i].when||{}, legs=M[i].legs||[];
+    const fp=eeNum(w.father_min_pct), mn=eeNum(w.mother_min_pct), mx=eeNum(w.mother_max_pct);
+    if(fp===null||mn===null||mx===null) return 'Tier '+(i+1)+': เงื่อนไขพ่อ/แม่ ต้องเป็นตัวเลข';
+    if(mn>=mx) return 'Tier '+(i+1)+': แม่ ตั้งแต่ ('+mn+') ต้องน้อยกว่า แม่ ถึง ('+mx+')';
+    if(!legs.length) return 'Tier '+(i+1)+': ต้องมีอย่างน้อย 1 ไม้';
+    for(let j=0;j<legs.length;j++){ const l=legs[j];
+      if(l.mode==='market') continue;
+      const v=eeNum(l.value);
+      if(v===null) return 'Tier '+(i+1)+' ไม้ '+(j+1)+': value ต้องเป็นตัวเลข';
+      if(v<-100||v>100) return 'Tier '+(i+1)+' ไม้ '+(j+1)+': value ('+v+') ต้องอยู่ช่วง −100..100';
+    }
+  }
+  return null;
 }
 function bindToggles(){
   $$('#formView .toggle').forEach(t=>t.addEventListener('click',e=>{
     if(e.target.tagName!=='BUTTON')return;
     t.querySelectorAll('button').forEach(b=>b.classList.remove('on'));
-    e.target.classList.add('on'); dirty=true;
+    e.target.classList.add('on'); onFormChange();
   }));
 }
 // เก็บค่าจากฟอร์มทุกช่อง keyed by dotted path (data-path) → ส่งให้ POST /api/configs
@@ -372,9 +711,94 @@ function collectValues(){
   $$('#formView [data-path]').forEach(el=>{
     const path=el.getAttribute('data-path'), type=el.getAttribute('data-type');
     if(type==='bool'){ const on=el.querySelector('button.on'); v[path]=!!(on&&on.dataset.v==='true'); }
+    else if(type==='enum'){   // toggle = ปุ่ม .on · select = el.value · ค่าเป็น string ดิบ (r55/father)
+      if(el.tagName==='SELECT'){ v[path]=el.value; }
+      else { const on=el.querySelector('button.on'); if(on) v[path]=on.dataset.v; }
+    }
     else { v[path]=el.value; }
   });
   return v;
+}
+// ---------- dirty tracking + ค่าที่แก้ค้าง (ยังไม่เซฟ) ----------
+function setFieldValue(path, val){   // เซ็ตค่าลง field ตาม data-path (key หาย → ข้าม ไม่พัง)
+  const el=document.querySelector('#formView [data-path="'+(window.CSS&&CSS.escape?CSS.escape(path):path)+'"]');
+  if(!el) return false;
+  const type=el.getAttribute('data-type');
+  if(type==='bool'||type==='enum'){
+    if(el.tagName==='SELECT'){ el.value=String(val); }
+    else el.querySelectorAll('button').forEach(b=>b.classList.toggle('on', String(b.dataset.v)===String(val)));
+  } else el.value=val;
+  return true;
+}
+function entriesSig(){ return ENTRIES_MODEL? JSON.stringify(collectEntries()) : null; }   // ลายเซ็น entries (เทียบ dirty)
+function computeDirty(){
+  if(!BASELINE){ dirty=false; return false; }
+  const cur=collectValues(); let d=false;
+  const keys=new Set([...Object.keys(cur),...Object.keys(BASELINE.values||{})]);
+  for(const k of keys){ if(String(cur[k])!==String((BASELINE.values||{})[k])){ d=true; break; } }
+  if(!d && entriesSig()!==BASELINE.entries) d=true;
+  dirty=d; return d;
+}
+function collectEdits(){   // เฉพาะ field ที่ต่างจาก baseline + entries (raw model) ถ้าต่าง
+  const cur=collectValues(), out={values:{}};
+  for(const k in cur){ if(String(cur[k])!==String((BASELINE.values||{})[k])) out.values[k]=cur[k]; }
+  if(ENTRIES_MODEL && entriesSig()!==BASELINE.entries) out.entries=ENTRIES_MODEL;
+  return out;
+}
+function applyEdits(edits){   // overlay ค่าค้างทับ baseline ที่ render แล้ว (key หาย → ข้าม)
+  if(!edits) return;
+  if(edits.values) for(const k in edits.values) setFieldValue(k, edits.values[k]);
+  if(edits.entries && ENTRIES_MODEL!==undefined){ ENTRIES_MODEL=JSON.parse(JSON.stringify(edits.entries)); if($('#entriesHost')) buildEntriesEditor(); }
+}
+function updateDirtyUI(){
+  const w=$('#dirtyWarn'); if(w) w.style.display=dirty?'':'none';
+  const b=$('#saveInplaceBtn'); if(b) b.classList.toggle('dirty', !!dirty);
+}
+function onFormChange(){   // เรียกทุกครั้งที่ฟอร์มเปลี่ยน → คำนวณ dirty + เก็บค่าค้าง + อัปเดตคำเตือน
+  computeDirty();
+  const k=editsKey($('#strat').value, curCfgId);
+  if(dirty) LS.set(k, collectEdits()); else LS.del(k);
+  updateDirtyUI();
+  updateNotesDiff();   // auto-diff สรุปการเปลี่ยนแปลง → กล่อง notes
+}
+// ---------- auto-diff สรุปการเปลี่ยนแปลง (baseline → ปัจจุบัน) → กล่อง notes ----------
+function fmtv(v){ return (v===''||v==null)?'∅':String(v); }
+function diffEntries(oldA, newA){   // best-effort สรุป tier/leg ที่เปลี่ยน
+  oldA=oldA||[]; newA=newA||[]; var L=[];
+  if(oldA.length!==newA.length) L.push('tier: '+oldA.length+' → '+newA.length);
+  for(var i=0;i<Math.min(oldA.length,newA.length);i++){
+    var o=oldA[i]||{},c=newA[i]||{},ow=o.when||{},cw=c.when||{};
+    ['father_min_pct','mother_min_pct','mother_max_pct'].forEach(function(kk){
+      if(ow[kk]!==cw[kk]) L.push('tier '+(i+1)+' '+kk+': '+fmtv(ow[kk])+' → '+fmtv(cw[kk])); });
+    var ol=o.legs||[],cl=c.legs||[];
+    if(ol.length!==cl.length) L.push('tier '+(i+1)+' ไม้: '+ol.length+' → '+cl.length);
+    for(var j=0;j<Math.min(ol.length,cl.length);j++){ var lo=ol[j]||{},lc=cl[j]||{};
+      if(lo.mode!==lc.mode) L.push('tier '+(i+1)+' ไม้ '+(j+1)+': '+fmtv(lo.mode)+' → '+fmtv(lc.mode));
+      else if(lo.mode==='mother_pct'&&lo.value!==lc.value) L.push('tier '+(i+1)+' ไม้ '+(j+1)+' %: '+fmtv(lo.value)+' → '+fmtv(lc.value)); }
+  }
+  return L;
+}
+function computeDiffSummary(){   // diff รอบปัจจุบัน (vs notesBaseline) — คืน string หรือ '' ถ้าไม่ต่าง
+  if(!notesBaseline) return '';
+  var cur=collectValues(), base=notesBaseline.values||{}, L=[];
+  var keys={}; Object.keys(cur).forEach(k=>keys[k]=1); Object.keys(base).forEach(k=>keys[k]=1);
+  Object.keys(keys).forEach(function(k){
+    if(k==='notes') return;   // ไม่ diff ตัวเอง
+    if(String(cur[k])!==String(base[k])) L.push((LABELS[k]||k)+': '+fmtv(base[k])+' → '+fmtv(cur[k]));
+  });
+  var be=notesBaseline.entries?JSON.parse(notesBaseline.entries):null, ce=ENTRIES_MODEL?collectEntries():null;
+  if(JSON.stringify(ce)!==JSON.stringify(be)) L=L.concat(diffEntries(be,ce));
+  return L.join('\n');
+}
+function nowStr(){ var d=new Date(), p=n=>(n<10?'0':'')+n;
+  return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes()); }
+function notesBlock(diff){ return '─── '+nowStr()+' ───\n'+diff; }   // บล็อกรอบใหม่ (คั่น+วันเวลา)
+// แสดง diff รอบนี้เป็น "ข้อเสนอ" เสมอ (ไม่แตะกล่อง — ของเดิม/ประวัติไม่ถูกทับ) · กดปุ่มเพื่อ append
+function updateNotesDiff(){
+  var sug=document.getElementById('notesSug'); if(!sug) return;
+  var diff=computeDiffSummary();
+  if(diff){ sug._diff=diff; sug.querySelector('.sugtext').textContent=diff; sug.style.display='flex'; }
+  else sug.style.display='none';
 }
 
 // ---------- configs ----------
@@ -382,13 +806,39 @@ async function loadConfigs(){
   try{
     const d=await getJSON('/api/configs');
     // global = --global · field_labels = คำอธิบาย (ไม่ใช่ strategy config) → ไม่โชว์ใน --config
-    CONFIGS=d.configs.filter(n=>n!=='global.yaml'&&n!=='field_labels.yaml');
-    const sel=$('#cfg'); sel.innerHTML='';
-    CONFIGS.forEach(n=>{const id=n.replace(/\.(ya?ml)$/,'');
-      const o=document.createElement('option');o.value=id;o.textContent=n;sel.appendChild(o);});
-    if(CONFIGS.length){ sel.value=CONFIGS[0].replace(/\.(ya?ml)$/,''); await selectConfig(sel.value); }
-    else $('#formView').innerHTML='<div class="emptyhint">ไม่มี configs/*.yaml</div>';
+    const strat=d.strategies||{};
+    CFG_ALL=d.configs.filter(n=>n!=='global.yaml'&&n!=='field_labels.yaml')
+      .map(n=>({name:n, id:n.replace(/\.(ya?ml)$/,''), strat:(strat[n]||null)}));
+    CONFIGS=CFG_ALL.map(c=>c.name);   // compat (ensureCfgOption ฯลฯ)
+    await applyCfgFilter(true);        // กรองตาม strategy ที่เลือกอยู่ + โหลด config แรก
   }catch(e){$('#formView').innerHTML='<div class="emptyhint">โหลด configs ไม่ได้: '+esc(e.message)+'</div>';}
+}
+// กรอง config list เหลือเฉพาะตัวที่ strategy ตรงกับ dropdown · config ไม่มี tag → โชว์ + mark (ไม่ซ่อนเงียบ)
+// กรอง config ตาม strategy ที่เลือก: tag ตรง หรือ untagged (โชว์+มาร์ก) · ใช้ร่วม dropdown + จัดการไฟล์
+function stratMatch(tag, sel){ return tag===sel || !tag; }
+async function applyCfgFilter(forceReload){
+  const strat=$('#strat').value;
+  const sel=$('#cfg'); const prev=curCfgId;
+  const vis=CFG_ALL.filter(c=>stratMatch(c.strat, strat));
+  sel.innerHTML='';
+  vis.forEach(c=>{const o=document.createElement('option');o.value=c.id;
+    o.textContent=c.strat?c.name:(c.name+'  ⚠ ไม่มี tag');sel.appendChild(o);});
+  if(!vis.length){
+    curCfgId=null;
+    $('#formView').innerHTML='<div class="emptyhint">ไม่มี config สำหรับ strategy: '+esc(strat)+'</div>';
+    suggestOut(); build(); return;
+  }
+  // restore config ที่จำไว้ (one-shot ตอน init · ถ้ายัง visible) → ไม่งั้นคงค่าเดิม/ตัวแรก (fallback ไม่ error)
+  let want=prev;
+  if(UIST.config && vis.some(c=>c.id===UIST.config)){ want=UIST.config; UIST.config=null; }
+  const keep=vis.some(c=>c.id===want)?want:vis[0].id;
+  sel.value=keep;
+  if(forceReload||keep!==prev) await selectConfig(keep);   // เปลี่ยนไฟล์ → โหลดฟอร์มใหม่
+  else build();                                             // ไฟล์เดิม → แค่อัปเดต command preview
+}
+// เสนอชื่อ save-as ที่ไม่ชนของเดิม: <cfg>_copy.yaml → _copy2 → _copy3 ...
+function suggestSaveName(cfgId){
+  return cfgId+'.yaml';   // ตรงๆ ตามชื่อ config (ไม่เติม _copy) · ชนของเดิม → doSave เตือนก่อนทับ
 }
 async function selectConfig(id){
   curCfgId=id;
@@ -397,11 +847,16 @@ async function selectConfig(id){
     const d=await getJSON('/api/configs/'+encodeURIComponent(id));
     if(d.error){$('#formView').innerHTML='<div class="emptyhint">'+esc(d.error)+'</div>';return;}
     curRaw=d.raw||''; $('#rawTxt').value=curRaw;
+    // เลือก config ใน dropdown = โหลดจากไฟล์เป็นหลัก → save-as = ชื่อไฟล์ที่เลือก (เคลียร์ auto-fill lock เดิม)
+    const nn=suggestSaveName(id); $('#saveName').value=nn; lastAutoSaveName=nn;
     renderForm(d.tree||{});
-    if(!$('#saveName').value) $('#saveName').value=id+'_v2.yaml';
-    dirty=false;   // โหลดสด → ยังไม่มีการแก้
+    // baseline = ค่าจากไฟล์ที่เลือก (authoritative) · persisted edits = overlay เฉพาะตอน "ออกหน้า-กลับมา" (RESTORING)
+    BASELINE={values:collectValues(), entries:entriesSig()};
+    notesBaseline=BASELINE;   // จุดอ้างอิง diff รอบใหม่ = ค่าไฟล์ที่โหลด (รีเซ็ตทุกครั้งที่โหลด config)
+    if(RESTORING) applyEdits(LS.get(editsKey($('#strat').value, id), null));   // dropdown switch → ไม่ overlay (โหลดสะอาดตามไฟล์)
+    onFormChange();   // computeDirty + updateDirtyUI (สะอาด → ไม่ dirty/ไม่มีคำเตือน · restore → ค่าค้าง+คำเตือน)
   }catch(e){$('#formView').innerHTML='<div class="emptyhint">อ่าน config ไม่ได้: '+esc(e.message)+'</div>';}
-  suggestOut(); build();
+  suggestOut(); build(); saveUI();
 }
 
 // ---------- search / tabs ----------
@@ -416,22 +871,24 @@ function applySearch(){
     g.style.display=any?'':'none'; if(q&&any)g.open=true;
   });
 }
-$('#q').addEventListener('input',applySearch);
+$('#q').addEventListener('input',()=>{applySearch();saveUI();});
 $$('.tabs button').forEach(b=>b.addEventListener('click',()=>{
   $$('.tabs button').forEach(x=>x.classList.remove('on')); b.classList.add('on');
   const raw=b.dataset.t==='raw';
   $('#rawView').style.display=raw?'block':'none';
   $('#formView').style.display=raw?'none':'block';
+  saveUI();
 }));
 
 // ---------- run target / command preview ----------
 function tfOf(dataVal){const m=String(dataVal).match(/_M(\d+)_/i);return m?('m'+m[1]):'tf';}
 function modeVal(){return $('#mode .on').dataset.v;}
 function lotVal(){return $('#lot .on').dataset.v;}
+function cfgNameVal(){ const el=document.getElementById('cfgNameInput'); return el?el.value.trim():''; }
 function suggestOut(){
-  if(outEdited)return;
-  const id=curCfgId||'run', tf=tfOf($('#data').value||'');
-  $('#out').value=id+'_'+tf+'_'+modeVal();
+  if(outEdited)return;   // ผู้ใช้พิมพ์ out เอง → ไม่ทับ (don't-clobber)
+  const base=cfgNameVal()||curCfgId||'run', tf=tfOf($('#data').value||'');
+  $('#out').value=base+'_'+tf;   // <ชื่อ config>_<TF> · ไม่เติม correct/compat (mode = metadata บนการ์ด)
 }
 function build(){
   const strat=$('#strat').value, cfg=$('#cfg').value, data=$('#data').value, out=$('#out').value||'run';
@@ -442,22 +899,55 @@ function build(){
     '   <span class="flag">--out</span> <span class="val">runs/'+esc(out)+'/</span> \\\n'+
     '   <span class="flag">--viewer</span>';
 }
+// TF ของชื่อไฟล์ → นาที (เรียงเล็ก→ใหญ่) · M×n=n · H×n=n×60 · D1=1440 · W1=10080 · MN=43200 · parse ไม่ได้ → Infinity (ท้ายลิสต์)
+function dataTfMinutes(name){
+  const m=String(name).match(/(?:^|[_\-. ])(MN1?|[MHDW]\d{1,3})(?:[_\-. ]|$)/i);
+  if(!m) return Infinity;
+  const t=m[1].toUpperCase();
+  if(t.startsWith('MN')) return 43200;
+  const u={M:1,H:60,D:1440,W:10080}[t[0]]; if(u==null) return Infinity;
+  const n=parseInt(t.slice(1),10);
+  return u*(isFinite(n)?n:1);
+}
 async function loadData(){
   try{
     const d=await getJSON('/api/data');
     const sel=$('#data'); sel.innerHTML='';
-    d.data.forEach(n=>{const id=n.replace(/\.csv$/,'');
+    // เรียงตาม timeframe เล็ก→ใหญ่ · TF เท่ากัน/parse ไม่ได้ → alphabetical
+    const files=(d.data||[]).slice().sort((a,b)=> (dataTfMinutes(a)-dataTfMinutes(b)) || a.localeCompare(b));
+    files.forEach(n=>{const id=n.replace(/\.csv$/,'');
       const o=document.createElement('option');o.value=id;o.textContent=n;sel.appendChild(o);});
+    if(UIST.data && [...sel.options].some(o=>o.value===UIST.data)) sel.value=UIST.data;   // restore data ที่จำไว้
   }catch(e){}
   suggestOut(); build();
 }
+// ---------- strategies (registry → dropdown) ----------
+async function loadStrategies(){
+  const sel=$('#strat'); const prev=sel.value;
+  try{
+    const d=await getJSON('/api/strategies');
+    const ids=(d&&d.strategies)||[];
+    if(ids.length){
+      sel.innerHTML='';
+      ids.forEach(id=>{const o=document.createElement('option');o.value=id;o.textContent=id;sel.appendChild(o);});
+      // restore strategy ที่จำไว้ (ถ้ายังมี) · ไม่งั้นคงค่าเดิม/ตัวแรก (fallback ไม่ error)
+      sel.value = (UIST.strategy && ids.includes(UIST.strategy)) ? UIST.strategy : (ids.includes(prev)?prev:ids[0]);
+    }
+  }catch(e){/* คง option เดิม (mai_ruay) ถ้าโหลดไม่ได้ */}
+  if(CFG_ALL.length) applyCfgFilter(false); else build();   // config โหลดแล้ว → กรองตาม strategy ที่เลือก
+}
 $('#cfg').addEventListener('change',e=>{outEdited=false;selectConfig(e.target.value);});
-$('#data').addEventListener('change',()=>{suggestOut();build();});
-$('#strat').addEventListener('change',build);
-$('#out').addEventListener('input',()=>{outEdited=true;build();});
+$('#data').addEventListener('change',()=>{suggestOut();build();saveUI();});
+$('#strat').addEventListener('change',()=>{applyCfgFilter(false);loadCfgMgr();saveUI();});
+$('#out').addEventListener('input',()=>{outEdited=true;build();saveUI();});
+$('#saveName').addEventListener('input',()=>{   // save-as → ชื่อ config (sync ย้อนกลับ) → out ตาม
+  const ci=document.getElementById('cfgNameInput');
+  if(ci) ci.value=($('#saveName').value||'').replace(/\.(ya?ml)$/,'');
+  suggestOut(); build();
+});
 $$('#mode button,#lot button').forEach(b=>b.addEventListener('click',()=>{
   const seg=b.parentElement; seg.querySelectorAll('button').forEach(x=>x.classList.remove('on'));
-  b.classList.add('on'); suggestOut(); build();
+  b.classList.add('on'); suggestOut(); build(); saveUI();
 }));
 // ---------- UI helpers: toast + modal ----------
 function toast(msg, kind){
@@ -482,28 +972,88 @@ function modal(opts){  // {title, body, buttons:[{id,label,kind}]} → Promise<i
 function setRunResult(html){const el=$('#runResult');el.innerHTML=html;el.style.display=html?'block':'none';}
 function ensureCfgOption(name){
   const id=name.replace(/\.(ya?ml)$/,''), sel=$('#cfg');
+  // config ที่ save ใหม่สืบ strategy จาก base (= strategy ที่เลือกอยู่) → ลงทะเบียนให้ filter เห็น
+  if(!CFG_ALL.some(c=>c.id===id)) CFG_ALL.push({name,id,strat:$('#strat').value});
   if(![...sel.options].some(o=>o.value===id)){
     const o=document.createElement('option');o.value=id;o.textContent=name;sel.appendChild(o);CONFIGS.push(name);}
   return id;
 }
 
-// ---------- Save as new (POST /api/configs) ----------
-async function saveConfig(){
+// ---------- Save: in-place (overwrite) + Save as new ----------
+// สร้าง payload จากฟอร์ม/raw + validate entries (Form mode) · คืน {payload} หรือ {error}
+function buildSavePayload(name){
+  const rawMode=!!document.querySelector('.tabs button.on[data-t="raw"]');
+  if(rawMode) return {payload:{base:curCfgId,name:name,raw:$('#rawTxt').value}};
+  // validate entries ก่อน (ผิด → ไม่เซฟ)
+  if(ENTRIES_MODEL){ const err=validateEntries(); if(err) return {error:'entries: '+err}; }
+  // notes = บันทึกเฉพาะเนื้อหาในกล่องตอนนั้นเป๊ะ · ไม่ auto-commit diff รอบปัจจุบัน (ใส่เองผ่านปุ่ม "+ใส่สรุป")
+  const values=collectValues();
+  // notes = free-text → ส่งเป็น field แยก (server เขียน string ดิบ ไม่ coerce/split §9.2) · ดึงออกจาก values
+  let pNotes=null;
+  if('notes' in values){ pNotes=String(values.notes); delete values.notes; }
+  const payload={base:curCfgId,name:name,values:values};
+  if(pNotes!==null) payload.notes=pNotes;
+  if(ENTRIES_MODEL) payload.entries=collectEntries();
+  return {payload};
+}
+async function doSave(overwrite){
   if(busy)return null;
-  const name=$('#saveName').value.trim();
-  if(!name){toast('ใส่ชื่อไฟล์ก่อน เช่น mairuay_v205.yaml','err');return null;}
-  busy=true; $('#saveBtn').disabled=true;
+  if(!curCfgId){ toast('ยังไม่ได้เลือก config','err'); return null; }
+  // overwrite → เขียนทับไฟล์ที่โหลดอยู่ (curCfgId) · save-as → ชื่อจากช่อง #saveName
+  const name = overwrite ? (curCfgId+'.yaml') : $('#saveName').value.trim();
+  if(!overwrite && !name){ toast('ใส่ชื่อไฟล์ก่อน เช่น mairuay_v205.yaml','err'); return null; }
+  let serverOverwrite=overwrite;
+  if(!overwrite){   // save-as: ชื่อชนของเดิม → ยืนยันก่อนทับ (ไม่เขียนทับเงียบ)
+    const nid=name.replace(/\.(ya?ml)$/,'');
+    if(CFG_ALL.some(c=>c.id===nid)){
+      const c=await modal({title:'ชื่อไฟล์ซ้ำ',
+        body:'มีไฟล์ <b>'+esc(nid)+'.yaml</b> อยู่แล้ว — เขียนทับไหม?<br><span style="font-size:11px;color:var(--dim)">เขียนทับ = ของเดิมหาย (พึ่ง git เป็น backup)</span>',
+        buttons:[{id:'ow',label:'เขียนทับ',kind:'gold'},{id:'cancel',label:'ยกเลิก'}]});
+      if(c!=='ow') return null;
+      serverOverwrite=true;
+    }
+  }
+  const built=buildSavePayload(name);
+  if(built.error){ toast(built.error,'err'); return null; }   // validate ผิด → ไม่เขียน
+  const payload=built.payload; payload.overwrite=serverOverwrite;
+  busy=true; $('#saveBtn').disabled=true; $('#saveInplaceBtn').disabled=true;
   try{
     const r=await fetch('/api/configs',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({base:curCfgId,name:name,values:collectValues()})});
+      body:JSON.stringify(payload)});
     const d=await r.json();
     if(!r.ok){ toast(d.error||('บันทึกไม่ได้ ('+r.status+')'),'err'); return null; }
+    if(overwrite){
+      toast('บันทึกลง '+d.name+' แล้ว','ok');
+      LS.del(editsKey($('#strat').value, curCfgId));   // เคลียร์ค่าค้าง → คำเตือนหาย
+      await selectConfig(curCfgId);   // reload ไฟล์เดิม (baseline ใหม่ · ไม่มีค่าค้าง)
+      return curCfgId;
+    }
     toast('บันทึก '+d.name+' แล้ว ('+d.applied+' ค่า)','ok'); loadCfgMgr(); loadTrash();
     const id=ensureCfgOption(d.name); $('#cfg').value=id; outEdited=false;
     await selectConfig(id);           // โหลดไฟล์ใหม่ → ฟอร์มโชว์ค่าที่ save · dirty=false
     return id;
   }catch(e){ toast('บันทึก error: '+e.message,'err'); return null; }
-  finally{ busy=false; $('#saveBtn').disabled=false; }
+  finally{ busy=false; $('#saveBtn').disabled=false; $('#saveInplaceBtn').disabled=false; }
+}
+const saveConfig=()=>doSave(false);   // คงชื่อเดิม (runBacktest เรียกตอน dirty guard)
+// ปุ่ม "บันทึก" — เทียบชื่อเป้าหมาย (ช่อง "ชื่อ config" = #saveName) กับไฟล์ที่โหลด (curCfgId)
+// ก่อนเขียน → กันทับไฟล์เก่าเงียบๆ เมื่อผู้ใช้เปลี่ยนชื่อไปแล้ว
+async function saveSmart(){
+  if(busy)return null;
+  if(!curCfgId){ toast('ยังไม่ได้เลือก config','err'); return null; }
+  const nm=$('#saveName').value.trim();   // sync กับช่อง "ชื่อ config" เสมอ
+  if(!nm){ toast('ใส่ชื่อ config ก่อน','err'); return null; }
+  const nid=nm.replace(/\.(ya?ml)$/,'');
+  if(nid===curCfgId) return doSave(true);   // ชื่อ==ไฟล์ที่โหลด → ทับเดิมตามปกติ (ไม่ popup)
+  // ชื่อ != ไฟล์ที่โหลด → ห้ามทับเก่าเงียบ · เช็คมี/ไม่มีจากรายการ config ฝั่ง client
+  if(!CFG_ALL.some(c=>c.id===nid)){   // ยังไม่มีในระบบ → ยืนยันสร้างใหม่ (ไม่แตะไฟล์เก่า)
+    const c=await modal({title:'สร้างไฟล์ใหม่',
+      body:'ไฟล์ <b>'+esc(nid)+'.yaml</b> ยังไม่มีในระบบ — ต้องการสร้างใหม่ไหม?<br><span style="font-size:11px;color:var(--dim)">ไฟล์เดิม '+esc(curCfgId)+'.yaml ไม่ถูกแตะ</span>',
+      buttons:[{id:'new',label:'สร้างใหม่',kind:'gold'},{id:'cancel',label:'ยกเลิก'}]});
+    if(c!=='new') return null;
+  }
+  // มีอยู่แล้ว → doSave(false) จะ popup "เขียนทับ?" เอง (กันทับเงียบ) · ใหม่ → สร้างตามชื่อ
+  return doSave(false);
 }
 
 // ---------- Run (POST /api/run) ----------
@@ -547,54 +1097,99 @@ async function doRun(overwrite){
   finally{ busy=false; btn.disabled=false; btn.textContent=orig; }
 }
 $('#runBtn').addEventListener('click',runBacktest);
-$('#saveBtn').addEventListener('click',saveConfig);
+$('#saveBtn').addEventListener('click',()=>doSave(false));
+$('#saveInplaceBtn').addEventListener('click',saveSmart);
 
 // ---------- history ----------
 function fmtUsd(n){return (n>=0?'+':'−')+Math.abs(n).toLocaleString('en-US',{maximumFractionDigits:0})+'$';}
+let RUNS_DATA=[]; const tfSel=new Set(), stratSel=new Set();   // filter TF + กลยุทธ (ว่าง = ทั้งหมด)
+function runTF(r){ return r.tf || null; }   // TF จาก server (config_used._run.data / ชื่อ run) · null=ไม่ระบุ
+function runStrat(r){ return r.strategy || null; }   // กลยุทธ จาก server (config_used._run.strategy) · null=ไม่ระบุ
+function tfRank(t){ var m=String(t).match(/^([MHD])(\d+)$/i); if(!m)return 9999;
+  var u={M:1,H:60,D:1440}[m[1].toUpperCase()]||1; return u*parseInt(m[2],10); }
 async function loadRuns(){
-  const el=$('#runList');
   try{
     const d=await getJSON('/api/runs');
-    $('#runMeta').textContent=d.runs.length+' runs';
-    if(!d.runs.length){el.innerHTML='<div class="emptyhint" style="padding:16px">ยังไม่มี runs/</div>';return;}
-    el.innerHTML='';
-    d.runs.forEach(r=>{
-      const s=r.summary||{};
-      const compat=/compat/i.test(r.name), pill=compat?'<span class="pill compat">COMPAT</span>':'<span class="pill correct">CORRECT</span>';
-      const tfm=r.name.match(/_M(\d+)/i), tf=tfm?('M'+tfm[1]):'';
-      const when=new Date(r.mtime*1000).toLocaleString('th-TH',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
-      const net=(s.net_usd!=null)?s.net_usd:null, winCls=(net==null)?'':(net>=0?'win':'loss');
-      let stats;
-      if(s.n_trades!=null){
-        stats='<span class="stat">ไม้ <b>'+s.n_trades+'</b></span>'+
-              '<span class="stat '+winCls+'">WR <b>'+(s.win_rate!=null?s.win_rate+'%':'—')+'</b></span>'+
-              '<span class="stat '+winCls+'">net <b>'+(net!=null?fmtUsd(net):'—')+'</b></span>';
-      }else stats='<span class="stat" style="color:var(--dim)">ไม่มี summary.json</span>';
-      const viewer=r.has_viewer
-        ?'<a class="openV" href="/runs/'+encodeURIComponent(r.name)+'/viewer.html" target="_blank">เปิด viewer →</a>'
-        :'<span class="openV dim">ไม่มี viewer</span>';
-      const sub='mai_ruay'+(tf?(' · '+tf):'');
-      const item=document.createElement('div');item.className='runItem';item.dataset.run=r.name;
-      if(cmpSel.has(r.name)) item.classList.add('cmpsel');
-      item.innerHTML='<div class="runTop">'+
-        '<span class="cmpck" title="เลือกเทียบ">✓</span>'+
-        '<span class="runNameWrap"><span class="runName" title="'+escAttr(r.name)+'">'+esc(r.name)+'</span>'+pill+'</span>'+
-        '<span class="runWhen">'+when+'</span>'+
-        '<button class="delBtn" title="ลบ run">✕</button>'+
-        '</div>'+
-        '<div class="runSub">'+sub+'</div>'+
-        '<div class="stats">'+stats+viewer+'</div>';
-      item.querySelector('.delBtn').onclick=(e)=>{e.stopPropagation();deleteRun(r.name);};
-      item.addEventListener('click',e=>{   // selmode: คลิกการ์ด/checkbox = เลือก · ปุ่มลบ/viewer ไม่นับ
-        if(!selMode) return;
-        if(e.target.closest('.delBtn')||e.target.closest('.openV')) return;
-        toggleSel(item, r.name);
-      });
-      el.appendChild(item);
+    RUNS_DATA=d.runs||[];
+    [...cmpSel].forEach(n=>{ if(!RUNS_DATA.some(r=>r.name===n)) cmpSel.delete(n); });  // prune ที่ถูกลบ
+    const tfs=new Set(RUNS_DATA.map(runTF)), strats=new Set(RUNS_DATA.map(runStrat));
+    [...tfSel].forEach(t=>{ if(!tfs.has(t)) tfSel.delete(t); });          // TF ที่ไม่มี run แล้ว → เอาออก
+    [...stratSel].forEach(s=>{ if(!strats.has(s)) stratSel.delete(s); }); // กลยุทธที่ไม่มี run แล้ว → เอาออก
+    renderHistFilters();
+    renderRunList();
+  }catch(e){ $('#runList').innerHTML='<div class="emptyhint" style="padding:16px">โหลด runs ไม่ได้: '+esc(e.message)+'</div>'; }
+}
+// chip bar ทั่วไป (ใช้ทั้ง strategy + TF) · items มี ≥2 ตัวจึงโชว์ · null = "ไม่ระบุ" · คืน true ถ้าโชว์
+function renderChipBar(chipsEl, rowEl, items, sel, labelFn){
+  if(items.length<2){ rowEl.style.display='none'; chipsEl.innerHTML=''; return false; }
+  let h='<button class="tfchip'+(sel.size===0?' on':'')+'" data-v="__all">ทั้งหมด</button>';
+  items.forEach(it=>{ const key=(it===null)?'__none':String(it);
+    h+='<button class="tfchip'+(sel.has(it)?' on':'')+'" data-v="'+escAttr(key)+'">'+esc(labelFn(it))+'</button>'; });
+  chipsEl.innerHTML=h; rowEl.style.display='flex';
+  chipsEl.querySelectorAll('.tfchip').forEach(c=>c.onclick=()=>{
+    const k=c.getAttribute('data-v');
+    if(k==='__all') sel.clear();
+    else { const v=(k==='__none')?null:k; sel.has(v)?sel.delete(v):sel.add(v); }   // กดซ้ำ=เอาออก
+    renderHistFilters(); renderRunList(); saveUI();
+  });
+  return true;
+}
+function tfItems(){ return [...new Set(RUNS_DATA.map(runTF))].sort((a,b)=>{ if(a===null)return 1; if(b===null)return -1; return tfRank(a)-tfRank(b); }); }
+function stratItems(){ return [...new Set(RUNS_DATA.map(runStrat))].sort((a,b)=>{ if(a===null)return 1; if(b===null)return -1; return String(a).localeCompare(String(b)); }); }
+function renderHistFilters(){   // 2 แถว: กลยุทธ / Timeframe · container โชว์ถ้ามีแถวไหนโชว์
+  const sv=renderChipBar($('#stratFilter'), $('#stratRow'), stratItems(), stratSel, x=>x===null?'ไม่ระบุ':x);
+  const tv=renderChipBar($('#tfFilter'),    $('#tfRow'),    tfItems(),    tfSel,    x=>x===null?'ไม่ระบุ':x);
+  $('#histFilter').style.display=(sv||tv)?'flex':'none';
+}
+function renderRunList(){
+  const el=$('#runList');
+  // AND: ผ่านทั้ง strategy filter และ TF filter (ว่าง = ไม่กรอง)
+  const shown=RUNS_DATA.filter(r=> (stratSel.size===0||stratSel.has(runStrat(r))) && (tfSel.size===0||tfSel.has(runTF(r))) );
+  const filtered=(tfSel.size||stratSel.size);
+  $('#runMeta').textContent=(filtered? shown.length+'/'+RUNS_DATA.length : RUNS_DATA.length)+' runs';
+  if(!RUNS_DATA.length){ el.innerHTML='<div class="emptyhint" style="padding:16px">ยังไม่มี runs/</div>'; cmpRefresh(); return; }
+  if(!shown.length){ el.innerHTML='<div class="emptyhint" style="padding:16px">ไม่มี run ตรงกับ filter</div>'; cmpRefresh(); return; }
+  el.innerHTML='';
+  shown.forEach(r=>{
+    const s=r.summary||{};
+    const compat=/compat/i.test(r.name), pill=compat?'<span class="pill compat">COMPAT</span>':'<span class="pill correct">CORRECT</span>';
+    const tf=runTF(r)||'';
+    const when=new Date(r.mtime*1000).toLocaleString('th-TH',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
+    const net=(s.net_usd!=null)?s.net_usd:null, winCls=(net==null)?'':(net>=0?'win':'loss');
+    let stats;
+    if(s.n_trades!=null){
+      stats='<span class="stat">ไม้ <b>'+s.n_trades+'</b></span>'+
+            '<span class="stat '+winCls+'">WR <b>'+(s.win_rate!=null?s.win_rate+'%':'—')+'</b></span>'+
+            '<span class="stat '+winCls+'">net <b>'+(net!=null?fmtUsd(net):'—')+'</b></span>';
+    }else stats='<span class="stat" style="color:var(--dim)">ไม่มี summary.json</span>';
+    const viewer=r.has_viewer
+      ?'<a class="openV" href="/runs/'+encodeURIComponent(r.name)+'/viewer.html" target="_blank">เปิด viewer →</a>'
+      :'<span class="openV dim">ไม่มี viewer</span>';
+    const sub=(runStrat(r)||'ไม่ระบุ')+(tf?(' · '+tf):'');
+    const item=document.createElement('div');item.className='runItem';item.dataset.run=r.name;
+    if(cmpSel.has(r.name)) item.classList.add('cmpsel');
+    item.innerHTML='<div class="runTop">'+
+      '<span class="cmpck" title="เลือกเทียบ">✓</span>'+
+      '<span class="runNameWrap"><span class="runName" title="'+escAttr(r.name)+'">'+esc(r.name)+'</span>'+pill+'</span>'+
+      '<span class="runWhen">'+when+'</span>'+
+      '<button class="delBtn" title="ลบ run">✕</button>'+
+      '</div>'+
+      '<div class="runSub">'+sub+'</div>'+
+      '<div class="stats">'+stats+viewer+'</div>';
+    item.querySelector('.delBtn').onclick=(e)=>{e.stopPropagation();deleteRun(r.name);};
+    item.querySelector('.runName').onclick=(e)=>{   // คลิกชื่อ: ปกติ → เปิด run เดียวในหน้าเทียบ · selmode → ปล่อยให้ card toggle
+      if(selMode) return;
+      e.stopPropagation();
+      gotoCompare([r.name]);   // /compare?runs=<encoded> (gotoCompare encodeURIComponent ให้)
+    };
+    item.addEventListener('click',e=>{   // selmode: ติ๊กได้เฉพาะการ์ดที่โชว์ · ปุ่มลบ/viewer ไม่นับ
+      if(!selMode) return;
+      if(e.target.closest('.delBtn')||e.target.closest('.openV')) return;
+      toggleSel(item, r.name);
     });
-    [...cmpSel].forEach(n=>{ if(!d.runs.some(r=>r.name===n)) cmpSel.delete(n); });  // prune ที่ถูกลบ
-    cmpRefresh();
-  }catch(e){el.innerHTML='<div class="emptyhint" style="padding:16px">โหลด runs ไม่ได้: '+esc(e.message)+'</div>';}
+    el.appendChild(item);
+  });
+  cmpRefresh();
 }
 // ลบ folder run — confirm modal บังคับ + ห้ามลบตอนกำลังรัน
 async function deleteRun(name){
@@ -616,7 +1211,7 @@ let selMode=false; const cmpSel=new Set();
 function cmpRefresh(){
   $('#cmpcnt').textContent=cmpSel.size;
   $('#cmpbar').classList.toggle('show', selMode && cmpSel.size>=1);
-  $('#cmpGo').disabled=!(selMode && cmpSel.size>=2);
+  $('#cmpGo').disabled=!(selMode && cmpSel.size>=1);   // เปิดหน้าเทียบได้ตั้งแต่ 1 run (ดูรายละเอียด run เดียว)
 }
 function toggleSel(item,name){
   if(cmpSel.has(name)){ cmpSel.delete(name); item.classList.remove('cmpsel'); }
@@ -642,7 +1237,7 @@ $('#selToggle').addEventListener('click',()=>setSelMode(!selMode));
 $('#openCompare').addEventListener('click',()=>gotoCompare([...cmpSel]));
 $('#cmpClear').addEventListener('click',()=>{ cmpSel.clear();
   $$('#runList .runItem').forEach(it=>it.classList.remove('cmpsel')); cmpRefresh(); });
-$('#cmpGo').addEventListener('click',()=>{ if(cmpSel.size>=2) gotoCompare([...cmpSel]); });
+$('#cmpGo').addEventListener('click',()=>{ if(cmpSel.size>=1) gotoCompare([...cmpSel]); });
 
 // ---------- config management UI (rename / soft-delete / restore / perm-delete) ----------
 let CFG_CORE=new Set(['global.yaml','field_labels.yaml']);
@@ -668,12 +1263,16 @@ async function loadCfgMgr(){
   const el=$('#cfgMgrList'); if(!el)return;
   try{
     const d=await getJSON('/api/configs'); CFG_CORE=new Set(d.core||[]);
-    el.innerHTML=d.configs.map(name=>{
-      if(CFG_CORE.has(name)) return '<div class="mgrrow"><span class="mn">'+esc(name)+'</span><span class="core">🔒 ระบบ</span></div>';
-      return '<div class="mgrrow" data-cfg="'+escAttr(name)+'"><span class="mn">'+esc(name)+'</span>'+
-        '<button class="mgrbtn ren" title="เปลี่ยนชื่อ">✎</button>'+
-        '<button class="mgrbtn del" title="ลบ (ลงถังขยะ)">🗑</button></div>';
-    }).join('')||'<div class="mgrempty">ไม่มี config</div>';
+    const strat=$('#strat').value, smap=d.strategies||{};
+    // core (global/field_labels) ไม่โผล่ในรายการลบ · กรองตาม strategy ที่เลือก (เหมือน dropdown) · untagged โชว์+มาร์ก
+    el.innerHTML=d.configs
+      .filter(name=>!CFG_CORE.has(name) && stratMatch(smap[name]||null, strat))
+      .map(name=>{
+        const mark=(smap[name]||null)?'':'<span class="notag"> ⚠ ไม่มี tag</span>';
+        return '<div class="mgrrow" data-cfg="'+escAttr(name)+'"><span class="mn">'+esc(name)+mark+'</span>'+
+          '<button class="mgrbtn ren" title="เปลี่ยนชื่อ">✎</button>'+
+          '<button class="mgrbtn del" title="ลบ (ลงถังขยะ)">🗑</button></div>';
+      }).join('')||'<div class="mgrempty">ไม่มี config สำหรับ strategy นี้</div>';
     el.querySelectorAll('.mgrrow[data-cfg]').forEach(row=>{ const n=row.getAttribute('data-cfg');
       row.querySelector('.ren').onclick=()=>renameConfig(n);
       row.querySelector('.del').onclick=()=>deleteConfig(n); });
@@ -712,7 +1311,19 @@ async function deleteConfig(name){
   if(c!=='del')return;
   try{ const r=await fetch('/api/configs/'+encodeURIComponent(name),{method:'DELETE'});
     const d=await r.json(); if(!r.ok){ toast(d.error||'ลบไม่ได้','err'); return; }
-    toast('ลบ '+name+' ลงถังขยะ','ok'); refreshCfgAll();
+    toast('ลบ '+name+' ลงถังขยะ','ok');
+    // เอา "เฉพาะแถวที่ลบ" ออกตรงๆ แทน re-render รายการทั้งก้อน → window ไม่ reset scroll (ไม่เด้งขึ้นบน)
+    const id=name.replace(/\.(ya?ml)$/,'');
+    const escSel=s=>(window.CSS&&CSS.escape)?CSS.escape(s):s;
+    const mgr=$('#cfgMgrList');
+    const row=mgr&&mgr.querySelector('.mgrrow[data-cfg="'+escSel(name)+'"]'); if(row) row.remove();
+    if(mgr&&!mgr.querySelector('.mgrrow')) mgr.innerHTML='<div class="mgrempty">ไม่มี config สำหรับ strategy นี้</div>';
+    const opt=$('#cfg').querySelector('option[value="'+escSel(id)+'"]'); if(opt) opt.remove();
+    CFG_ALL=CFG_ALL.filter(c=>c.id!==id); CONFIGS=CFG_ALL.map(c=>c.name);   // sync state (ไม่ refetch ฟอร์มไม่ reload)
+    loadTrash();   // อัปเดตถังขยะ (list ซ่อนอยู่ → ไม่ดันความสูง/ไม่เด้ง)
+    if(id===curCfgId){   // ลบ config ที่เปิดอยู่ → จำเป็นต้องโหลดตัวอื่นแทน · เก็บ scroll เดิมแล้ว restore
+      const sy=window.scrollY; await loadConfigs(); window.scrollTo(0,sy);
+    }
   }catch(e){ toast('ลบ error: '+e.message,'err'); }
 }
 async function restoreConfig(name){
@@ -733,7 +1344,32 @@ async function permDeleteConfig(name){
 }
 $('#trashToggle').addEventListener('click',()=>{ const t=$('#trashList'); t.style.display=t.style.display==='none'?'flex':'none'; });
 
-loadConfigs(); loadData(); loadRuns(); loadCfgMgr(); loadTrash();
+// ---------- init + restore state จาก localStorage ----------
+(async function init(){
+  RESTORING=true;
+  UIST = LS.get(UI_KEY, {}) || {};
+  // restore element ที่มีอยู่แล้วใน DOM ก่อนโหลด (tab / mode / lot / q)
+  try{
+    if(UIST.tab==='raw'){ const b=document.querySelector('.tabs button[data-t="raw"]'); if(b) b.click(); }
+    ['mode','lot'].forEach(seg=>{ const v=UIST[seg]; if(!v)return;
+      const btn=document.querySelector('#'+seg+' button[data-v="'+v+'"]');
+      if(btn){ document.querySelectorAll('#'+seg+' button').forEach(x=>x.classList.remove('on')); btn.classList.add('on'); } });
+    if(typeof UIST.q==='string') $('#q').value=UIST.q;
+  }catch(e){/* restore เสริม — พังไม่ได้ */}
+  await loadStrategies();   // → UIST.strategy
+  await loadConfigs();      // → UIST.config (one-shot) · selectConfig overlay ค่าค้าง + คำเตือน
+  await loadData();         // → UIST.data
+  if(UIST.outEdited && UIST.out){ outEdited=true; $('#out').value=UIST.out; build(); }   // out ที่ผู้ใช้พิมพ์เอง → คงไว้ (ไม่งั้นปล่อย auto-suggest)
+  await loadRuns();
+  // restore filter ประวัติ (กลยุทธ + TF) ที่จำไว้ → เฉพาะค่าที่ยังมี run จริง (fallback ไม่ error) → re-render
+  const _tfs=new Set(RUNS_DATA.map(runTF)), _strats=new Set(RUNS_DATA.map(runStrat));
+  if(Array.isArray(UIST.sfilter)) UIST.sfilter.forEach(v=>{ if(_strats.has(v)) stratSel.add(v); });
+  if(Array.isArray(UIST.tf)) UIST.tf.forEach(v=>{ if(_tfs.has(v)) tfSel.add(v); });
+  if(stratSel.size||tfSel.size){ renderHistFilters(); renderRunList(); }
+  loadCfgMgr(); loadTrash();
+  applySearch();
+  RESTORING=false; saveUI();   // restore เสร็จ → persist state ที่ resolve แล้ว
+})();
 </script>
 </body>
 </html>

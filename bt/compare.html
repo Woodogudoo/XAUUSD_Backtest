@@ -48,12 +48,48 @@
   .pk:hover{border-color:var(--gold);color:var(--gold)}
   .pk[disabled]{opacity:.35;cursor:not-allowed}
 
+  /* layout: sidebar ซ้าย (เลือก run · scroll ได้) + เนื้อหาขวา (chart/metrics) */
+  .layout{display:flex;gap:16px;align-items:flex-start}
+  .sidebar{flex:0 0 264px;position:sticky;top:22px;max-height:calc(100vh - 44px);overflow-y:auto;overflow-x:hidden}
+  .sidebar .card{margin-bottom:0}
+  .sidettl{font-family:var(--mono);font-size:10.5px;letter-spacing:1.4px;text-transform:uppercase;color:var(--gold);margin-bottom:10px}
+  .sidebar .chips{flex-direction:column}
+  .sidebar .chip,.sidebar .chip.add{min-width:0;width:100%}
+  .sidebar .picker{flex-direction:column}
+  .sidebar .pk{width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #content{flex:1 1 auto;min-width:0}
+  @media(max-width:860px){
+    .layout{flex-direction:column}
+    .sidebar{position:static;max-height:none;flex-basis:auto;width:100%;overflow:visible}
+    .sidebar .chips,.sidebar .picker{flex-direction:row;flex-wrap:wrap}
+    .sidebar .chip,.sidebar .chip.add{width:auto;min-width:200px}
+    .sidebar .pk{width:auto}
+  }
+
   .needmore{padding:28px 16px;text-align:center;color:var(--muted);font-family:var(--mono);font-size:13px}
   .needmore b{color:var(--gold)}
+  .singlehint{font-family:var(--mono);font-size:12px;color:var(--gold);background:rgba(232,177,76,.07);border:1px solid #6f5a2e;border-radius:8px;padding:8px 13px;margin-bottom:14px}
 
-  .legend{display:flex;gap:16px;margin-bottom:8px;flex-wrap:wrap}
-  .lg{display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:11.5px;color:var(--muted)}
-  .lg i{width:14px;height:3px;border-radius:2px;display:inline-block}
+  .eqline{transition:opacity .12s,stroke-width .12s}
+  .sidebar .chip[data-run]{cursor:default}
+  .sidebar .chip[data-run]:hover{border-color:var(--line2);background:rgba(232,177,76,.04)}
+  .chip .netp{font-family:var(--mono);font-size:11px;margin-left:2px}
+  .eqwrap{position:relative;cursor:grab;user-select:none}
+  .eqwrap:active{cursor:grabbing}
+  .crossV{position:absolute;top:0;bottom:0;width:1px;background:var(--muted);opacity:.55;pointer-events:none;display:none}
+  .crossH{position:absolute;left:0;right:0;height:1px;background:var(--muted);opacity:.55;pointer-events:none;display:none}
+  .crossout{min-height:17px;margin-top:8px;display:flex;flex-wrap:wrap;gap:14px;align-items:center;font-family:var(--mono);font-size:11.5px}
+  .crossout .ro-t{color:var(--text)}
+  .zbtn.on{border-color:var(--gold);color:var(--gold);background:rgba(232,177,76,.10)}
+  .zbtn{background:var(--panel2);border:1px solid var(--line2);color:var(--muted);cursor:pointer;font-family:var(--mono);font-size:11px;padding:5px 10px;border-radius:7px}
+  .zbtn:hover{border-color:var(--gold);color:var(--gold)}
+  /* แยก rule :fullscreen / :-webkit-full-screen (comma รวมกัน → browser ที่ไม่รู้จักตัวใดตัวหนึ่ง drop ทั้ง rule) */
+  #eqcard:fullscreen{background:var(--panel);display:flex;flex-direction:column}
+  #eqcard:-webkit-full-screen{background:var(--panel);display:flex;flex-direction:column}
+  #eqcard:fullscreen .body{flex:1;display:flex;flex-direction:column;justify-content:center}
+  #eqcard:-webkit-full-screen .body{flex:1;display:flex;flex-direction:column;justify-content:center}
+  #eqcard:fullscreen #eqchart svg{max-height:calc(100vh - 150px)}
+  #eqcard:-webkit-full-screen #eqchart svg{max-height:calc(100vh - 150px)}
   .toggle{display:flex;background:var(--panel2);border:1px solid var(--line2);border-radius:8px;padding:2px;gap:2px}
   .toggle button{border:0;background:transparent;color:var(--muted);cursor:pointer;font-family:var(--mono);font-size:11px;padding:5px 11px;border-radius:6px}
   .toggle button.on{background:var(--raise);color:var(--gold)}
@@ -65,6 +101,10 @@
   th:first-child,td:first-child{text-align:left;position:sticky;left:0;background:var(--panel)}
   thead th:first-child{background:var(--panel2)}
   thead th{font-family:var(--mono);font-size:11px;color:var(--muted);font-weight:500;background:var(--panel2)}
+  .rhead .rlink{cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:3px}
+  .rhead .rlink:hover{text-decoration:underline;filter:brightness(1.25)}
+  .rhead .ext{font-size:9px;opacity:.6}
+  .rhead .noviewer{border-bottom:1px dashed currentColor;opacity:.85}
   .grp td{font-family:var(--mono);font-size:10px;letter-spacing:1.2px;text-transform:uppercase;color:var(--dim);background:var(--panel2);padding:6px 14px}
   .grp td:first-child{background:var(--panel2)}
   .mname{color:var(--text)} .mname small{color:var(--dim);font-size:10px;display:block;font-family:var(--sans)}
@@ -91,22 +131,30 @@
     border:1px solid var(--line2);border-radius:10px;padding:11px 13px;font-size:11.5px;
     line-height:1.6;color:var(--text);box-shadow:0 10px 30px rgba(0,0,0,.55);z-index:50;font-family:var(--sans)}
   #calcpop .eb{display:block;font-family:var(--mono);font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--gold);margin-bottom:6px}
+  .ctoast{position:fixed;right:18px;bottom:18px;z-index:60;max-width:380px;background:var(--raise);
+    border:1px solid var(--gold);border-radius:10px;padding:11px 15px;font-family:var(--mono);font-size:12px;
+    color:var(--text);box-shadow:0 10px 30px -10px #000;opacity:0;transform:translateY(8px);transition:.25s}
+  .ctoast.show{opacity:1;transform:none}
 </style>
 </head>
 <body>
 <div class="wrap">
   <header>
     <div class="brand"><div class="mark">VS</div>
-      <div><h1>Strategy Compare</h1><div class="sub">เปรียบเทียบกลยุทธ์ · สูงสุด 10 run</div></div></div>
+      <div><h1>Strategy Compare</h1><div class="sub">เปรียบเทียบกลยุทธ์ · สูงสุด 100 run</div></div></div>
     <a class="back" href="/">← กลับ console</a>
   </header>
 
-  <section class="card"><div class="body">
-    <div class="chips" id="chips"></div>
-    <div class="picker" id="picker"></div>
-  </div></section>
-
-  <div id="content"></div>
+  <div class="layout">
+    <aside class="sidebar">
+      <section class="card"><div class="body">
+        <div class="sidettl">Runs ที่เลือก</div>
+        <div class="chips" id="chips"></div>
+        <div class="picker" id="picker"></div>
+      </div></section>
+    </aside>
+    <div id="content"></div>
+  </div>
 </div>
 
 <div id="calcpop"><span class="eb">วิธีคิด</span><span id="calcbody"></span></div>
@@ -118,12 +166,15 @@ function escAttr(s){return esc(s).replace(/"/g,'&quot;');}
 async function getJSON(u){const r=await fetch(u);if(!r.ok){let e;try{e=(await r.json()).error}catch(_){}; throw new Error(e||(u+' → '+r.status));}return r.json();}
 
 const PALETTE=['#E8B14C','#2DB39A','#7FA7D6','#C78CE0','#E0995C','#E08CB4','#8CD98F','#5CC8E0','#D6C84C','#B0B6C2'];
-const MAX_RUNS=10;
+const MAX_RUNS=100;
+function clr(i){ return PALETTE[((i%PALETTE.length)+PALETTE.length)%PALETTE.length]; }   // วนสีถ้าเกิน palette (กันสีหาย)
 
+let urlOverflow=0;   // จำนวน run ที่เกิน MAX_RUNS (ตัดทิ้ง) — ใช้เตือนสุภาพ
 function urlRuns(){
   const q=new URLSearchParams(location.search).get('runs')||'';
   const seen={}, out=[];
   q.split(',').map(s=>s.trim()).filter(Boolean).forEach(n=>{ if(!seen[n]){seen[n]=1;out.push(n);} });
+  urlOverflow=Math.max(0, out.length-MAX_RUNS);
   return out.slice(0,MAX_RUNS);
 }
 function navTo(runs){ location.search = runs.length? ('?runs='+runs.map(encodeURIComponent).join(',')) : ''; }
@@ -163,21 +214,32 @@ function cellOf(key, def, m){
   return {html:html, cmp:cmp};
 }
 
+// หัวคอลัมน์ run = ลิงก์เปิด viewer (แท็บใหม่) · ไม่มี viewer.html → คลิกได้แต่บอกวิธีสร้าง (ไม่ 404 เงียบ)
+function hasViewer(name){ var r=ALL_RUNS.find(function(x){return x.name===name;}); return !!(r&&r.has_viewer); }
+function runHeadTH(name,i){
+  var col=clr(i);
+  if(hasViewer(name))
+    return '<th class="rhead"><a class="rlink" href="/runs/'+encodeURIComponent(name)+'/viewer.html" target="_blank" rel="noopener"'+
+      ' style="color:'+col+'" title="เปิด viewer ของ '+escAttr(name)+'">'+esc(name)+' <span class="ext">↗</span></a></th>';
+  return '<th class="rhead"><span class="rlink noviewer" data-noviewer="'+escAttr(name)+'" style="color:'+col+'"'+
+    ' title="run นี้ยังไม่มี viewer — รัน: bt viewer --run runs/'+escAttr(name)+'/ ก่อน">'+esc(name)+'</span></th>';
+}
+
 // ---------- metrics table ----------
 function buildTable(defs, runs, metricsList){
   const order = Object.keys(defs).sort((a,b)=>defs[a].order-defs[b].order);
   let html='<div class="tscroll"><table><thead><tr><th>เมตริก</th>';
-  runs.forEach((r,i)=>{ html+='<th style="color:'+PALETTE[i]+'">'+esc(r)+'</th>'; });
+  runs.forEach((r,i)=>{ html+=runHeadTH(r,i); });
   html+='</tr></thead><tbody>';
   let curGroup=null;
   order.forEach(key=>{
     const def=defs[key];
     if(def.group!==curGroup){ curGroup=def.group;
       html+='<tr class="grp"><td colspan="'+(runs.length+1)+'">'+esc(curGroup)+'</td></tr>'; }
-    // compute cells + best
+    // compute cells + best · ★ เฉพาะเมื่อมี ≥2 run (run เดียวไม่มีอะไรเทียบ)
     const cells=metricsList.map(m=>cellOf(key,def,m));
     let best=null;
-    if(def.direction!=='none'){
+    if(def.direction!=='none' && runs.length>1){
       const valid=cells.map(c=>c.cmp).filter(c=>c!=null);
       if(valid.length){ best = def.direction==='max'? Math.max.apply(null,valid) : Math.min.apply(null,valid); }
     }
@@ -204,24 +266,46 @@ function niceRange(lo,hi){
   const gLo=Math.floor(lo/step)*step, gHi=Math.ceil(hi/step)*step;
   return [gLo,gHi,step];
 }
-function buildChart(runs, metricsList, mode){
+// zoom state (mirror viewer: X time-window + Y autofit · center ที่ cursor · drag = pan)
+let CHART_FULL=null,   // {tMin,tMax} ขอบเขตข้อมูลเต็ม (ทุก run) — ใช้ clamp/reset
+    CHART_MAP=null,    // {tMin,tMax,W,padL,plotW} ของหน้าต่างปัจจุบัน — ใช้ map cursor→เวลา
+    CHART_SERIES=null, // {series:[{name,color,pts}], base} ของ redraw ล่าสุด — ใช้ crosshair readout
+    hoveredRun=null;   // run ที่ hover อยู่ (re-apply highlight หลัง redraw)
+function buildChart(runs, metricsList, mode, view){
   const vKey = mode==='pct'?'equity_pct':'equity_usd';
-  let tMin=Infinity,tMax=-Infinity;
+  let dMin=Infinity,dMax=-Infinity;
   const series=metricsList.map((m,i)=>{
     const pts=(m.equity_by_trade||[]).map(p=>({t:Date.parse(p.exit_time), v:p[vKey]}))
               .filter(p=>!isNaN(p.t));
-    pts.forEach(p=>{ if(p.t<tMin)tMin=p.t; if(p.t>tMax)tMax=p.t; });
-    return {pts:pts, color:PALETTE[i], name:runs[i]};
+    pts.forEach(p=>{ if(p.t<dMin)dMin=p.t; if(p.t>dMax)dMax=p.t; });
+    return {pts:pts, color:clr(i), name:runs[i]};
   });
-  if(!isFinite(tMin)) return '<div class="note">ไม่มีข้อมูลไม้</div>';
-  if(tMax<=tMin) tMax=tMin+1;
+  if(!isFinite(dMin)) return '<div class="note">ไม่มีข้อมูลไม้</div>';
+  if(dMax<=dMin) dMax=dMin+1;
+  CHART_FULL={tMin:dMin,tMax:dMax};
+  // หน้าต่างที่มองเห็น (X) — clamp ใน [dMin,dMax] · ไม่มี view = เต็ม
+  let tMin = view? Math.max(dMin, view.tMin) : dMin;
+  let tMax = view? Math.min(dMax, view.tMax) : dMax;
+  if(!(tMax>tMin)){ tMin=dMin; tMax=dMax; }
   const base = mode==='pct'?0:1000;
+  CHART_SERIES={series:series, base:base};   // เก็บไว้ให้ crosshair readout หาค่าแต่ละ run ณ เวลา cursor
+  // step vertices (value space) ต่อ run · carry ค่า ณ tMin (ไม้ก่อนหน้าต่าง) · ตัดที่ tMax
+  const drawn=series.map(s=>{
+    let prev=base;
+    s.pts.forEach(p=>{ if(p.t<=tMin) prev=p.v; });
+    const verts=[[tMin,prev]];
+    s.pts.forEach(p=>{ if(p.t<=tMin||p.t>tMax) return; verts.push([p.t,prev]); verts.push([p.t,p.v]); prev=p.v; });
+    verts.push([tMax,prev]);
+    return {color:s.color, name:s.name, verts:verts};
+  });
+  // Y autofit ตามช่วงที่เห็น (เหมือน viewer scale())
   let vMin=base, vMax=base;
-  series.forEach(s=>s.pts.forEach(p=>{ if(p.v<vMin)vMin=p.v; if(p.v>vMax)vMax=p.v; }));
+  drawn.forEach(d=>d.verts.forEach(pt=>{ if(pt[1]<vMin)vMin=pt[1]; if(pt[1]>vMax)vMax=pt[1]; }));
   const [gLo,gHi,step]=niceRange(vMin,vMax);
 
   const W=1080,H=330,padL=64,padR=16,padT=16,padB=60;
   const plotW=W-padL-padR, plotH=H-padT-padB;
+  CHART_MAP={tMin:tMin,tMax:tMax,W:W,padL:padL,plotW:plotW};
   const x=t=>padL+(t-tMin)/(tMax-tMin)*plotW;
   const y=v=>padT+(gHi-v)/(gHi-gLo)*plotH;
   const yBase=padT+plotH;
@@ -252,22 +336,15 @@ function buildChart(runs, metricsList, mode){
   svg+='<text x="14" y="'+(padT+plotH/2)+'" fill="var(--muted)" font-size="10.5" text-anchor="middle" transform="rotate(-90 14 '+(padT+plotH/2)+')">'+ytitle+'</text>';
   svg+='<text x="'+(W-padR)+'" y="'+(padT+plotH/2)+'" fill="var(--muted)" font-size="10.5" text-anchor="middle" transform="rotate(90 '+(W-padR)+' '+(padT+plotH/2)+')">'+ytitle+'</text>';
   svg+='<text x="'+(padL+plotW/2)+'" y="'+(H-8)+'" fill="var(--muted)" font-size="10.5" text-anchor="middle">'+(dateMode?'วันที่':'เวลา')+' · แกนเวลาจริง · grid ห่างเท่ากัน · ทุก run แกนเวลาเดียวกัน</text>';
-  // curves (step)
-  series.forEach(s=>{
-    let pts=[[x(tMin),y(base)]]; let prev=base;
-    s.pts.forEach(p=>{ pts.push([x(p.t),y(prev)]); pts.push([x(p.t),y(p.v)]); prev=p.v; });
-    pts.push([x(tMax),y(prev)]);
-    const ptsStr=pts.map(p=>p[0].toFixed(1)+','+p[1].toFixed(1)).join(' ');
-    svg+='<polyline fill="none" stroke="'+s.color+'" stroke-width="2" points="'+ptsStr+'"/>';
+  // curves (step) — จาก verts ที่ตัด/ต่อตามหน้าต่างแล้ว
+  drawn.forEach(d=>{
+    const ptsStr=d.verts.map(pt=>x(pt[0]).toFixed(1)+','+y(pt[1]).toFixed(1)).join(' ');
+    svg+='<polyline class="eqline" data-run="'+escAttr(d.name)+'" fill="none" stroke="'+d.color+'" stroke-width="2" points="'+ptsStr+'"/>';
   });
   svg+='</svg>';
 
-  // legend
-  let leg='<div class="legend">';
-  series.forEach(s=>{ const last=s.pts.length?s.pts[s.pts.length-1].v:base;
-    leg+='<span class="lg"><i style="background:'+s.color+'"></i> '+esc(s.name)+' · '+(mode==='pct'?nfPct(last):nfUSD(last))+'</span>'; });
-  leg+='</div>';
-  return leg+svg;
+  // ไม่มี legend ในกราฟ — รายการ run ฝั่งซ้าย (chip + สี + hover highlight) ทำหน้าที่ legend แทน
+  return svg;
 }
 
 // ---------- config diff ----------
@@ -283,12 +360,13 @@ function buildConfig(runs, configs, showAll){
   const keys={}; configs.forEach(c=>{ if(c&&c.values) Object.keys(c.values).forEach(k=>keys[k]=1); });
   const allKeys=Object.keys(keys).sort();
   const str=v=> v===true?'true': v===false?'false': v==null?'—': String(v);
+  const single = runs.length===1;   // run เดียว → โชว์ config ทั้งหมด ไม่ไฮไลต์ diff
   let rows='';
   allKeys.forEach(k=>{
     const vals=configs.map(c=> (c&&c.values&&k in c.values)? c.values[k] : undefined);
     const present=vals.filter(v=>v!==undefined).map(str);
-    const diff = new Set(present).size>1;
-    if(!showAll && !diff) return;
+    const diff = !single && new Set(present).size>1;
+    if(!showAll && !single && !diff) return;
     let tds='';
     vals.forEach(v=>{ const sv=v===undefined?'—':str(v);
       tds+='<td class="cfg'+(diff?' diff':'')+'">'+esc(sv)+'</td>'; });
@@ -300,7 +378,7 @@ function buildConfig(runs, configs, showAll){
     ? '<div class="note" style="color:var(--gold);margin:0 0 10px">⚠ '+missing.length+' run ไม่มี config snapshot ('+missing.map(esc).join(', ')+') — แสดง “—” · รันใหม่เพื่อเทียบครบ</div>'
     : '';
   let head='<thead><tr><th>ค่า</th>';
-  runs.forEach((r,i)=>{ head+='<th style="color:'+PALETTE[i]+'">'+esc(r)+'</th>'; });
+  runs.forEach((r,i)=>{ head+=runHeadTH(r,i); });
   head+='</tr></thead>';
   return banner+'<div class="tscroll"><table>'+head+'<tbody>'+rows+'</tbody></table></div>';
 }
@@ -327,32 +405,48 @@ function attachInfo(){
 
 // ---------- chips + picker ----------
 let ALL_RUNS=[];   // {name, summary, ...} จาก /api/runs
-function metaLine(name){
-  const r=ALL_RUNS.find(x=>x.name===name); if(!r||!r.summary) return '';
-  const mode=/compat/i.test(name)?'compat':'correct';
-  const tf=(name.match(/_M(\d+)/i)||[])[1];
-  return (tf?('M'+tf+' · '):'')+mode;
+// hover chip ใน sidebar → เส้น equity ของ run นั้นเด่น (ทึบ/หนา) · เส้นอื่นจาง · null = รีเซ็ตทุกเส้น (visual only)
+function highlightRun(name){
+  $$('#content .eqline').forEach(ln=>{
+    if(name==null){ ln.style.opacity=''; ln.style.strokeWidth=''; return; }
+    const on = ln.getAttribute('data-run')===name;
+    ln.style.opacity = on?'1':'0.16';
+    ln.style.strokeWidth = on?'3.4':'';
+  });
 }
-function renderChips(runs){
+// netList[i] = net_pct ของ runs[i] (ค่าเดียวกับตาราง metrics · ไม่คำนวณใหม่) · undefined = ยังไม่โหลด → ไม่โชว์
+function renderChips(runs, netList){
   let h='';
   runs.forEach((r,i)=>{
-    h+='<div class="chip"><span class="dot" style="background:'+PALETTE[i]+'"></span>'+
+    const net = netList ? netList[i] : null;
+    const netHtml = net!=null ? ' <span class="netp '+(net<0?'neg':'pos')+'">'+nfPct(net)+'</span>' : '';
+    h+='<div class="chip" data-run="'+escAttr(r)+'"><span class="dot" style="background:'+clr(i)+'"></span>'+
        '<span class="x" data-rm="'+escAttr(r)+'">✕</span>'+
-       '<span class="nm">'+esc(r)+'</span><span class="meta">'+esc(metaLine(r))+'</span></div>';
+       '<span class="nm">'+esc(r)+netHtml+'</span></div>';
   });
   if(runs.length<MAX_RUNS) h+='<div class="chip add" id="addChip">+ เพิ่ม run</div>';
   $('#chips').innerHTML=h;
+  $$('#chips .chip[data-run]').forEach(c=>{ const n=c.getAttribute('data-run');
+    c.addEventListener('mouseenter',()=>{ hoveredRun=n; highlightRun(n); });
+    c.addEventListener('mouseleave',()=>{ hoveredRun=null; highlightRun(null); }); });
   $$('#chips .x').forEach(x=>x.onclick=()=>navTo(runs.filter(n=>n!==x.getAttribute('data-rm'))));
   const add=$('#addChip'); if(add) add.onclick=()=>$('#picker').classList.toggle('show');
   // picker
   const avail=ALL_RUNS.map(r=>r.name).filter(n=>runs.indexOf(n)<0);
   $('#picker').innerHTML = avail.length? avail.map(n=>'<div class="pk" data-add="'+escAttr(n)+'">+ '+esc(n)+'</div>').join('')
     : '<div class="note">ไม่มี run อื่นให้เพิ่ม</div>';
-  $$('#picker .pk').forEach(pk=>pk.onclick=()=>{ if(runs.length>=MAX_RUNS)return; navTo(runs.concat([pk.getAttribute('data-add')])); });
+  $$('#picker .pk').forEach(pk=>pk.onclick=()=>{
+    if(runs.length>=MAX_RUNS){ ctoast('เปรียบเทียบได้สูงสุด '+MAX_RUNS+' run — ลบบางตัวก่อนเพิ่ม'); return; }
+    navTo(runs.concat([pk.getAttribute('data-add')])); });
 }
 
 // ---------- main ----------
 function warnBox(msg){ return msg? '<div class="note" style="color:var(--gold);margin-bottom:12px">⚠ '+esc(msg)+'</div>' : ''; }
+function ctoast(msg){
+  var t=document.createElement('div'); t.className='ctoast'; t.textContent=msg; document.body.appendChild(t);
+  requestAnimationFrame(function(){ t.classList.add('show'); });
+  setTimeout(function(){ t.classList.remove('show'); setTimeout(function(){ t.remove(); },300); }, 4200);
+}
 
 (async function(){
   try{ ALL_RUNS=(await getJSON('/api/runs')).runs||[]; }catch(e){ ALL_RUNS=[]; }
@@ -361,11 +455,12 @@ function warnBox(msg){ return msg? '<div class="note" style="color:var(--gold);m
   const skipped=requested.filter(r=>!known.has(r));   // run ใน ?runs ที่ไม่มีจริง → ข้าม
   let runs=requested.filter(r=>known.has(r));
   let warn = skipped.length? ('ข้าม run ที่ไม่มี: '+skipped.join(', ')) : '';
+  if(urlOverflow) warn=(warn?warn+' · ':'')+('เลือกได้สูงสุด '+MAX_RUNS+' run — แสดง '+MAX_RUNS+' แรก (ตัด '+urlOverflow+')');
   renderChips(runs);
 
-  if(runs.length<2){
+  if(runs.length<1){
     $('#content').innerHTML='<section class="card"><div class="needmore">'+warnBox(warn)+
-      'เลือกอย่างน้อย <b>2 run</b> เพื่อเทียบ<br><span style="font-size:11px">กด “+ เพิ่ม run” ด้านบน หรือเลือกจาก console</span></div></section>';
+      'เลือกอย่างน้อย <b>1 run</b><br><span style="font-size:11px">กด “+ เพิ่ม run” ด้านซ้าย หรือเลือกจาก console</span></div></section>';
     return;
   }
 
@@ -378,11 +473,11 @@ function warnBox(msg){ return msg? '<div class="note" style="color:var(--gold);m
     const failed=runs.filter((r,i)=>!got[i]);
     const ok=got.filter(Boolean);
     runs=ok.map(x=>x.r); metricsList=ok.map(x=>x.m);
-    renderChips(runs);
+    renderChips(runs, metricsList.map(m=>m?m.net_pct:null));   // net% = ค่าเดียวกับตาราง metrics
     if(failed.length){ warn=(warn?warn+' · ':'')+'โหลด metrics ไม่ได้: '+failed.join(', '); }
-    if(runs.length<2){
+    if(runs.length<1){
       $('#content').innerHTML='<section class="card"><div class="needmore">'+warnBox(warn)+
-        'มี run ใช้ได้ < 2 — เลือกเพิ่มอย่างน้อย <b>2 run</b></div></section>';
+        'ไม่มี run ที่โหลด metrics ได้</div></section>';
       return;
     }
     configs=await Promise.all(runs.map(r=>getJSON('/api/runs/'+encodeURIComponent(r)+'/config').catch(()=>({exists:false}))));
@@ -391,28 +486,131 @@ function warnBox(msg){ return msg? '<div class="note" style="color:var(--gold);m
     return;
   }
 
-  let chartMode='pct', showAllCfg=false;
+  let chartMode='pct', showAllCfg=false, chartView=null, drag=null, crossOn=false, lastMouseX=null, lastMouseY=null;
+  const single = runs.length===1;   // run เดียว = "รายละเอียด run เดียว" (ไม่มี ★/diff)
+  // วาดเฉพาะกราฟใหม่ (ไม่ rebuild ทั้งหน้า) + คง hover highlight + sync crosshair readout
+  function redrawChart(){
+    const el=document.getElementById('eqchart'); if(!el) return;
+    el.innerHTML=buildChart(runs,metricsList,chartMode,chartView);
+    if(hoveredRun) highlightRun(hoveredRun);
+    if(crossOn && lastMouseX!=null) updateCross(lastMouseX,lastMouseY);   // readout/เส้น ตามหน้าต่างใหม่หลังซูม
+  }
+  // crosshair + readout (mirror viewer) — เส้นตั้ง/นอนตามเมาส์ + ค่าแต่ละ run ใต้กราฟ
+  function valueAtTime(pts, t, base){ let v=base;   // step: ค่าของไม้ล่าสุดที่ปิด <= t
+    for(let i=0;i<pts.length;i++){ if(pts[i].t<=t) v=pts[i].v; else break; } return v; }
+  function clearCross(){
+    const cv=document.getElementById('crossV'), ch=document.getElementById('crossH'), ro=document.getElementById('crossReadout');
+    if(cv)cv.style.display='none'; if(ch)ch.style.display='none'; if(ro)ro.innerHTML='';
+  }
+  function updateCross(cx, cy){
+    const wrap=document.getElementById('eqwrap'); if(!wrap||!CHART_MAP||!CHART_SERIES) return;
+    const r=wrap.getBoundingClientRect(), px=cx-r.left, py=cy-r.top;
+    if(px<0||px>r.width||py<0||py>r.height){ clearCross(); return; }
+    const cv=document.getElementById('crossV'), ch=document.getElementById('crossH');
+    if(cv){ cv.style.left=px+'px'; cv.style.display='block'; }
+    if(ch){ ch.style.top=py+'px'; ch.style.display='block'; }
+    const t=timeAtClientX(cx);
+    let h='<span class="ro-t">'+esc(fmtDate(t)+' '+fmtHM(t))+'</span>';
+    CHART_SERIES.series.forEach(s=>{ const v=valueAtTime(s.pts,t,CHART_SERIES.base);
+      h+='<span class="ro-r" style="color:'+s.color+'">'+esc(s.name)+' '+(chartMode==='pct'?nfPct(v):nfUSD(v))+'</span>'; });
+    const ro=document.getElementById('crossReadout'); if(ro) ro.innerHTML=h;
+  }
+  function timeAtClientX(cx){   // cursor px → เวลา (ในหน้าต่างปัจจุบัน)
+    const el=document.getElementById('eqchart'); if(!el||!CHART_MAP) return null;
+    const r=el.getBoundingClientRect();
+    let f=((cx-r.left)/r.width*CHART_MAP.W-CHART_MAP.padL)/CHART_MAP.plotW;
+    f=Math.max(0,Math.min(1,f));
+    return CHART_MAP.tMin + f*(CHART_MAP.tMax-CHART_MAP.tMin);
+  }
+  function attachChartZoom(){   // bind ใหม่ทุก render (el ถูกสร้างใหม่)
+    const el=document.getElementById('eqchart'); if(!el) return;
+    el.addEventListener('wheel',e=>{
+      if(!CHART_FULL) return; e.preventDefault();
+      const ct=timeAtClientX(e.clientX); if(ct==null) return;
+      const cur=chartView||{tMin:CHART_FULL.tMin,tMax:CHART_FULL.tMax};
+      const f=e.deltaY>0?1.18:0.85;   // scroll ขึ้น = zoom in (×0.85) · ลง = zoom out (×1.18) — เหมือน viewer
+      let a=ct-(ct-cur.tMin)*f, b=ct+(cur.tMax-ct)*f;
+      const fullSpan=CHART_FULL.tMax-CHART_FULL.tMin;
+      if(b-a>=fullSpan){ chartView=null; }                 // zoom out จนเต็ม → reset
+      else { a=Math.max(CHART_FULL.tMin,a); b=Math.min(CHART_FULL.tMax,b);
+        if(b-a<fullSpan*0.0015) return;                    // กัน zoom ลึกเกิน
+        chartView={tMin:a,tMax:b}; }
+      redrawChart();
+    },{passive:false});
+    el.addEventListener('mousedown',e=>{ if(!chartView) return;   // ไม่ได้ซูม = ไม่มีที่ pan
+      drag={x:e.clientX, view:{tMin:chartView.tMin,tMax:chartView.tMax}}; e.preventDefault(); });
+    // hover เส้นโดยตรง → highlight (ทำงานแม้ในโหมดเต็มจอ ที่ chip ฝั่งซ้ายถูกซ่อน)
+    el.addEventListener('mouseover',e=>{ const ln=e.target.closest&&e.target.closest('.eqline');
+      if(ln && !drag){ hoveredRun=ln.getAttribute('data-run'); highlightRun(hoveredRun); } });
+    el.addEventListener('mouseout',e=>{ const ln=e.target.closest&&e.target.closest('.eqline');
+      if(ln && !drag){ hoveredRun=null; highlightRun(null); } });
+    // crosshair + readout (เมื่อเปิด toggle)
+    el.addEventListener('mousemove',e=>{ lastMouseX=e.clientX; lastMouseY=e.clientY; if(crossOn) updateCross(e.clientX,e.clientY); });
+    el.addEventListener('mouseleave',()=>{ if(crossOn) clearCross(); });
+  }
+  // pan: bind ที่ window ครั้งเดียว (อ้าง drag/chartView ใน scope)
+  window.addEventListener('mousemove',e=>{
+    if(!drag||!CHART_MAP||!CHART_FULL) return;
+    const el=document.getElementById('eqchart'); if(!el) return;
+    const r=el.getBoundingClientRect(), span=drag.view.tMax-drag.view.tMin;
+    const dt=(e.clientX-drag.x)/r.width*CHART_MAP.W/CHART_MAP.plotW*span;
+    let a=drag.view.tMin-dt, b=drag.view.tMax-dt;
+    if(a<CHART_FULL.tMin){ a=CHART_FULL.tMin; b=a+span; }
+    if(b>CHART_FULL.tMax){ b=CHART_FULL.tMax; a=b-span; }
+    chartView={tMin:a,tMax:b}; redrawChart();
+  });
+  window.addEventListener('mouseup',()=>{ drag=null; });
+  // ---- fullscreen: ขยาย equity card เต็มจอ (Fullscreen API · cross-browser · Esc ออกเอง) ----
+  function fsElement(){ return document.fullscreenElement||document.webkitFullscreenElement||null; }
+  function reqFS(el){ const f=el.requestFullscreen||el.webkitRequestFullscreen; if(f) f.call(el); }
+  function exitFS(){ const f=document.exitFullscreen||document.webkitExitFullscreen; if(f) f.call(document); }
+  function onFsChange(){
+    const card=document.getElementById('eqcard'), ef=document.getElementById('eqFull');
+    if(ef) ef.textContent = (fsElement()===card)?'⛶ ออกจากเต็มจอ':'⛶ เต็มจอ';
+    redrawChart();   // re-fit ขนาด + คง hover highlight ในโหมดเต็มจอ
+  }
+  document.addEventListener('fullscreenchange',onFsChange);
+  document.addEventListener('webkitfullscreenchange',onFsChange);
   function render(){
     $('#content').innerHTML=
       warnBox(warn)+
-      '<section class="card"><div class="hd"><div><div class="eyebrow">Equity curve</div>'+
+      (single?'<div class="singlehint">รายละเอียด run เดียว — '+esc(runs[0])+'</div>':'')+
+      '<section class="card" id="eqcard"><div class="hd"><div><div class="eyebrow">Equity curve</div>'+
         '<h2>เส้นทุน<span class="info" data-calc="เรียงตามเวลาปิดไม้ (exit time) · เริ่มทุน $1000 · บวก pnl สะสมทีละไม้. %profit = (ทุน − 1000) ÷ 1000 × 100. แกน X เป็นเวลาจริง map เชิงเส้น — grid ห่างเท่ากันคงที่ ไม่ยืด/หดตามจำนวนไม้ · ทุก run วางบนแกนเวลาเดียวกัน (จุดเวลาเดียวกันตรงกัน) · ช่วงไม่มีไม้ เส้นจะแบน. สลับ %/USD ที่ปุ่มขวา.">i</span></h2></div>'+
+        '<div style="display:flex;gap:8px;align-items:center">'+
+        '<button id="crossTg" class="zbtn'+(crossOn?' on':'')+'" title="เปิด/ปิด crosshair + readout">✛ crosshair</button>'+
+        '<button id="eqFull" class="zbtn" title="ขยายเต็มจอ (Esc ออก)">⛶ เต็มจอ</button>'+
+        '<button id="zoomReset" class="zbtn" title="กลับมุมมองเวลาเต็ม (รีเซ็ตซูม)">⟲ รีเซ็ตซูม</button>'+
         '<div class="toggle" id="modeTg"><button class="'+(chartMode==='pct'?'on':'')+'" data-m="pct">%</button>'+
-        '<button class="'+(chartMode==='usd'?'on':'')+'" data-m="usd">USD</button></div></div>'+
-        '<div class="body">'+buildChart(runs,metricsList,chartMode)+
-        '<div class="note">แกน X = เวลาจริง · grid แนวตั้งห่างเท่ากัน · ทุก run แกนเวลาเดียวกัน — ช่วงไม่มีไม้ = เส้นแบน · สลับ %/USD มุมขวา</div></div></section>'+
+        '<button class="'+(chartMode==='usd'?'on':'')+'" data-m="usd">USD</button></div></div></div>'+
+        '<div class="body"><div class="eqwrap" id="eqwrap"><div id="eqchart">'+buildChart(runs,metricsList,chartMode,chartView)+'</div>'+
+        '<div id="crossV" class="crossV"></div><div id="crossH" class="crossH"></div></div>'+
+        '<div id="crossReadout" class="crossout"></div>'+
+        '<div class="note">scroll = zoom · drag = pan · ✛ crosshair · ⟲ รีเซ็ตซูม · ⛶ เต็มจอ · แกน X เวลาจริง · Y ปรับตามช่วงที่ซูม</div></div></section>'+
 
       '<section class="card"><div class="hd"><div><div class="eyebrow">Metrics</div>'+
-        '<h2>เมตริกเทียบ<span class="info" data-calc="ทุกค่าคิดจากทุนตั้งต้นคงที่ $1000 ไม่ทบต้น. แต่ละคอลัมน์ = 1 run (สูงสุด 10 · ตารางเลื่อนแนวนอนได้). กด ⓘ ท้ายแต่ละแถวเพื่อดูวิธีคิด. ★ = ดีที่สุดในแถว.">i</span></h2></div></div>'+
+        '<h2>'+(single?'เมตริก':'เมตริกเทียบ')+'<span class="info" data-calc="ทุกค่าคิดจากทุนตั้งต้นคงที่ $1000 ไม่ทบต้น. แต่ละคอลัมน์ = 1 run (สูงสุด 100 · ตารางเลื่อนแนวนอนได้). กด ⓘ ท้ายแต่ละแถวเพื่อดูวิธีคิด. ★ = ดีที่สุดในแถว (เฉพาะเมื่อมี ≥2 run).">i</span></h2></div></div>'+
         buildTable(defs,runs,metricsList)+'</section>'+
 
-      '<section class="card"><div class="hd"><div><div class="eyebrow">Config diff</div>'+
-        '<h2>ค่าที่ตั้งต่างกัน<span class="info" data-calc="เทียบ YAML config ของทุก run ทีละ key. ช่องไฮไลต์ทอง = ค่าที่ต่างจาก run อื่น. key ที่ทุก run เท่ากันซ่อนได้.">i</span></h2></div>'+
-        '<button class="toggle" style="padding:0"><span id="cfgTg" style="font-family:var(--mono);font-size:11px;color:var(--gold);padding:6px 11px;cursor:pointer">'+(showAllCfg?'โชว์ทั้งหมด':'โชว์เฉพาะที่ต่าง')+'</span></button></div>'+
+      '<section class="card"><div class="hd"><div><div class="eyebrow">Config'+(single?'':' diff')+'</div>'+
+        '<h2>'+(single?'ค่าที่ตั้ง':'ค่าที่ตั้งต่างกัน')+'<span class="info" data-calc="เทียบ YAML config ของทุก run ทีละ key. ช่องไฮไลต์ทอง = ค่าที่ต่างจาก run อื่น. key ที่ทุก run เท่ากันซ่อนได้.">i</span></h2></div>'+
+        (single?'':'<button class="toggle" style="padding:0"><span id="cfgTg" style="font-family:var(--mono);font-size:11px;color:var(--gold);padding:6px 11px;cursor:pointer">'+(showAllCfg?'โชว์ทั้งหมด':'โชว์เฉพาะที่ต่าง')+'</span></button>')+'</div>'+
         '<div class="body" style="padding-top:6px">'+buildConfig(runs,configs,showAllCfg)+'</div></section>';
 
-    $$('#modeTg button').forEach(b=>b.onclick=()=>{ chartMode=b.getAttribute('data-m'); render(); });
+    $$('#modeTg button').forEach(b=>b.onclick=()=>{ chartMode=b.getAttribute('data-m'); render(); });   // คง chartView ข้าม %/USD
+    const zr=$('#zoomReset'); if(zr) zr.onclick=()=>{ chartView=null; redrawChart(); };
+    const xt=$('#crossTg'); if(xt) xt.onclick=()=>{ crossOn=!crossOn; xt.classList.toggle('on',crossOn); if(!crossOn) clearCross(); };
+    const ef=$('#eqFull'); if(ef) ef.onclick=()=>{   // ขยายเต็มจอ (toggle) — Fullscreen API จริง (Esc ออกอัตโนมัติ)
+      const card=document.getElementById('eqcard'); if(!card) return;
+      if(fsElement()===card){ exitFS(); } else { reqFS(card); }
+    };
+    attachChartZoom();
     const ct=$('#cfgTg'); if(ct) ct.onclick=()=>{ showAllCfg=!showAllCfg; render(); };
+    // หัว run ที่ไม่มี viewer → คลิกแล้วบอกวิธีสร้าง (ไม่ใช่ลิงก์ตาย)
+    $$('.rlink.noviewer').forEach(el=>el.onclick=()=>{
+      const n=el.getAttribute('data-noviewer');
+      ctoast('run “'+n+'” ยังไม่มี viewer — รัน: bt viewer --run runs/'+n+'/ ก่อน');
+    });
     attachInfo();
   }
   render();
