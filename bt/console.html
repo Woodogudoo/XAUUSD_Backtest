@@ -287,7 +287,7 @@
 
         <div id="dirtyWarn" class="dirtywarn" style="display:none">● ค่าที่แก้ไขยังไม่ได้บันทึก</div>
         <div class="saveas">
-          <button id="saveInplaceBtn" class="btn-ghost gold" title="เขียนทับไฟล์ที่โหลดอยู่">💾 บันทึก</button>
+          <button id="saveInplaceBtn" class="btn-ghost gold" title="บันทึกตามชื่อ config (เตือนก่อนสร้าง/ทับไฟล์อื่น)">💾 บันทึก</button>
           <div class="f"><label class="lab">บันทึกเป็นไฟล์ใหม่ <span class="hint">configs/</span></label>
             <input id="saveName" type="text" placeholder="เช่น mairuay_v205.yaml"></div>
           <button id="saveBtn" class="btn-ghost">บันทึกเป็น…</button>
@@ -1036,6 +1036,25 @@ async function doSave(overwrite){
   finally{ busy=false; $('#saveBtn').disabled=false; $('#saveInplaceBtn').disabled=false; }
 }
 const saveConfig=()=>doSave(false);   // คงชื่อเดิม (runBacktest เรียกตอน dirty guard)
+// ปุ่ม "บันทึก" — เทียบชื่อเป้าหมาย (ช่อง "ชื่อ config" = #saveName) กับไฟล์ที่โหลด (curCfgId)
+// ก่อนเขียน → กันทับไฟล์เก่าเงียบๆ เมื่อผู้ใช้เปลี่ยนชื่อไปแล้ว
+async function saveSmart(){
+  if(busy)return null;
+  if(!curCfgId){ toast('ยังไม่ได้เลือก config','err'); return null; }
+  const nm=$('#saveName').value.trim();   // sync กับช่อง "ชื่อ config" เสมอ
+  if(!nm){ toast('ใส่ชื่อ config ก่อน','err'); return null; }
+  const nid=nm.replace(/\.(ya?ml)$/,'');
+  if(nid===curCfgId) return doSave(true);   // ชื่อ==ไฟล์ที่โหลด → ทับเดิมตามปกติ (ไม่ popup)
+  // ชื่อ != ไฟล์ที่โหลด → ห้ามทับเก่าเงียบ · เช็คมี/ไม่มีจากรายการ config ฝั่ง client
+  if(!CFG_ALL.some(c=>c.id===nid)){   // ยังไม่มีในระบบ → ยืนยันสร้างใหม่ (ไม่แตะไฟล์เก่า)
+    const c=await modal({title:'สร้างไฟล์ใหม่',
+      body:'ไฟล์ <b>'+esc(nid)+'.yaml</b> ยังไม่มีในระบบ — ต้องการสร้างใหม่ไหม?<br><span style="font-size:11px;color:var(--dim)">ไฟล์เดิม '+esc(curCfgId)+'.yaml ไม่ถูกแตะ</span>',
+      buttons:[{id:'new',label:'สร้างใหม่',kind:'gold'},{id:'cancel',label:'ยกเลิก'}]});
+    if(c!=='new') return null;
+  }
+  // มีอยู่แล้ว → doSave(false) จะ popup "เขียนทับ?" เอง (กันทับเงียบ) · ใหม่ → สร้างตามชื่อ
+  return doSave(false);
+}
 
 // ---------- Run (POST /api/run) ----------
 async function runBacktest(){
@@ -1079,7 +1098,7 @@ async function doRun(overwrite){
 }
 $('#runBtn').addEventListener('click',runBacktest);
 $('#saveBtn').addEventListener('click',()=>doSave(false));
-$('#saveInplaceBtn').addEventListener('click',()=>doSave(true));
+$('#saveInplaceBtn').addEventListener('click',saveSmart);
 
 // ---------- history ----------
 function fmtUsd(n){return (n>=0?'+':'−')+Math.abs(n).toLocaleString('en-US',{maximumFractionDigits:0})+'$';}
