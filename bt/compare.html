@@ -73,9 +73,7 @@
   .eqline{transition:opacity .12s,stroke-width .12s}
   .sidebar .chip[data-run]{cursor:default}
   .sidebar .chip[data-run]:hover{border-color:var(--line2);background:rgba(232,177,76,.04)}
-  .legend{display:flex;gap:16px;margin-bottom:8px;flex-wrap:wrap}
-  .lg{display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:11.5px;color:var(--muted)}
-  .lg i{width:14px;height:3px;border-radius:2px;display:inline-block}
+  .chip .netp{font-family:var(--mono);font-size:11px;margin-left:2px}
   .toggle{display:flex;background:var(--panel2);border:1px solid var(--line2);border-radius:8px;padding:2px;gap:2px}
   .toggle button{border:0;background:transparent;color:var(--muted);cursor:pointer;font-family:var(--mono);font-size:11px;padding:5px 11px;border-radius:6px}
   .toggle button.on{background:var(--raise);color:var(--gold)}
@@ -307,12 +305,8 @@ function buildChart(runs, metricsList, mode){
   });
   svg+='</svg>';
 
-  // legend
-  let leg='<div class="legend">';
-  series.forEach(s=>{ const last=s.pts.length?s.pts[s.pts.length-1].v:base;
-    leg+='<span class="lg"><i style="background:'+s.color+'"></i> '+esc(s.name)+' · '+(mode==='pct'?nfPct(last):nfUSD(last))+'</span>'; });
-  leg+='</div>';
-  return leg+svg;
+  // ไม่มี legend ในกราฟ — รายการ run ฝั่งซ้าย (chip + สี + hover highlight) ทำหน้าที่ legend แทน
+  return svg;
 }
 
 // ---------- config diff ----------
@@ -373,12 +367,6 @@ function attachInfo(){
 
 // ---------- chips + picker ----------
 let ALL_RUNS=[];   // {name, summary, ...} จาก /api/runs
-function metaLine(name){
-  const r=ALL_RUNS.find(x=>x.name===name); if(!r||!r.summary) return '';
-  const mode=/compat/i.test(name)?'compat':'correct';
-  const tf=(name.match(/_M(\d+)/i)||[])[1];
-  return (tf?('M'+tf+' · '):'')+mode;
-}
 // hover chip ใน sidebar → เส้น equity ของ run นั้นเด่น (ทึบ/หนา) · เส้นอื่นจาง · null = รีเซ็ตทุกเส้น (visual only)
 function highlightRun(name){
   $$('#content .eqline').forEach(ln=>{
@@ -388,12 +376,15 @@ function highlightRun(name){
     ln.style.strokeWidth = on?'3.4':'';
   });
 }
-function renderChips(runs){
+// netList[i] = net_pct ของ runs[i] (ค่าเดียวกับตาราง metrics · ไม่คำนวณใหม่) · undefined = ยังไม่โหลด → ไม่โชว์
+function renderChips(runs, netList){
   let h='';
   runs.forEach((r,i)=>{
+    const net = netList ? netList[i] : null;
+    const netHtml = net!=null ? ' <span class="netp '+(net<0?'neg':'pos')+'">'+nfPct(net)+'</span>' : '';
     h+='<div class="chip" data-run="'+escAttr(r)+'"><span class="dot" style="background:'+PALETTE[i]+'"></span>'+
        '<span class="x" data-rm="'+escAttr(r)+'">✕</span>'+
-       '<span class="nm">'+esc(r)+'</span><span class="meta">'+esc(metaLine(r))+'</span></div>';
+       '<span class="nm">'+esc(r)+netHtml+'</span></div>';
   });
   if(runs.length<MAX_RUNS) h+='<div class="chip add" id="addChip">+ เพิ่ม run</div>';
   $('#chips').innerHTML=h;
@@ -441,7 +432,7 @@ function ctoast(msg){
     const failed=runs.filter((r,i)=>!got[i]);
     const ok=got.filter(Boolean);
     runs=ok.map(x=>x.r); metricsList=ok.map(x=>x.m);
-    renderChips(runs);
+    renderChips(runs, metricsList.map(m=>m?m.net_pct:null));   // net% = ค่าเดียวกับตาราง metrics
     if(failed.length){ warn=(warn?warn+' · ':'')+'โหลด metrics ไม่ได้: '+failed.join(', '); }
     if(runs.length<1){
       $('#content').innerHTML='<section class="card"><div class="needmore">'+warnBox(warn)+
