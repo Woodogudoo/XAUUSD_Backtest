@@ -74,8 +74,13 @@
   .sidebar .chip[data-run]{cursor:default}
   .sidebar .chip[data-run]:hover{border-color:var(--line2);background:rgba(232,177,76,.04)}
   .chip .netp{font-family:var(--mono);font-size:11px;margin-left:2px}
-  .eqwrap{cursor:grab;user-select:none}
+  .eqwrap{position:relative;cursor:grab;user-select:none}
   .eqwrap:active{cursor:grabbing}
+  .crossV{position:absolute;top:0;bottom:0;width:1px;background:var(--muted);opacity:.55;pointer-events:none;display:none}
+  .crossH{position:absolute;left:0;right:0;height:1px;background:var(--muted);opacity:.55;pointer-events:none;display:none}
+  .crossout{min-height:17px;margin-top:8px;display:flex;flex-wrap:wrap;gap:14px;align-items:center;font-family:var(--mono);font-size:11.5px}
+  .crossout .ro-t{color:var(--text)}
+  .zbtn.on{border-color:var(--gold);color:var(--gold);background:rgba(232,177,76,.10)}
   .zbtn{background:var(--panel2);border:1px solid var(--line2);color:var(--muted);cursor:pointer;font-family:var(--mono);font-size:11px;padding:5px 10px;border-radius:7px}
   .zbtn:hover{border-color:var(--gold);color:var(--gold)}
   /* แยก rule :fullscreen / :-webkit-full-screen (comma รวมกัน → browser ที่ไม่รู้จักตัวใดตัวหนึ่ง drop ทั้ง rule) */
@@ -261,6 +266,7 @@ function niceRange(lo,hi){
 // zoom state (mirror viewer: X time-window + Y autofit · center ที่ cursor · drag = pan)
 let CHART_FULL=null,   // {tMin,tMax} ขอบเขตข้อมูลเต็ม (ทุก run) — ใช้ clamp/reset
     CHART_MAP=null,    // {tMin,tMax,W,padL,plotW} ของหน้าต่างปัจจุบัน — ใช้ map cursor→เวลา
+    CHART_SERIES=null, // {series:[{name,color,pts}], base} ของ redraw ล่าสุด — ใช้ crosshair readout
     hoveredRun=null;   // run ที่ hover อยู่ (re-apply highlight หลัง redraw)
 function buildChart(runs, metricsList, mode, view){
   const vKey = mode==='pct'?'equity_pct':'equity_usd';
@@ -279,6 +285,7 @@ function buildChart(runs, metricsList, mode, view){
   let tMax = view? Math.min(dMax, view.tMax) : dMax;
   if(!(tMax>tMin)){ tMin=dMin; tMax=dMax; }
   const base = mode==='pct'?0:1000;
+  CHART_SERIES={series:series, base:base};   // เก็บไว้ให้ crosshair readout หาค่าแต่ละ run ณ เวลา cursor
   // step vertices (value space) ต่อ run · carry ค่า ณ tMin (ไม้ก่อนหน้าต่าง) · ตัดที่ tMax
   const drawn=series.map(s=>{
     let prev=base;
@@ -473,13 +480,34 @@ function ctoast(msg){
     return;
   }
 
-  let chartMode='pct', showAllCfg=false, chartView=null, drag=null;
+  let chartMode='pct', showAllCfg=false, chartView=null, drag=null, crossOn=false, lastMouseX=null, lastMouseY=null;
   const single = runs.length===1;   // run เดียว = "รายละเอียด run เดียว" (ไม่มี ★/diff)
-  // วาดเฉพาะกราฟใหม่ (ไม่ rebuild ทั้งหน้า) + คง hover highlight
+  // วาดเฉพาะกราฟใหม่ (ไม่ rebuild ทั้งหน้า) + คง hover highlight + sync crosshair readout
   function redrawChart(){
     const el=document.getElementById('eqchart'); if(!el) return;
     el.innerHTML=buildChart(runs,metricsList,chartMode,chartView);
     if(hoveredRun) highlightRun(hoveredRun);
+    if(crossOn && lastMouseX!=null) updateCross(lastMouseX,lastMouseY);   // readout/เส้น ตามหน้าต่างใหม่หลังซูม
+  }
+  // crosshair + readout (mirror viewer) — เส้นตั้ง/นอนตามเมาส์ + ค่าแต่ละ run ใต้กราฟ
+  function valueAtTime(pts, t, base){ let v=base;   // step: ค่าของไม้ล่าสุดที่ปิด <= t
+    for(let i=0;i<pts.length;i++){ if(pts[i].t<=t) v=pts[i].v; else break; } return v; }
+  function clearCross(){
+    const cv=document.getElementById('crossV'), ch=document.getElementById('crossH'), ro=document.getElementById('crossReadout');
+    if(cv)cv.style.display='none'; if(ch)ch.style.display='none'; if(ro)ro.innerHTML='';
+  }
+  function updateCross(cx, cy){
+    const wrap=document.getElementById('eqwrap'); if(!wrap||!CHART_MAP||!CHART_SERIES) return;
+    const r=wrap.getBoundingClientRect(), px=cx-r.left, py=cy-r.top;
+    if(px<0||px>r.width||py<0||py>r.height){ clearCross(); return; }
+    const cv=document.getElementById('crossV'), ch=document.getElementById('crossH');
+    if(cv){ cv.style.left=px+'px'; cv.style.display='block'; }
+    if(ch){ ch.style.top=py+'px'; ch.style.display='block'; }
+    const t=timeAtClientX(cx);
+    let h='<span class="ro-t">'+esc(fmtDate(t)+' '+fmtHM(t))+'</span>';
+    CHART_SERIES.series.forEach(s=>{ const v=valueAtTime(s.pts,t,CHART_SERIES.base);
+      h+='<span class="ro-r" style="color:'+s.color+'">'+esc(s.name)+' '+(chartMode==='pct'?nfPct(v):nfUSD(v))+'</span>'; });
+    const ro=document.getElementById('crossReadout'); if(ro) ro.innerHTML=h;
   }
   function timeAtClientX(cx){   // cursor px → เวลา (ในหน้าต่างปัจจุบัน)
     const el=document.getElementById('eqchart'); if(!el||!CHART_MAP) return null;
@@ -510,6 +538,9 @@ function ctoast(msg){
       if(ln && !drag){ hoveredRun=ln.getAttribute('data-run'); highlightRun(hoveredRun); } });
     el.addEventListener('mouseout',e=>{ const ln=e.target.closest&&e.target.closest('.eqline');
       if(ln && !drag){ hoveredRun=null; highlightRun(null); } });
+    // crosshair + readout (เมื่อเปิด toggle)
+    el.addEventListener('mousemove',e=>{ lastMouseX=e.clientX; lastMouseY=e.clientY; if(crossOn) updateCross(e.clientX,e.clientY); });
+    el.addEventListener('mouseleave',()=>{ if(crossOn) clearCross(); });
   }
   // pan: bind ที่ window ครั้งเดียว (อ้าง drag/chartView ใน scope)
   window.addEventListener('mousemove',e=>{
@@ -541,12 +572,15 @@ function ctoast(msg){
       '<section class="card" id="eqcard"><div class="hd"><div><div class="eyebrow">Equity curve</div>'+
         '<h2>เส้นทุน<span class="info" data-calc="เรียงตามเวลาปิดไม้ (exit time) · เริ่มทุน $1000 · บวก pnl สะสมทีละไม้. %profit = (ทุน − 1000) ÷ 1000 × 100. แกน X เป็นเวลาจริง map เชิงเส้น — grid ห่างเท่ากันคงที่ ไม่ยืด/หดตามจำนวนไม้ · ทุก run วางบนแกนเวลาเดียวกัน (จุดเวลาเดียวกันตรงกัน) · ช่วงไม่มีไม้ เส้นจะแบน. สลับ %/USD ที่ปุ่มขวา.">i</span></h2></div>'+
         '<div style="display:flex;gap:8px;align-items:center">'+
+        '<button id="crossTg" class="zbtn'+(crossOn?' on':'')+'" title="เปิด/ปิด crosshair + readout">✛ crosshair</button>'+
         '<button id="eqFull" class="zbtn" title="ขยายเต็มจอ (Esc ออก)">⛶ เต็มจอ</button>'+
         '<button id="zoomReset" class="zbtn" title="กลับมุมมองเวลาเต็ม (รีเซ็ตซูม)">⟲ รีเซ็ตซูม</button>'+
         '<div class="toggle" id="modeTg"><button class="'+(chartMode==='pct'?'on':'')+'" data-m="pct">%</button>'+
         '<button class="'+(chartMode==='usd'?'on':'')+'" data-m="usd">USD</button></div></div></div>'+
-        '<div class="body"><div id="eqchart" class="eqwrap">'+buildChart(runs,metricsList,chartMode,chartView)+'</div>'+
-        '<div class="note">scroll = zoom · drag = pan · ⟲ รีเซ็ตซูม · ⛶ เต็มจอ · แกน X เวลาจริง · Y ปรับตามช่วงที่ซูม · ทุก run แกนเวลาเดียวกัน</div></div></section>'+
+        '<div class="body"><div class="eqwrap" id="eqwrap"><div id="eqchart">'+buildChart(runs,metricsList,chartMode,chartView)+'</div>'+
+        '<div id="crossV" class="crossV"></div><div id="crossH" class="crossH"></div></div>'+
+        '<div id="crossReadout" class="crossout"></div>'+
+        '<div class="note">scroll = zoom · drag = pan · ✛ crosshair · ⟲ รีเซ็ตซูม · ⛶ เต็มจอ · แกน X เวลาจริง · Y ปรับตามช่วงที่ซูม</div></div></section>'+
 
       '<section class="card"><div class="hd"><div><div class="eyebrow">Metrics</div>'+
         '<h2>'+(single?'เมตริก':'เมตริกเทียบ')+'<span class="info" data-calc="ทุกค่าคิดจากทุนตั้งต้นคงที่ $1000 ไม่ทบต้น. แต่ละคอลัมน์ = 1 run (สูงสุด 10 · ตารางเลื่อนแนวนอนได้). กด ⓘ ท้ายแต่ละแถวเพื่อดูวิธีคิด. ★ = ดีที่สุดในแถว (เฉพาะเมื่อมี ≥2 run).">i</span></h2></div></div>'+
@@ -559,6 +593,7 @@ function ctoast(msg){
 
     $$('#modeTg button').forEach(b=>b.onclick=()=>{ chartMode=b.getAttribute('data-m'); render(); });   // คง chartView ข้าม %/USD
     const zr=$('#zoomReset'); if(zr) zr.onclick=()=>{ chartView=null; redrawChart(); };
+    const xt=$('#crossTg'); if(xt) xt.onclick=()=>{ crossOn=!crossOn; xt.classList.toggle('on',crossOn); if(!crossOn) clearCross(); };
     const ef=$('#eqFull'); if(ef) ef.onclick=()=>{   // ขยายเต็มจอ (toggle) — Fullscreen API จริง (Esc ออกอัตโนมัติ)
       const card=document.getElementById('eqcard'); if(!card) return;
       if(fsElement()===card){ exitFS(); } else { reqFS(card); }
