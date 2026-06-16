@@ -78,6 +78,13 @@
   .eqwrap:active{cursor:grabbing}
   .zbtn{background:var(--panel2);border:1px solid var(--line2);color:var(--muted);cursor:pointer;font-family:var(--mono);font-size:11px;padding:5px 10px;border-radius:7px}
   .zbtn:hover{border-color:var(--gold);color:var(--gold)}
+  /* แยก rule :fullscreen / :-webkit-full-screen (comma รวมกัน → browser ที่ไม่รู้จักตัวใดตัวหนึ่ง drop ทั้ง rule) */
+  #eqcard:fullscreen{background:var(--panel);display:flex;flex-direction:column}
+  #eqcard:-webkit-full-screen{background:var(--panel);display:flex;flex-direction:column}
+  #eqcard:fullscreen .body{flex:1;display:flex;flex-direction:column;justify-content:center}
+  #eqcard:-webkit-full-screen .body{flex:1;display:flex;flex-direction:column;justify-content:center}
+  #eqcard:fullscreen #eqchart svg{max-height:calc(100vh - 150px)}
+  #eqcard:-webkit-full-screen #eqchart svg{max-height:calc(100vh - 150px)}
   .toggle{display:flex;background:var(--panel2);border:1px solid var(--line2);border-radius:8px;padding:2px;gap:2px}
   .toggle button{border:0;background:transparent;color:var(--muted);cursor:pointer;font-family:var(--mono);font-size:11px;padding:5px 11px;border-radius:6px}
   .toggle button.on{background:var(--raise);color:var(--gold)}
@@ -496,8 +503,13 @@ function ctoast(msg){
         chartView={tMin:a,tMax:b}; }
       redrawChart();
     },{passive:false});
-    el.addEventListener('mousedown',e=>{ if(!chartView) return;   // เต็มจอ = ไม่มีที่ pan
+    el.addEventListener('mousedown',e=>{ if(!chartView) return;   // ไม่ได้ซูม = ไม่มีที่ pan
       drag={x:e.clientX, view:{tMin:chartView.tMin,tMax:chartView.tMax}}; e.preventDefault(); });
+    // hover เส้นโดยตรง → highlight (ทำงานแม้ในโหมดเต็มจอ ที่ chip ฝั่งซ้ายถูกซ่อน)
+    el.addEventListener('mouseover',e=>{ const ln=e.target.closest&&e.target.closest('.eqline');
+      if(ln && !drag){ hoveredRun=ln.getAttribute('data-run'); highlightRun(hoveredRun); } });
+    el.addEventListener('mouseout',e=>{ const ln=e.target.closest&&e.target.closest('.eqline');
+      if(ln && !drag){ hoveredRun=null; highlightRun(null); } });
   }
   // pan: bind ที่ window ครั้งเดียว (อ้าง drag/chartView ใน scope)
   window.addEventListener('mousemove',e=>{
@@ -511,18 +523,30 @@ function ctoast(msg){
     chartView={tMin:a,tMax:b}; redrawChart();
   });
   window.addEventListener('mouseup',()=>{ drag=null; });
+  // ---- fullscreen: ขยาย equity card เต็มจอ (Fullscreen API · cross-browser · Esc ออกเอง) ----
+  function fsElement(){ return document.fullscreenElement||document.webkitFullscreenElement||null; }
+  function reqFS(el){ const f=el.requestFullscreen||el.webkitRequestFullscreen; if(f) f.call(el); }
+  function exitFS(){ const f=document.exitFullscreen||document.webkitExitFullscreen; if(f) f.call(document); }
+  function onFsChange(){
+    const card=document.getElementById('eqcard'), ef=document.getElementById('eqFull');
+    if(ef) ef.textContent = (fsElement()===card)?'⛶ ออกจากเต็มจอ':'⛶ เต็มจอ';
+    redrawChart();   // re-fit ขนาด + คง hover highlight ในโหมดเต็มจอ
+  }
+  document.addEventListener('fullscreenchange',onFsChange);
+  document.addEventListener('webkitfullscreenchange',onFsChange);
   function render(){
     $('#content').innerHTML=
       warnBox(warn)+
       (single?'<div class="singlehint">รายละเอียด run เดียว — '+esc(runs[0])+'</div>':'')+
-      '<section class="card"><div class="hd"><div><div class="eyebrow">Equity curve</div>'+
+      '<section class="card" id="eqcard"><div class="hd"><div><div class="eyebrow">Equity curve</div>'+
         '<h2>เส้นทุน<span class="info" data-calc="เรียงตามเวลาปิดไม้ (exit time) · เริ่มทุน $1000 · บวก pnl สะสมทีละไม้. %profit = (ทุน − 1000) ÷ 1000 × 100. แกน X เป็นเวลาจริง map เชิงเส้น — grid ห่างเท่ากันคงที่ ไม่ยืด/หดตามจำนวนไม้ · ทุก run วางบนแกนเวลาเดียวกัน (จุดเวลาเดียวกันตรงกัน) · ช่วงไม่มีไม้ เส้นจะแบน. สลับ %/USD ที่ปุ่มขวา.">i</span></h2></div>'+
         '<div style="display:flex;gap:8px;align-items:center">'+
-        '<button id="zoomReset" class="zbtn" title="กลับมุมมองเต็ม">⤢ เต็ม</button>'+
+        '<button id="eqFull" class="zbtn" title="ขยายเต็มจอ (Esc ออก)">⛶ เต็มจอ</button>'+
+        '<button id="zoomReset" class="zbtn" title="กลับมุมมองเวลาเต็ม (รีเซ็ตซูม)">⟲ รีเซ็ตซูม</button>'+
         '<div class="toggle" id="modeTg"><button class="'+(chartMode==='pct'?'on':'')+'" data-m="pct">%</button>'+
         '<button class="'+(chartMode==='usd'?'on':'')+'" data-m="usd">USD</button></div></div></div>'+
         '<div class="body"><div id="eqchart" class="eqwrap">'+buildChart(runs,metricsList,chartMode,chartView)+'</div>'+
-        '<div class="note">scroll = zoom · drag = pan · ปุ่ม “เต็ม” = reset · แกน X เวลาจริง · Y ปรับตามช่วงที่ซูม · ทุก run แกนเวลาเดียวกัน</div></div></section>'+
+        '<div class="note">scroll = zoom · drag = pan · ⟲ รีเซ็ตซูม · ⛶ เต็มจอ · แกน X เวลาจริง · Y ปรับตามช่วงที่ซูม · ทุก run แกนเวลาเดียวกัน</div></div></section>'+
 
       '<section class="card"><div class="hd"><div><div class="eyebrow">Metrics</div>'+
         '<h2>'+(single?'เมตริก':'เมตริกเทียบ')+'<span class="info" data-calc="ทุกค่าคิดจากทุนตั้งต้นคงที่ $1000 ไม่ทบต้น. แต่ละคอลัมน์ = 1 run (สูงสุด 10 · ตารางเลื่อนแนวนอนได้). กด ⓘ ท้ายแต่ละแถวเพื่อดูวิธีคิด. ★ = ดีที่สุดในแถว (เฉพาะเมื่อมี ≥2 run).">i</span></h2></div></div>'+
@@ -535,6 +559,10 @@ function ctoast(msg){
 
     $$('#modeTg button').forEach(b=>b.onclick=()=>{ chartMode=b.getAttribute('data-m'); render(); });   // คง chartView ข้าม %/USD
     const zr=$('#zoomReset'); if(zr) zr.onclick=()=>{ chartView=null; redrawChart(); };
+    const ef=$('#eqFull'); if(ef) ef.onclick=()=>{   // ขยายเต็มจอ (toggle) — Fullscreen API จริง (Esc ออกอัตโนมัติ)
+      const card=document.getElementById('eqcard'); if(!card) return;
+      if(fsElement()===card){ exitFS(); } else { reqFS(card); }
+    };
     attachChartZoom();
     const ct=$('#cfgTg'); if(ct) ct.onclick=()=>{ showAllCfg=!showAllCfg; render(); };
     // หัว run ที่ไม่มี viewer → คลิกแล้วบอกวิธีสร้าง (ไม่ใช่ลิงก์ตาย)
